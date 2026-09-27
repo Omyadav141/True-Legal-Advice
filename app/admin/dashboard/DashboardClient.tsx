@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LogOut,
   Phone,
@@ -12,17 +13,27 @@ import {
   Video,
   MapPin,
   Inbox,
-  Clock4,
+  Clock,
   CheckCircle2,
   XCircle,
   MessageCircle,
   FileText,
-  AlertCircle,
   ShieldCheck,
+  Quote,
+  Sparkles,
+  Search,
+  Copy,
+  Check,
+  ArrowUpRight,
+  Sun,
+  Moon,
+  Send,
+  X,
+  Scale,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 
-type Booking = {
+export type Booking = {
   id: string;
   name: string;
   phone: string;
@@ -43,17 +54,69 @@ const serviceLabels: Record<string, string> = {
   "legal-services": "Chamber Documentation & Litigation",
 };
 
-const statusStyles: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-900 border border-amber-300",
-  confirmed: "bg-emerald-100 text-emerald-900 border border-emerald-300",
-  completed: "bg-slate-100 text-slate-800 border border-slate-300",
-  cancelled: "bg-red-100 text-red-900 border border-red-300",
+const statusStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  pending: {
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    label: "Awaiting Confirmation",
+  },
+  confirmed: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    label: "Confirmed & Scheduled",
+  },
+  completed: {
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    label: "Consultation Completed",
+  },
+  cancelled: {
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    label: "Declined / Cancelled",
+  },
 };
 
-const filterTabs = ["all", "pending", "today", "confirmed", "completed", "cancelled"] as const;
-type FilterTab = (typeof filterTabs)[number];
+const ADVOCATE_QUOTES = [
+  {
+    quote: "Justice is truth in action. When you stand before the court or advise a citizen in your chamber, you hold the shield of constitutional dignity.",
+    author: "Chamber Motto",
+    title: "Adv. Shareen Hussain Chambers",
+  },
+  {
+    quote: "A lawyer without history or literature is a mechanic, a mere working mason; if he possesses some knowledge of these, he may venture to call himself an architect.",
+    author: "Sir Walter Scott",
+    title: "Architect of Legal Remedies",
+  },
+  {
+    quote: "Cultivate the spirit of fearless advocacy. The legal profession is not a trade; it is a sacred trust to protect the rights of the citizen under the Constitution.",
+    author: "Justice V. R. Krishna Iyer",
+    title: "Judicial Beacon",
+  },
+  {
+    quote: "Law and order are the medicine of the body politic and when the body politic gets sick, medicine must be administered with precision and courage.",
+    author: "Dr. B. R. Ambedkar",
+    title: "Father of Indian Constitution",
+  },
+  {
+    quote: "Every citizen who walks into Trisharan Square brings their deepest hope for justice. Deliver with clarity, uncompromising ethics, and strategic mastery.",
+    author: "High Court & District Court Practice",
+    title: "True Legal Advice",
+  },
+];
 
-/** Today's date string in India time (IST, UTC+5:30) as YYYY-MM-DD */
+function formatWhatsAppNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return "91" + digits;
+  if (digits.length === 11 && digits.startsWith("0")) return "91" + digits.slice(1);
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  return digits;
+}
+
 function todayInIndia(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
   return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, "0")}-${String(
@@ -62,6 +125,7 @@ function todayInIndia(): string {
 }
 
 function formatTime12(t: string): string {
+  if (!t) return "";
   const [h, m] = t.split(":").map(Number);
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h % 12 === 0 ? 12 : h % 12;
@@ -69,6 +133,7 @@ function formatTime12(t: string): string {
 }
 
 function formatDateLabel(d: string): string {
+  if (!d) return "";
   const [y, m, day] = d.split("-").map(Number);
   return new Date(y, m - 1, day).toLocaleDateString("en-IN", {
     weekday: "short",
@@ -78,13 +143,28 @@ function formatDateLabel(d: string): string {
   });
 }
 
+function getTimeOfDayGreeting(): { greeting: string; icon: any } {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const hour = ist.getUTCHours();
+  if (hour < 12) return { greeting: "Good morning", icon: Sun };
+  if (hour < 17) return { greeting: "Good afternoon", icon: Sun };
+  return { greeting: "Good evening", icon: Moon };
+}
+
 export default function DashboardClient() {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "today" | "confirmed" | "completed" | "cancelled">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [role, setRole] = useState<"admin" | "secretary">("admin");
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  // Modal State for Confirmation & Direct WhatsApp Dispatch
+  const [confirmModalBooking, setConfirmModalBooking] = useState<Booking | null>(null);
+  const [customMessage, setCustomMessage] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -98,7 +178,7 @@ export default function DashboardClient() {
       setBookings(data.bookings || []);
       if (data.role) setRole(data.role);
     } catch (err) {
-      console.error("Failed to load bookings:", err);
+      console.error("Failed to load chamber bookings:", err);
     } finally {
       setLoading(false);
     }
@@ -108,6 +188,59 @@ export default function DashboardClient() {
     loadBookings();
   }, [loadBookings]);
 
+  // Rotate quotes every 45 seconds or on manual click
+  const nextQuote = () => {
+    setQuoteIndex((prev) => (prev + 1) % ADVOCATE_QUOTES.length);
+  };
+
+  // Generate customized WhatsApp confirmation text
+  const buildConfirmationMessage = useCallback((b: Booking) => {
+    const dateStr = formatDateLabel(b.booking_date);
+    const timeStr = formatTime12(b.booking_time);
+    const serviceTitle = serviceLabels[b.service] || b.service;
+
+    if (b.consultation_mode === "offline") {
+      return `Hello ${b.name},
+
+Your In-Chamber Legal Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
+
+🏛️ Chamber: True Legal Advice
+⚖️ Matter: ${serviceTitle}
+📅 Date: ${dateStr}
+⏰ Scheduled Slot: ${timeStr}
+📍 Address: Trisharan Square, Nagpur - 440027, Maharashtra
+📞 Helpline: +91 83296 31199
+
+Please arrive 5 to 10 minutes prior with all relevant case documents, notices, or identity proofs. Adv. Shareen Hussain looks forward to assisting you.`;
+    } else {
+      const meetLink = b.meet_link || site.googleMeetRoom;
+      return `Hello ${b.name},
+
+Your Online Video Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
+
+⚖️ Matter: ${serviceTitle}
+📅 Date: ${dateStr}
+⏰ Scheduled Slot: ${timeStr}
+💻 Google Meet Link: ${meetLink}
+📞 Helpline: +91 83296 31199
+
+Please click the Google Meet link above at your scheduled appointment time.`;
+    }
+  }, []);
+
+  const openConfirmModal = (b: Booking) => {
+    setConfirmModalBooking(b);
+    setCustomMessage(buildConfirmationMessage(b));
+    setCopied(false);
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModalBooking(null);
+    setCustomMessage("");
+    setCopied(false);
+  };
+
+  // Status Updater
   async function updateStatus(id: string, status: Booking["status"]) {
     setUpdatingId(id);
     try {
@@ -117,31 +250,48 @@ export default function DashboardClient() {
         body: JSON.stringify({ id, status }),
       });
       if (res.ok) {
-        const booking = bookings.find((b) => b.id === id);
         setBookings((prev) =>
           prev.map((b) => (b.id === id ? { ...b, status } : b))
         );
-
-        // When confirmed, if online consultation, offer WhatsApp message
-        if (status === "confirmed" && booking?.phone) {
-          const meetLink = booking.meet_link || site.googleMeetRoom;
-          const msg =
-            booking.consultation_mode === "online"
-              ? `Hello ${booking.name}, your online legal consultation with Adv. Shareen Hussain on ${formatDateLabel(booking.booking_date)} at ${formatTime12(booking.booking_time)} is CONFIRMED. Google Meet Link: ${meetLink}`
-              : `Hello ${booking.name}, your in-chamber consultation with Adv. Shareen Hussain at Trisharan Square, Nagpur on ${formatDateLabel(booking.booking_date)} at ${formatTime12(booking.booking_time)} is CONFIRMED. Chamber: Trisharan Square, Nagpur. Helpline: +91 83296 31199`;
-
-          window.open(`https://wa.me/${booking.phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
-        }
       }
     } finally {
       setUpdatingId(null);
     }
   }
 
+  // Handle Dispatch & Confirm from Modal
+  async function handleConfirmAndDispatchWhatsApp() {
+    if (!confirmModalBooking) return;
+    const b = confirmModalBooking;
+    const cleanPhone = formatWhatsAppNumber(b.phone);
+    const textParam = encodeURIComponent(customMessage);
+    const waUrl = `https://wa.me/${cleanPhone}?text=${textParam}`;
+
+    // 1. Update database status to confirmed
+    await updateStatus(b.id, "confirmed");
+
+    // 2. Open WhatsApp immediately on direct user click
+    window.open(waUrl, "_blank");
+
+    closeConfirmModal();
+  }
+
+  async function handleConfirmSilently() {
+    if (!confirmModalBooking) return;
+    await updateStatus(confirmModalBooking.id, "confirmed");
+    closeConfirmModal();
+  }
+
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.push("/admin/login");
   }
+
+  const copyText = (txt: string) => {
+    navigator.clipboard.writeText(txt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const todayStr = todayInIndia();
 
@@ -156,8 +306,9 @@ export default function DashboardClient() {
     };
   }, [bookings, todayStr]);
 
-  const displayedBookings = useMemo(() => {
+  const filteredBookings = useMemo(() => {
     let list = [...bookings];
+
     if (activeTab === "pending") {
       list = list.filter((b) => b.status === "pending");
     } else if (activeTab === "today") {
@@ -170,383 +321,631 @@ export default function DashboardClient() {
       list = list.filter((b) => b.status === "cancelled");
     }
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.phone.toLowerCase().includes(q) ||
+          (b.email && b.email.toLowerCase().includes(q)) ||
+          b.service.toLowerCase().includes(q) ||
+          b.booking_date.includes(q)
+      );
+    }
+
     return list.sort((a, b) => {
-      // Prioritize pending first if viewing all
-      if (activeTab === "all" && a.status !== b.status) {
-        if (a.status === "pending") return -1;
-        if (b.status === "pending") return 1;
-      }
+      // Pending requests come to the top
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (b.status === "pending" && a.status !== "pending") return 1;
       return `${b.booking_date} ${b.booking_time}`.localeCompare(`${a.booking_date} ${a.booking_time}`);
     });
-  }, [bookings, activeTab, todayStr]);
+  }, [bookings, activeTab, searchQuery, todayStr]);
+
+  const { greeting, icon: GreetingIcon } = getTimeOfDayGreeting();
+  const currentQuote = ADVOCATE_QUOTES[quoteIndex];
 
   return (
-    <section className="py-10 md:py-14 bg-[var(--paper)] text-[var(--ink)] min-h-[90vh]">
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 20px" }}>
-        {/* Header row */}
-        <div className="flex flex-wrap items-end justify-between gap-4 pb-6 border-b border-[var(--border)]">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-wider uppercase text-[var(--gold)] mb-1">
-              <ShieldCheck size={14} />
-              <span>CHAMBER ADMINISTRATION PORTAL</span>
+    <div className="min-h-screen bg-[#fcfbfa] text-[#1a1f1c]">
+      {/* ================= Top Sub-Bar & Chamber Header ================= */}
+      <header className="border-b border-[#e8e2d4] bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#123526] text-[#cba758] flex items-center justify-center font-serif font-bold text-lg border border-[#cba758]/30 shadow-sm">
+                <Scale size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#b08a3e]">
+                    CHAMBERS OF ADV. SHAREEN HUSSAIN
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#123526]/10 text-[#123526] border border-[#123526]/20 capitalize">
+                    {role} Desk
+                  </span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#123526] leading-tight">
+                  Chamber Appointments & Client Mandates
+                </h1>
+              </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-serif font-bold text-[var(--green)]">
-              Chamber Appointments & Bookings
-            </h1>
-            <p className="mt-1 text-sm text-[var(--ink-soft)]">
-              True Legal Advice · Adv. Shareen Hussain (Nagpur High Court & District Courts)
-              <span className="ml-2.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--gold)]/15 text-[var(--gold)] border border-[var(--gold)]/30 capitalize">
-                Role: {role}
-              </span>
-            </p>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={loadBookings}
-              className="btn-secondary !py-2.5 !px-4 text-xs font-bold flex items-center gap-2 rounded-xl shadow-xs"
-            >
-              <RefreshCw size={14} className={loading ? "spin" : ""} />
-              <span>Refresh</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="btn-secondary !py-2.5 !px-4 text-xs font-bold flex items-center gap-2 rounded-xl text-red-600 hover:text-red-700 shadow-xs"
-            >
-              <LogOut size={14} />
-              <span>Log out</span>
-            </button>
+            <div className="flex items-center gap-2.5 self-end sm:self-center">
+              <button
+                onClick={loadBookings}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-[#e0d9ca] text-[#47504a] hover:bg-[#faf7f0] hover:border-[#123526]/30 transition-all shadow-2xs"
+                title="Refresh booking list"
+              >
+                <RefreshCw size={13} className={loading ? "animate-spin text-[#b08a3e]" : ""} />
+                <span>Refresh</span>
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-all shadow-2xs"
+              >
+                <LogOut size={13} />
+                <span>Log out</span>
+              </button>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* 4 Interactive Stat Overview Cards */}
-        <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: All Bookings */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* ================= Motivational Chamber Quote & Greeting Banner ================= */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="relative rounded-2xl overflow-hidden border border-[#dfd6c3] bg-gradient-to-br from-[#123526] via-[#153e2d] to-[#0c2419] text-[#faf7f0] p-6 sm:p-8 shadow-lg"
+        >
+          {/* Subtle Ambient Gold Glow Background */}
           <div
+            className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(203,167,88,0.25), transparent 70%)" }}
+          />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="max-w-3xl space-y-3">
+              <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[#cba758]">
+                <GreetingIcon size={14} className="text-[#cba758]" />
+                <span>{greeting}, Adv. Shareen Hussain</span>
+                <span className="text-white/40">·</span>
+                <span>Trisharan Square Chambers, Nagpur</span>
+              </div>
+
+              {/* Animated Rotating Quote */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={quoteIndex}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex items-start gap-3.5"
+                >
+                  <Quote size={28} className="text-[#cba758]/70 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-base sm:text-lg font-serif italic text-white/95 leading-relaxed">
+                      &ldquo;{currentQuote.quote}&rdquo;
+                    </p>
+                    <p className="mt-2 text-xs font-mono font-bold text-[#cba758] flex items-center gap-1.5">
+                      <span>— {currentQuote.author}</span>
+                      <span className="text-white/40 font-normal">({currentQuote.title})</span>
+                    </p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Quote Cycler Button */}
+            <div className="shrink-0 flex sm:flex-col items-center gap-2">
+              <button
+                onClick={nextQuote}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#cba758] text-[#0a2217] hover:bg-[#dfbe73] hover:shadow-md transition-all active:scale-95"
+              >
+                <Sparkles size={13} />
+                <span>Daily Chamber Boost</span>
+              </button>
+              <span className="text-[10px] font-mono text-white/60">Quote {quoteIndex + 1} of {ADVOCATE_QUOTES.length}</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ================= 4 Metric Stat Cards ================= */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: All Requests */}
+          <motion.div
+            whileHover={{ y: -3 }}
             onClick={() => setActiveTab("all")}
-            className={`card cursor-pointer p-5 rounded-2xl border transition-all ${
+            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
               activeTab === "all"
-                ? "border-[var(--green)] bg-white ring-2 ring-[var(--green)]/20 shadow-md"
-                : "border-[var(--border)] bg-white hover:border-[var(--green)]/40 shadow-xs"
+                ? "bg-white border-[#123526] ring-2 ring-[#123526]/15 shadow-md"
+                : "bg-white border-[#e5decb] hover:border-[#123526]/40 shadow-2xs"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink-soft)]">
-                All Requests
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
+                All Appointments
               </span>
-              <div className="h-9 w-9 rounded-xl bg-[var(--green)]/10 text-[var(--green)] flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-[#123526]/10 text-[#123526] flex items-center justify-center">
                 <Inbox size={18} />
               </div>
             </div>
-            <p className="text-3xl font-serif font-bold text-[var(--green)] mt-3">
+            <p className="text-3xl font-serif font-bold text-[#123526] mt-3">
               {counts.all}
             </p>
-            <p className="text-xs text-[var(--ink-muted)] mt-1">Total appointments received</p>
-          </div>
+            <p className="text-xs text-[#7c847d] mt-1">Total received records</p>
+          </motion.div>
 
           {/* Card 2: Pending Approval */}
-          <div
+          <motion.div
+            whileHover={{ y: -3 }}
             onClick={() => setActiveTab("pending")}
-            className={`card cursor-pointer p-5 rounded-2xl border transition-all ${
+            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
               activeTab === "pending"
-                ? "border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 shadow-md"
-                : "border-[var(--border)] bg-white hover:border-amber-400 shadow-xs"
+                ? "bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20 shadow-md"
+                : "bg-white border-[#e5decb] hover:border-amber-400 shadow-2xs"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-800">
-                Pending Approval
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-900">
+                Pending Requests
               </span>
-              <div className="h-9 w-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                <Clock4 size={18} />
+              <div className="h-9 w-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                <Clock size={18} />
               </div>
             </div>
-            <p className="text-3xl font-serif font-bold text-amber-700 mt-3 flex items-center gap-2">
-              <span>{counts.pending}</span>
+            <div className="flex items-center gap-2 mt-3">
+              <p className="text-3xl font-serif font-bold text-amber-800">
+                {counts.pending}
+              </p>
               {counts.pending > 0 && (
-                <span className="text-[11px] font-sans font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
                   Needs Action
                 </span>
               )}
-            </p>
-            <p className="text-xs text-amber-800/80 mt-1">Awaiting confirmation</p>
-          </div>
+            </div>
+            <p className="text-xs text-amber-900/80 mt-1">Awaiting confirmation</p>
+          </motion.div>
 
           {/* Card 3: Today's Appointments */}
-          <div
+          <motion.div
+            whileHover={{ y: -3 }}
             onClick={() => setActiveTab("today")}
-            className={`card cursor-pointer p-5 rounded-2xl border transition-all ${
+            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
               activeTab === "today"
-                ? "border-[var(--gold)] bg-[var(--gold)]/10 ring-2 ring-[var(--gold)]/20 shadow-md"
-                : "border-[var(--border)] bg-white hover:border-[var(--gold)]/40 shadow-xs"
+                ? "bg-[#cba758]/10 border-[#cba758] ring-2 ring-[#cba758]/20 shadow-md"
+                : "bg-white border-[#e5decb] hover:border-[#cba758]/50 shadow-2xs"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
                 Today&apos;s Schedule
               </span>
-              <div className="h-9 w-9 rounded-xl bg-[var(--gold)]/15 text-[var(--gold)] flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-[#cba758]/15 text-[#b08a3e] flex items-center justify-center">
                 <CalendarDays size={18} />
               </div>
             </div>
-            <p className="text-3xl font-serif font-bold text-[var(--ink)] mt-3">
+            <p className="text-3xl font-serif font-bold text-[#1a1f1c] mt-3">
               {counts.today}
             </p>
-            <p className="text-xs text-[var(--ink-muted)] mt-1">Appointments for today</p>
-          </div>
+            <p className="text-xs text-[#7c847d] mt-1">Scheduled for today</p>
+          </motion.div>
 
           {/* Card 4: Confirmed & Completed */}
-          <div
+          <motion.div
+            whileHover={{ y: -3 }}
             onClick={() => setActiveTab("confirmed")}
-            className={`card cursor-pointer p-5 rounded-2xl border transition-all ${
+            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
               activeTab === "confirmed"
-                ? "border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20 shadow-md"
-                : "border-[var(--border)] bg-white hover:border-emerald-400 shadow-xs"
+                ? "bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md"
+                : "bg-white border-[#e5decb] hover:border-emerald-400 shadow-2xs"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink-soft)]">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
                 Confirmed Slots
               </span>
-              <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
                 <CheckCircle2 size={18} />
               </div>
             </div>
-            <p className="text-3xl font-serif font-bold text-emerald-700 mt-3">
+            <p className="text-3xl font-serif font-bold text-emerald-800 mt-3">
               {counts.confirmed}
             </p>
-            <p className="text-xs text-emerald-800/80 mt-1">Confirmed & active slots</p>
-          </div>
+            <p className="text-xs text-emerald-800/80 mt-1">Active confirmed clients</p>
+          </motion.div>
         </div>
 
-        {/* Tab Selector Filter Strip */}
-        <div className="mt-8 flex flex-wrap items-center gap-2 pb-2">
-          {filterTabs.map((tab) => {
-            const count = counts[tab];
-            const isSelected = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs flex items-center gap-2 capitalize ${
-                  isSelected
-                    ? "bg-[var(--green)] text-white shadow-sm"
-                    : "bg-white text-[var(--ink-soft)] border border-[var(--border)] hover:border-[var(--green)] hover:text-[var(--green)]"
-                }`}
-              >
-                <span>{tab === "all" ? "All Bookings" : tab === "today" ? "Today's Schedule" : tab}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
-                    isSelected
-                      ? "bg-white/20 text-white"
-                      : tab === "pending" && count > 0
-                      ? "bg-amber-100 text-amber-800 font-bold"
-                      : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bookings List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <Loader2 size={32} className="spin text-[var(--gold)] mb-3" />
-            <p className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--ink-muted)]">
-              Loading chamber appointment desk...
-            </p>
-          </div>
-        ) : displayedBookings.length === 0 ? (
-          <div className="card mt-6 rounded-3xl border border-[var(--border)] bg-white p-12 text-center flex flex-col items-center">
-            <div className="h-16 w-16 rounded-full bg-[var(--paper-dark)] flex items-center justify-center text-[var(--ink-muted)] mb-4">
-              <Inbox size={28} />
-            </div>
-            <h3 className="text-xl font-serif font-bold text-[var(--ink)]">
-              No appointments found in this view
-            </h3>
-            <p className="text-xs text-[var(--ink-soft)] mt-1.5 max-w-sm">
-              {activeTab === "pending"
-                ? "Great! All pending booking requests have been reviewed and confirmed."
-                : activeTab === "today"
-                ? "No appointments are scheduled for today. Check upcoming slots in 'All Bookings'."
-                : "No appointments match the selected filter."}
-            </p>
-            {activeTab !== "all" && (
-              <button
-                onClick={() => setActiveTab("all")}
-                className="mt-5 btn-secondary !py-2 !px-4 text-xs font-bold rounded-xl"
-              >
-                View All {counts.all} Bookings
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {displayedBookings.map((b) => {
-              const isPending = b.status === "pending";
-              const isConfirmed = b.status === "confirmed";
-              const isOnline = b.consultation_mode === "online";
-              const meetLink = b.meet_link || site.googleMeetRoom;
-
+        {/* ================= Filter Tabs & Client Search Bar ================= */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-white border border-[#e5decb] shadow-2xs w-fit">
+            {[
+              { id: "all", label: "All Bookings", count: counts.all },
+              { id: "pending", label: "Pending", count: counts.pending },
+              { id: "today", label: "Today", count: counts.today },
+              { id: "confirmed", label: "Confirmed", count: counts.confirmed },
+              { id: "completed", label: "Completed", count: counts.completed },
+              { id: "cancelled", label: "Declined", count: counts.cancelled },
+            ].map((tab) => {
+              const isSelected = activeTab === tab.id;
               return (
-                <article
-                  key={b.id}
-                  className={`rounded-2xl border p-6 transition-all shadow-xs ${
-                    isPending
-                      ? "border-amber-300 bg-amber-50/20"
-                      : "border-[var(--border)] bg-white"
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    isSelected ? "text-white" : "text-[#47504a] hover:text-[#123526] hover:bg-[#faf7f0]"
                   }`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    {/* Left: Client & Appointment Details */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex flex-wrap items-center gap-2.5">
-                        <h3 className="text-lg font-serif font-bold text-[var(--ink)]">
-                          {b.name}
-                        </h3>
-
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${statusStyles[b.status]}`}
-                        >
-                          {b.status}
-                        </span>
-
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            isOnline
-                              ? "bg-purple-100 text-purple-800 border border-purple-200"
-                              : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                          }`}
-                        >
-                          {isOnline ? <Video size={13} /> : <MapPin size={13} />}
-                          <span>{isOnline ? "Online Video Call" : "In-Person Chamber Visit"}</span>
-                        </span>
-                      </div>
-
-                      {/* Service Category */}
-                      <p className="text-sm font-bold text-[var(--gold)] flex items-center gap-2">
-                        <span>{serviceLabels[b.service] || b.service}</span>
-                      </p>
-
-                      {/* Date & Time */}
-                      <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-[var(--ink)]">
-                        <span className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                          <CalendarDays size={14} className="text-[var(--gold)]" />
-                          <span>{formatDateLabel(b.booking_date)}</span>
-                        </span>
-
-                        <span className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                          <Clock4 size={14} className="text-[var(--gold)]" />
-                          <span>{formatTime12(b.booking_time)}</span>
-                        </span>
-                      </div>
-
-                      {/* Client Contact Details */}
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--ink-soft)] pt-1">
-                        <span className="flex items-center gap-1.5 font-medium">
-                          <Phone size={13} className="text-[var(--gold)]" />
-                          <span className="font-bold text-[var(--ink)]">{b.phone}</span>
-                        </span>
-
-                        {b.email && (
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <Mail size={13} className="text-[var(--gold)]" />
-                            <span>{b.email}</span>
-                          </span>
-                        )}
-
-                        <span className="text-[11px] text-[var(--ink-muted)]">
-                          Booked on: {new Date(b.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-
-                      {/* Client Note / Message if any */}
-                      {b.message && (
-                        <div className="mt-2 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-[var(--ink-soft)] flex items-start gap-2 max-w-2xl">
-                          <FileText size={14} className="shrink-0 mt-0.5 text-[var(--gold)]" />
-                          <span>{b.message}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right: Action Buttons */}
-                    <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2.5 shrink-0 min-w-[200px]">
-                      {isPending ? (
-                        <>
-                          <button
-                            onClick={() => updateStatus(b.id, "confirmed")}
-                            disabled={updatingId === b.id}
-                            className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-[#123526] text-white hover:bg-[#1a4733] transition-all shadow-sm flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle2 size={15} />
-                            <span>{updatingId === b.id ? "Confirming..." : "Confirm Appointment"}</span>
-                          </button>
-
-                          <button
-                            onClick={() => updateStatus(b.id, "cancelled")}
-                            disabled={updatingId === b.id}
-                            className="w-full px-4 py-2 rounded-xl text-xs font-bold bg-white text-red-700 border border-red-200 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                          >
-                            <XCircle size={14} />
-                            <span>Decline Request</span>
-                          </button>
-                        </>
-                      ) : isConfirmed ? (
-                        <>
-                          {isOnline && (
-                            <a
-                              href={meetLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition-all shadow-sm flex items-center justify-center gap-2"
-                            >
-                              <Video size={14} />
-                              <span>Join Google Meet</span>
-                            </a>
-                          )}
-
-                          <button
-                            onClick={() => updateStatus(b.id, "completed")}
-                            disabled={updatingId === b.id}
-                            className="w-full px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle2 size={14} />
-                            <span>Mark as Completed</span>
-                          </button>
-                        </>
-                      ) : null}
-
-                      {/* Contact Actions for All Bookings */}
-                      <div className="flex items-center gap-2 w-full pt-1">
-                        <a
-                          href={`https://wa.me/${b.phone.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                        >
-                          <MessageCircle size={14} />
-                          <span>WhatsApp</span>
-                        </a>
-
-                        <a
-                          href={`tel:${b.phone}`}
-                          className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-white text-[var(--ink)] border border-[var(--border)] hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                        >
-                          <Phone size={14} />
-                          <span>Call</span>
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </article>
+                  {isSelected && (
+                    <motion.div
+                      layoutId="activeFilterPill"
+                      className="absolute inset-0 rounded-xl bg-[#123526] shadow-sm"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{tab.label}</span>
+                  <span
+                    className={`relative z-10 px-2 py-0.5 rounded-full text-[10px] font-mono ${
+                      isSelected
+                        ? "bg-white/20 text-white"
+                        : tab.id === "pending" && tab.count > 0
+                        ? "bg-amber-100 text-amber-900 font-bold"
+                        : "bg-[#f0ebd9] text-[#47504a]"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
               );
             })}
           </div>
+
+          {/* Search Box */}
+          <div className="relative min-w-[280px]">
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7c847d]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by client, phone, or date..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e5decb] bg-white text-xs text-[#1a1f1c] placeholder-[#7c847d] focus:border-[#123526] focus:outline-none shadow-2xs transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ================= Bookings List Container ================= */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-28">
+            <Loader2 size={36} className="animate-spin text-[#cba758] mb-3" />
+            <p className="text-xs font-mono font-bold uppercase tracking-wider text-[#7c847d]">
+              Syncing chamber appointments desk...
+            </p>
+          </div>
+        ) : filteredBookings.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-3xl border border-[#e5decb] bg-white p-16 text-center flex flex-col items-center shadow-xs"
+          >
+            <div className="h-16 w-16 rounded-2xl bg-[#faf7f0] border border-[#e5decb] flex items-center justify-center text-[#7c847d] mb-4">
+              <Inbox size={28} />
+            </div>
+            <h3 className="text-xl font-serif font-bold text-[#123526]">
+              No appointments in this view
+            </h3>
+            <p className="text-xs text-[#47504a] mt-1.5 max-w-sm leading-relaxed">
+              {searchQuery
+                ? `No booking records match "${searchQuery}". Clear your search query to see all appointments.`
+                : activeTab === "pending"
+                ? "All caught up! There are currently no pending appointment requests awaiting confirmation."
+                : activeTab === "today"
+                ? "No consultations are scheduled for today. Check upcoming slots under All Bookings."
+                : "No appointment records match the selected filter."}
+            </p>
+            {(activeTab !== "all" || searchQuery) && (
+              <button
+                onClick={() => {
+                  setActiveTab("all");
+                  setSearchQuery("");
+                }}
+                className="mt-6 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#123526] text-white hover:bg-[#1a4733] transition-all shadow-xs"
+              >
+                Reset Filters & View All
+              </button>
+            )}
+          </motion.div>
+        ) : (
+          <div className="space-y-4">
+            <AnimatePresence>
+              {filteredBookings.map((b) => {
+                const isPending = b.status === "pending";
+                const isConfirmed = b.status === "confirmed";
+                const isOnline = b.consultation_mode === "online";
+                const meetLink = b.meet_link || site.googleMeetRoom;
+                const statusMeta = statusStyles[b.status] || statusStyles.pending;
+                const cleanPhone = formatWhatsAppNumber(b.phone);
+
+                return (
+                  <motion.article
+                    key={b.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.25 }}
+                    className={`rounded-2xl border p-6 transition-all duration-200 shadow-xs ${
+                      isPending
+                        ? "border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-white"
+                        : "border-[#e5decb] bg-white hover:border-[#123526]/30"
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      {/* Left Side: Client Data, Date, Time & Details */}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <h3 className="text-lg font-serif font-bold text-[#123526]">
+                            {b.name}
+                          </h3>
+
+                          {/* Status Badge */}
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} border`}
+                          >
+                            {statusMeta.label}
+                          </span>
+
+                          {/* Mode Badge */}
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                              isOnline
+                                ? "bg-purple-100 text-purple-900 border border-purple-200"
+                                : "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                            }`}
+                          >
+                            {isOnline ? <Video size={13} /> : <MapPin size={13} />}
+                            <span>{isOnline ? "Online Video Call" : "In-Person Chamber Visit"}</span>
+                          </span>
+                        </div>
+
+                        {/* Service Label */}
+                        <p className="text-sm font-bold text-[#b08a3e] flex items-center gap-2">
+                          <ShieldCheck size={15} />
+                          <span>{serviceLabels[b.service] || b.service}</span>
+                        </p>
+
+                        {/* Date and Time Badges */}
+                        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#1a1f1c]">
+                          <span className="flex items-center gap-1.5 bg-[#f4f0e6] px-3.5 py-1.5 rounded-lg border border-[#e2dbc8]">
+                            <CalendarDays size={14} className="text-[#b08a3e]" />
+                            <span>{formatDateLabel(b.booking_date)}</span>
+                          </span>
+
+                          <span className="flex items-center gap-1.5 bg-[#f4f0e6] px-3.5 py-1.5 rounded-lg border border-[#e2dbc8]">
+                            <Clock size={14} className="text-[#b08a3e]" />
+                            <span>{formatTime12(b.booking_time)}</span>
+                          </span>
+                        </div>
+
+                        {/* Client Phone & Contact info */}
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-[#47504a] pt-1">
+                          <span className="flex items-center gap-1.5 font-medium bg-slate-50 px-3 py-1 rounded-md border border-slate-200">
+                            <Phone size={13} className="text-[#123526]" />
+                            <span className="font-bold text-[#1a1f1c]">Number: {b.phone}</span>
+                          </span>
+
+                          {b.email && (
+                            <span className="flex items-center gap-1.5 font-medium">
+                              <Mail size={13} className="text-[#b08a3e]" />
+                              <span>{b.email}</span>
+                            </span>
+                          )}
+
+                          <span className="text-[11px] text-[#7c847d]">
+                            Booked: {new Date(b.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+
+                        {/* Client Message */}
+                        {b.message && (
+                          <div className="mt-2.5 rounded-xl bg-[#faf7f0] border border-[#e5decb] p-3 text-xs text-[#47504a] flex items-start gap-2 max-w-2xl">
+                            <FileText size={14} className="shrink-0 mt-0.5 text-[#b08a3e]" />
+                            <span className="leading-relaxed">{b.message}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Side: Action Buttons & Communication */}
+                      <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2.5 shrink-0 min-w-[220px]">
+                        {isPending ? (
+                          <>
+                            {/* Primary Confirm Button with WhatsApp Dispatch */}
+                            <button
+                              onClick={() => openConfirmModal(b)}
+                              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-[#123526] text-white hover:bg-[#1a4733] transition-all shadow-sm flex items-center justify-center gap-2 group active:scale-95"
+                            >
+                              <CheckCircle2 size={15} className="text-[#cba758]" />
+                              <span>Confirm Appointment</span>
+                            </button>
+
+                            <button
+                              onClick={() => updateStatus(b.id, "cancelled")}
+                              disabled={updatingId === b.id}
+                              className="w-full px-4 py-2 rounded-xl text-xs font-semibold bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                            >
+                              <XCircle size={14} />
+                              <span>Decline Request</span>
+                            </button>
+                          </>
+                        ) : isConfirmed ? (
+                          <>
+                            {isOnline && (
+                              <a
+                                href={meetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-700 text-white hover:bg-purple-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                              >
+                                <Video size={14} />
+                                <span>Join Google Meet</span>
+                              </a>
+                            )}
+
+                            <button
+                              onClick={() => updateStatus(b.id, "completed")}
+                              disabled={updatingId === b.id}
+                              className="w-full px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Check size={14} />
+                              <span>Mark as Completed</span>
+                            </button>
+                          </>
+                        ) : null}
+
+                        {/* Direct Communication Strip: WhatsApp & Call */}
+                        <div className="flex items-center gap-2 w-full pt-1">
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(buildConfirmationMessage(b))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                            title={`Send direct WhatsApp message to ${b.phone}`}
+                          >
+                            <MessageCircle size={14} />
+                            <span>WhatsApp ({b.phone})</span>
+                          </a>
+
+                          <a
+                            href={`tel:${b.phone}`}
+                            className="px-3 py-2 rounded-lg text-xs font-bold bg-white text-[#1a1f1c] border border-[#e5decb] hover:bg-[#faf7f0] transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                            title={`Call ${b.phone}`}
+                          >
+                            <Phone size={14} />
+                            <span>Call</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.article>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         )}
-      </div>
-    </section>
+      </main>
+
+      {/* ================= Confirmation & WhatsApp Dispatch Modal ================= */}
+      <AnimatePresence>
+        {confirmModalBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfd6c3] overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#f0ebd9]">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#b08a3e]">
+                    <CheckCircle2 size={14} />
+                    <span>APPOINTMENT CONFIRMATION DESK</span>
+                  </div>
+                  <h2 className="text-xl font-serif font-bold text-[#123526] mt-1">
+                    Confirm & Dispatch Notice
+                  </h2>
+                </div>
+
+                <button
+                  onClick={closeConfirmModal}
+                  className="p-1.5 rounded-full text-[#7c847d] hover:text-[#1a1f1c] hover:bg-[#faf7f0] transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Client Summary Box */}
+              <div className="my-5 rounded-2xl bg-[#faf7f0] border border-[#e5decb] p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#47504a]">Client Name:</span>
+                  <span className="font-bold text-[#123526] text-sm">{confirmModalBooking.name}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#47504a]">Client Phone (WhatsApp):</span>
+                  <span className="font-mono font-bold text-emerald-800 text-sm bg-emerald-100/60 px-2 py-0.5 rounded border border-emerald-200">
+                    +{formatWhatsAppNumber(confirmModalBooking.phone)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#47504a]">Consultation Type:</span>
+                  <span className="font-bold text-[#1a1f1c]">
+                    {confirmModalBooking.consultation_mode === "offline" ? "In-Person (Trisharan Square)" : "Online Video Call"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#47504a]">Date & Time Slot:</span>
+                  <span className="font-semibold text-[#b08a3e]">
+                    {formatDateLabel(confirmModalBooking.booking_date)} at {formatTime12(confirmModalBooking.booking_time)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Custom Message Area */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
+                    WhatsApp Notice to Client:
+                  </label>
+                  <button
+                    onClick={() => copyText(customMessage)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#b08a3e] hover:text-[#123526] transition-colors"
+                  >
+                    {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                    <span>{copied ? "Copied" : "Copy Text"}</span>
+                  </button>
+                </div>
+                <textarea
+                  rows={6}
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  className="w-full rounded-xl border border-[#e5decb] bg-slate-50/70 p-3 text-xs leading-relaxed text-[#1a1f1c] font-sans focus:bg-white focus:border-[#123526] focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  onClick={handleConfirmAndDispatchWhatsApp}
+                  disabled={updatingId === confirmModalBooking.id}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={15} />
+                  <span>Confirm & Send to +{formatWhatsAppNumber(confirmModalBooking.phone)}</span>
+                </button>
+
+                <button
+                  onClick={handleConfirmSilently}
+                  disabled={updatingId === confirmModalBooking.id}
+                  className="w-full sm:w-auto py-3 px-4 rounded-xl text-xs font-semibold bg-white border border-[#e5decb] text-[#47504a] hover:bg-[#faf7f0] transition-all"
+                >
+                  Confirm Silently
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
