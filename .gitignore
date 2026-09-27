@@ -11,6 +11,9 @@ __v0_jsx-dev-runtime.ts
 .env*.local
 .env.local
 
+# Local data
+data/bookings.json
+
 # Common ignores
 node_modules
 .next/

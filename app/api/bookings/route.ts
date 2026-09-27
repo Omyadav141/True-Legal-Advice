@@ -5,6 +5,7 @@ import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp } from "@/lib/notify-wh
 import { getAllDaySlots, isDateBookable } from "@/lib/availability";
 import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
+import { saveLocalBooking, BookingRecord } from "@/lib/bookings-store";
 
 // Postgres unique_violation error code
 const UNIQUE_VIOLATION = "23505";
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid date or time slot." }, { status: 400 });
     }
 
-    const mode = consultationMode === "online" ? "online" : "offline";
+    const mode: "online" | "offline" = consultationMode === "online" ? "online" : "offline";
 
     const [y, m, d] = bookingDate.split("-").map(Number);
     if (!isDateBookable(new Date(y, m - 1, d))) {
@@ -36,8 +37,6 @@ export async function POST(req: NextRequest) {
     }
 
     // For online consultations, try to auto-generate a Google Meet link now.
-    // If Google credentials aren't configured yet, this quietly returns null
-    // and the booking still goes through — the lawyer can add a link later.
     let meetLink: string | null = null;
     if (mode === "online") {
       const [hh] = bookingTime.split(":").map(Number);
@@ -56,7 +55,7 @@ export async function POST(req: NextRequest) {
       meetLink = result.meetLink;
     }
 
-    let bookingRecord = {
+    let bookingRecord: BookingRecord = {
       id: "bk_" + Date.now(),
       name,
       phone,
@@ -71,6 +70,7 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
+    // Attempt to persist in Supabase
     try {
       const hasSupabase =
         Boolean(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
       if (hasSupabase) {
         const supabase = supabaseServer();
-        const { data, error } = await supabase
+        const { data: dbData, error } = await supabase
           .from("bookings")
           .insert({
             name,
@@ -106,24 +106,26 @@ export async function POST(req: NextRequest) {
               { status: 409 }
             );
           }
-          console.error("Supabase insert error:", error);
-        } else if (data) {
-          bookingRecord = data;
+          console.warn("Supabase insert notification:", error.message);
+        } else if (dbData) {
+          bookingRecord = { ...bookingRecord, ...dbData };
         }
       }
-    } catch {
-      // Fallback in-memory booking
+    } catch (sbErr) {
+      console.warn("Supabase connection issue:", sbErr);
     }
 
+    // Always persist to local storage as rock-solid guarantee
+    saveLocalBooking(bookingRecord);
+
     // Fire notifications, but don't let a notification failure block the booking itself.
-    // The client also gets their own WhatsApp message with the Meet link when one was generated.
     await Promise.allSettled([
-      sendBookingEmail(data),
-      sendBookingWhatsApp(data),
-      sendClientMeetLinkWhatsApp(data),
+      sendBookingEmail(bookingRecord),
+      sendBookingWhatsApp(bookingRecord),
+      sendClientMeetLinkWhatsApp(bookingRecord),
     ]);
 
-    return NextResponse.json({ success: true, booking: data });
+    return NextResponse.json({ success: true, booking: bookingRecord });
   } catch (err) {
     console.error("Booking API error:", err);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });

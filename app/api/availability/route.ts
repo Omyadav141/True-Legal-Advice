@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getAvailableSlotsForDate, isDateBookable } from "@/lib/availability";
 
+import { getLocalBookings } from "@/lib/bookings-store";
+
 // Convert UTC to India Standard Time (IST, UTC+5:30)
 function getIndiaTime(): Date {
   const now = new Date();
@@ -28,6 +30,16 @@ export async function GET(req: NextRequest) {
     }
 
     let bookedTimes: string[] = localBookedSlots[dateParam] || [];
+
+    // Check local store
+    try {
+      const localRecords = getLocalBookings();
+      for (const b of localRecords) {
+        if (b.booking_date === dateParam && (b.status === "pending" || b.status === "confirmed")) {
+          bookedTimes.push(b.booking_time);
+        }
+      }
+    } catch {}
 
     try {
       const hasSupabase =
