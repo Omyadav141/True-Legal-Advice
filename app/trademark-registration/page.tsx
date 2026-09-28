@@ -20,6 +20,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
+import GoogleRating from "../components/GoogleRating";
+import GoogleReviewsSection from "../components/GoogleReviewsSection";
+import TrademarkFaqInteractive from "./TrademarkFaqInteractive";
 
 export const metadata: Metadata = {
   title: `Trademark Lawyer in Nagpur | Registered Trade Mark Attorney | True Legal Advice`,
@@ -157,37 +160,6 @@ export default function TrademarkPage() {
     },
   ];
 
-  const faqs = [
-    {
-      q: "What is the difference between the ™ and ® symbols?",
-      a: "The ™ symbol indicates that a trademark application has been formally filed with the Indian Trademark Registry and is currently under examination. You can legally use ™ immediately after filing Form TM-A (within 24–48 hours). The ® symbol can ONLY be used once the registration process is fully completed and the official Government Trademark Registration Certificate is issued. Using ® without a valid certificate is an offence under Section 107 of the Trade Marks Act, 1999.",
-    },
-    {
-      q: "How much is the official Government fee, and how do startups save 50%?",
-      a: "The Indian Government fee for filing a trademark application per class is ₹4,500 for Individuals, Sole Proprietorships, MSMEs (Udyam), and DPIIT-recognized Startups. For corporate entities without MSME (Pvt Ltd, LLP, Companies), the fee is ₹9,000 per class. By registering your business on Udyam through our chamber, you save 50% on government filing fees.",
-    },
-    {
-      q: "What happens if the Trademark Registry raises an Objection under Section 9 or 11?",
-      a: "An objection is an initial query from the Trademark Examiner, not a rejection. Section 9 objections relate to marks that are descriptive or non-distinctive (e.g. attempting to trademark generic words like 'Fast Delivery'). Section 11 objections relate to perceived visual or phonetic similarity to an existing trademark. As a certified Trade Mark Attorney, Adv. Shareen Hussain drafts a comprehensive, precedent-backed legal response and represents you in show-cause hearings to achieve full acceptance.",
-    },
-    {
-      q: "How do I know which Class applies to my business?",
-      a: "Trademarks are categorized under 45 international Nice Classification classes (Classes 1 to 34 cover physical goods, and Classes 35 to 45 cover services). For instance, Class 9 covers software and electronics, Class 25 covers clothing, Class 35 covers retail/e-commerce/advertising, Class 41 covers education, and Class 42 covers software development. Adv. Shareen analyzes your current and future business roadmap to ensure comprehensive cross-class protection.",
-    },
-    {
-      q: "How long is a registered trademark valid in India?",
-      a: "A registered trademark in India is valid for 10 years from the date of initial application filing. It can be renewed indefinitely every 10 years by filing Form TM-R with the registry, ensuring perpetual monopoly over your brand identity.",
-    },
-    {
-      q: "Can an individual or unregistered startup apply for a trademark?",
-      a: "Yes. You do NOT need a registered Private Limited company or LLP to register a trademark. Any individual citizen, freelancer, partnership, or proprietor can own a trademark in their personal name and later license or assign it to a company once incorporated.",
-    },
-    {
-      q: "Can a trademark registered in India protect my brand globally?",
-      a: "Trademark rights are territorial; an Indian trademark protects your brand across the entire territory of India. However, under the Madrid Protocol, an Indian trademark application can serve as the basic application to extend brand protection across up to 130 countries worldwide with a streamlined international filing.",
-    },
-  ];
-
   return (
     <div className="bg-[var(--paper)] text-[var(--ink)]">
       {/* ============ Cinematic Hero ============ */}
@@ -258,6 +230,8 @@ export default function TrademarkPage() {
               <Phone size={16} />
               <span>WhatsApp Brand Clearance</span>
             </a>
+
+            <GoogleRating />
           </div>
         </div>
       </section>
@@ -460,39 +434,15 @@ export default function TrademarkPage() {
         </div>
       </section>
 
-      {/* ============ Comprehensive FAQ Section ============ */}
-      <section className="py-20 bg-white border-b border-[var(--border)]">
-        <div className="container max-w-4xl">
-          <div className="text-center mb-14">
-            <span className="eyebrow justify-center">FREQUENTLY ASKED QUESTIONS</span>
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-[var(--ink)] mt-2">
-              Everything You Need to Know About Trademarks
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-[var(--ink-soft)]">
-              Clear, transparent legal clarity for founders, entrepreneurs, and established businesses.
-            </p>
-          </div>
+      {/* ============ Verified Client Reviews on Google ============ */}
+      <GoogleReviewsSection
+        title="Trusted by 179+ Brand Owners & Startups"
+        subtitle="5.0 ★★★★★ RATED TRADEMARK ATTORNEY ON GOOGLE BUSINESS PROFILE"
+        showPillars={false}
+      />
 
-          <div className="space-y-4">
-            {faqs.map((faq, idx) => (
-              <details
-                key={idx}
-                className="group rounded-xl border border-[var(--border)] bg-[var(--paper)] p-5 sm:p-6 [&_summary::-webkit-details-marker]:hidden"
-              >
-                <summary className="flex cursor-pointer items-center justify-between gap-4 font-serif font-bold text-base sm:text-lg text-[var(--ink)] group-open:text-black">
-                  <span>{faq.q}</span>
-                  <span className="h-6 w-6 shrink-0 rounded-full bg-white border border-[var(--border)] flex items-center justify-center text-xs font-mono group-open:rotate-180 transition-transform">
-                    ↓
-                  </span>
-                </summary>
-                <p className="mt-4 pt-4 border-t border-[var(--border)] text-xs sm:text-sm text-[var(--ink-soft)] leading-relaxed">
-                  {faq.a}
-                </p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ============ Comprehensive Interactive FAQ Section ============ */}
+      <TrademarkFaqInteractive />
 
       {/* ============ Chamber Helpline & Final Action Strip ============ */}
       <section className="py-16 bg-black text-white relative overflow-hidden">

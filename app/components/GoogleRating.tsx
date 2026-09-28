@@ -1,41 +1,38 @@
-import { Star } from "lucide-react";
+import { Star, ExternalLink } from "lucide-react";
 import { site } from "@/lib/site-config";
 
-export default function GoogleRating() {
-  if (!site.googleReviewsUrl || site.googleReviewsUrl.includes("/example/")) return null;
+export default function GoogleRating({ className = "" }: { className?: string }) {
+  if (!site.googleReviewsUrl) return null;
   return (
     <a
       href={site.googleReviewsUrl}
       target="_blank"
       rel="noopener noreferrer"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 10,
-        background: "var(--white)",
-        border: "1px solid var(--line)",
-        borderRadius: 8,
-        padding: "10px 16px",
-        textDecoration: "none",
-      }}
+      className={`inline-flex items-center gap-3 bg-white/95 hover:bg-white text-black border border-[var(--line)] hover:border-[var(--gold)]/60 rounded-xl px-4 py-2.5 shadow-sm hover:shadow-md transition-all duration-300 no-underline group ${className}`}
     >
-      <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
-        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 6 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-        <path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14-5.1l-6.5-5.5c-2 1.4-4.6 2.3-7.5 2.3-5.3 0-9.7-3.4-11.3-8l-6.6 5.1C9.6 39.7 16.2 44 24 44z"/>
-        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.5 5.5C41.4 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+      <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true" className="shrink-0">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>{site.googleRating}</span>
-          <div style={{ display: "flex", gap: 1 }}>
+      <div className="flex flex-col text-left leading-tight">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-bold text-black font-serif">5.0</span>
+          <div className="flex items-center gap-0.5">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Star key={i} size={13} fill="#FFC107" color="#FFC107" />
+              <Star key={i} size={12} fill="#cba758" color="#cba758" />
             ))}
           </div>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--gold)]">
+            Verified
+          </span>
         </div>
-        <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>{site.googleReviewCount} Google reviews</span>
+        <span className="text-[11px] text-[var(--ink-soft)] group-hover:text-black transition-colors font-medium">
+          {site.googleReviewCount}+ Google Reviews
+        </span>
       </div>
     </a>
   );
 }
+

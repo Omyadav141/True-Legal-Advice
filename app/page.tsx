@@ -9,6 +9,7 @@ import OfficialCredentialsGallery from "./components/OfficialCredentialsGallery"
 import LegalProcessRoadmap from "./components/LegalProcessRoadmap";
 import PracticeApproach from "./components/PracticeApproach";
 import InteractiveFaq from "./components/InteractiveFaq";
+import GoogleReviewsSection from "./components/GoogleReviewsSection";
 import InstagramReelStrip from "./components/InstagramReelStrip";
 import { site, testimonials } from "@/lib/site-config";
 
@@ -81,38 +82,12 @@ export default function Home() {
       {/* ============ Frequently Asked Questions ============ */}
       <InteractiveFaq />
 
-      {/* ============ Client Reviews Section ============ */}
-      <section className="section bg-[var(--paper)]">
-        <div className="container">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <span className="eyebrow">Client Experiences</span>
-            <h2 className="mt-2 text-3xl font-serif md:text-4xl">What clients say</h2>
-            {testimonials.length === 0 && (
-              <p className="mt-3 text-sm text-[var(--ink-soft)]">
-                Client reviews will be shared here once approved for publication. No sample testimonials or unverified ratings are displayed.
-              </p>
-            )}
-          </div>
-
-          {testimonials.length > 0 && (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              {testimonials.map((t) => (
-                <figure key={t.name} className="card m-0 flex flex-col justify-between p-6">
-                  <div className="mb-4 text-3xl leading-none text-[var(--gold-light)] font-serif" aria-hidden="true">
-                    &ldquo;
-                  </div>
-                  <blockquote className="m-0 flex-1 text-sm italic leading-relaxed text-[var(--ink-soft)]">
-                    {t.text}
-                  </blockquote>
-                  <figcaption className="mt-5 text-xs font-bold text-black border-t border-[var(--line)] pt-3">
-                    — {t.name}
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+      {/* ============ Google Reviews Section (179+ Reviews, 5.0 Rating) ============ */}
+      <GoogleReviewsSection
+        title="What Clients Say on Google"
+        subtitle="5.0 ★★★★★ FROM 179+ CLIENT REVIEWS ON GOOGLE BUSINESS PROFILE"
+        showPillars={true}
+      />
 
       {/* ============ Brand Tagline ============ */}
       <section className="py-14 bg-black text-center border-t border-[var(--gold)]/20">
