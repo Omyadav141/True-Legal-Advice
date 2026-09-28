@@ -1329,7 +1329,48 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         <strong>Mode:</strong> {selectedRecord.data.consultation_mode === "online" ? "Google Meet Video Call" : "In-Person Office Visit"}
                       </p>
                     )}
+                    {selectedRecord.data.meet_link && (
+                      <p className="flex items-center gap-1.5 flex-wrap">
+                        <strong>Google Meet:</strong>{" "}
+                        <a
+                          href={selectedRecord.data.meet_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-600 underline font-mono text-[11px]"
+                        >
+                          {selectedRecord.data.meet_link}
+                        </a>
+                      </p>
+                    )}
                   </div>
+
+                  {/* Add to Google Calendar Action */}
+                  {selectedRecord.type === "booking" && selectedRecord.data.booking_date && (() => {
+                    const [slotH, slotM] = (selectedRecord.data.booking_time || "10:00").split(":").map(Number);
+                    const [y, m, d] = selectedRecord.data.booking_date.split("-").map(Number);
+                    const startUtcMs = Date.UTC(y, m - 1, d, (slotH || 10) - 5, (slotM || 0) - 30);
+                    const startUtc = new Date(startUtcMs);
+                    const endUtc = new Date(startUtcMs + 45 * 60 * 1000);
+                    const formatCalDate = (dt: Date) => dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+                    const isOnline = selectedRecord.data.consultation_mode === "online";
+                    const meetUrl = selectedRecord.data.meet_link || (isOnline ? site.googleMeetRoom : "");
+                    const title = `Legal Consultation: ${selectedRecord.data.name} (${selectedRecord.data.service})`;
+                    const loc = isOnline ? `${meetUrl} (Google Meet)` : "True Legal Advice, Near Trisharan Square, Nagpur - 440027, Maharashtra";
+                    const desc = `Client: ${selectedRecord.data.name}\\nPhone: ${selectedRecord.data.phone}\\nMatter: ${selectedRecord.data.service}\\nMode: ${isOnline ? "Google Meet Video Call" : "In-Person Chamber Visit"}\\n${isOnline ? `Google Meet Link: ${meetUrl}` : ""}`;
+                    const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatCalDate(startUtc)}/${formatCalDate(endUtc)}&ctz=Asia/Kolkata&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(loc)}`;
+
+                    return (
+                      <a
+                        href={gcal}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2.5 px-3 rounded-xl border border-zinc-300 text-xs font-semibold text-zinc-800 hover:bg-zinc-100 flex items-center justify-center gap-2 no-underline transition-colors shadow-2xs"
+                      >
+                        <CalendarDays size={14} className="text-[#9f7d32]" />
+                        <span>Add Appointment to Google Calendar</span>
+                      </a>
+                    );
+                  })()}
 
                   {selectedRecord.data.message && (
                     <div>

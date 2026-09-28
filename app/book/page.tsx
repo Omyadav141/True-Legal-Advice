@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar,
+  CalendarPlus,
+  Download,
+  Share2,
   CheckCircle2,
   Loader2,
   Video,
@@ -155,8 +158,14 @@ function BookClient() {
   const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
   const [submitStatus, setSubmitStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [confirmedBooking, setConfirmedBooking] = useState<{ date: Date; slot: string; id: string } | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<{
+    date: Date;
+    slot: string;
+    id: string;
+    meet_link?: string | null;
+  } | null>(null);
   const [copiedPass, setCopiedPass] = useState(false);
+  const [downloadedIcs, setDownloadedIcs] = useState(false);
 
   const allSlots = useMemo(() => getAllDaySlots(), []);
 
@@ -326,10 +335,15 @@ function BookClient() {
         return;
       }
 
+      const returnedMeetLink =
+        data.booking?.meet_link ||
+        (consultationMode === "online" ? site.googleMeetRoom : null);
+
       setConfirmedBooking({
         date: targetDate,
         slot: selectedSlot,
         id: data.booking?.id || "BK-" + Math.floor(100000 + Math.random() * 900000),
+        meet_link: returnedMeetLink,
       });
       setStep("success");
       setSubmitStatus("idle");
@@ -1100,89 +1114,285 @@ function BookClient() {
                     </motion.form>
                   )}
 
-                  {/* ================= STEP 4: SUCCESS PASS ================= */}
-                  {step === "success" && confirmedBooking && (
-                    <motion.div
-                      key="step-success"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-center py-4 space-y-5"
-                    >
-                      <div className="h-14 w-14 rounded-full bg-[#cba758] text-black flex items-center justify-center mx-auto shadow-lg ring-4 ring-[#cba758]/20">
-                        <CheckCircle2 size={28} />
-                      </div>
+                  {/* ================= STEP 4: SUCCESS PASS & CALENDAR ================= */}
+                  {step === "success" && confirmedBooking && (() => {
+                    const isOnline = consultationMode === "online";
+                    const meetUrl =
+                      confirmedBooking.meet_link || (isOnline ? site.googleMeetRoom : null);
 
-                      <div>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#cba758] bg-[#cba758]/20 px-3 py-1 rounded-full border border-[#cba758]/40">
-                          SLOT CONFIRMED · {confirmedBooking.id}
-                        </span>
-                        <h3 className="text-xl font-serif font-bold text-white mt-2">
-                          Consultation Scheduled!
-                        </h3>
-                        <p className="text-xs text-slate-300 mt-1">
-                          Thank you, <strong>{form.name}</strong>. Your consultation with <strong>Adv. Shareen Hussain</strong> has been scheduled for{" "}
-                          <strong>
-                            {confirmedBooking.date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {formatSlotLabel(confirmedBooking.slot)}
-                          </strong>.
-                        </p>
-                      </div>
+                    const dateFormatted = confirmedBooking.date.toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    });
+                    const timeFormatted = formatSlotLabel(confirmedBooking.slot);
 
-                      {/* Pass details card */}
-                      <div className="p-4 rounded-2xl bg-[#09130f] border border-[#cba758]/35 text-left text-xs space-y-2 text-slate-200">
-                        <p><strong>Legal Matter:</strong> {effectiveMatter}</p>
-                        <p><strong>Consultation Mode:</strong> {consultationMode === "online" ? "Google Meet Video Call" : "In-Person Office Visit (Trisharan Sq, Nagpur)"}</p>
-                        <p><strong>Registered Phone:</strong> {form.phone}</p>
-                      </div>
+                    // Extract slot hour & minute
+                    const [slotH, slotM] = (confirmedBooking.slot || "10:00")
+                      .split(":")
+                      .map(Number);
+                    const slotHours = isNaN(slotH) ? 10 : slotH;
+                    const slotMinutes = isNaN(slotM) ? 0 : slotM;
 
-                      {/* Direct WhatsApp Pass Button */}
-                      {(() => {
-                        const dateFormatted = confirmedBooking.date.toLocaleDateString("en-IN", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        });
-                        const timeFormatted = formatSlotLabel(confirmedBooking.slot);
-                        const passText = `*LEGAL CONSULTATION APPOINTMENT PASS*
+                    // Compute start and end times in UTC (IST is UTC+5:30)
+                    const year = confirmedBooking.date.getFullYear();
+                    const month = confirmedBooking.date.getMonth();
+                    const day = confirmedBooking.date.getDate();
+
+                    const startUtcMs = Date.UTC(year, month, day, slotHours - 5, slotMinutes - 30);
+                    const startUtc = new Date(startUtcMs);
+                    const endUtc = new Date(startUtcMs + 45 * 60 * 1000); // 45-minute consultation
+
+                    const formatCalDate = (d: Date) =>
+                      d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+                    const gCalStart = formatCalDate(startUtc);
+                    const gCalEnd = formatCalDate(endUtc);
+
+                    const eventTitle = `Legal Consultation: Adv. Shareen Hussain (${effectiveMatter})`;
+                    const eventLocation = isOnline
+                      ? `${meetUrl} (Google Meet Video)`
+                      : `True Legal Advice, Near Trisharan Square, Nagpur - 440027, Maharashtra`;
+
+                    const eventDetails = `LEGAL CONSULTATION APPOINTMENT CONFIRMATION\nChambers of Adv. Shareen Hussain (Nagpur Bench)\n\n• Booking ID: ${confirmedBooking.id}\n• Client Name: ${form.name}\n• Phone: ${form.phone}\n• Legal Matter: ${effectiveMatter}\n• Mode: ${isOnline ? "Google Meet Video Call" : "In-Person Chamber Visit (Trisharan Sq, Nagpur)"}\n${isOnline ? `• Google Meet Link: ${meetUrl}` : `• Chamber Address: Near Trisharan Square, Nagpur - 440027, Maharashtra`}\n• Chamber Helpline: +91 83296 31199\n\nInstructions:\n${isOnline ? "- Please join via the Google Meet link 5 minutes prior to your slot." : "- Please arrive 5 to 10 minutes prior with all case documents/agreements."}`;
+
+                    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+                      eventTitle
+                    )}&dates=${gCalStart}/${gCalEnd}&ctz=Asia/Kolkata&details=${encodeURIComponent(
+                      eventDetails
+                    )}&location=${encodeURIComponent(eventLocation)}`;
+
+                    const bookingId = confirmedBooking.id;
+
+                    function downloadIcs() {
+                      const icsLines = [
+                        "BEGIN:VCALENDAR",
+                        "VERSION:2.0",
+                        "PRODID:-//True Legal Advice//Advocate Consultation//EN",
+                        "CALSCALE:GREGORIAN",
+                        "METHOD:PUBLISH",
+                        "BEGIN:VEVENT",
+                        `UID:${bookingId}@truelegaladvice.in`,
+                        `DTSTAMP:${formatCalDate(new Date())}`,
+                        `DTSTART:${gCalStart}`,
+                        `DTEND:${gCalEnd}`,
+                        `SUMMARY:${eventTitle}`,
+                        `DESCRIPTION:${eventDetails.replace(/\n/g, "\\n")}`,
+                        `LOCATION:${eventLocation}`,
+                        isOnline && meetUrl ? `URL:${meetUrl}` : "",
+                        "STATUS:CONFIRMED",
+                        "BEGIN:VALARM",
+                        "TRIGGER:-PT30M",
+                        "ACTION:DISPLAY",
+                        "DESCRIPTION:Reminder: Legal Consultation with Adv. Shareen Hussain in 30 minutes",
+                        "END:VALARM",
+                        "END:VEVENT",
+                        "END:VCALENDAR",
+                      ].filter(Boolean);
+
+                      const icsBlob = new Blob([icsLines.join("\r\n")], {
+                        type: "text/calendar;charset=utf-8",
+                      });
+                      const url = URL.createObjectURL(icsBlob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `consultation-${bookingId}.ics`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                      setDownloadedIcs(true);
+                      setTimeout(() => setDownloadedIcs(false), 3000);
+                    }
+
+                    const passText = `*LEGAL CONSULTATION APPOINTMENT PASS*
 🏛️ *Chambers of Adv. Shareen Hussain (Nagpur Bench)*
 
+🆔 *Booking Ref:* ${confirmedBooking.id}
 👤 *Client:* ${form.name}
 ⚖️ *Matter:* ${effectiveMatter}
 📅 *Date:* ${dateFormatted}
 ⏰ *Time:* ${timeFormatted}
-${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpur - 440027" : "💻 *Mode:* Online Video Call (Google Meet)"}
-📞 *Helpline:* +91 83296 31199`;
+${
+  isOnline
+    ? `💻 *Mode:* Online Video Call (Google Meet)\n🔗 *Meet Link:* ${meetUrl}\n(Click link to join at scheduled slot)`
+    : `📍 *Chamber:* Near Trisharan Square, Nagpur - 440027, Maharashtra\n(Please arrive 5–10 mins prior)`
+}
+📞 *Helpline:* +91 83296 31199
+🌐 *Website:* https://true-legal-advice.vercel.app`;
 
-                        const waUrl = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(passText)}`;
+                    const chamberWaUrl = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(passText)}`;
+                    const cleanClientPhone = form.phone.replace(/\D/g, "").slice(-10);
+                    const clientWaUrl = `https://wa.me/91${cleanClientPhone}?text=${encodeURIComponent(passText)}`;
 
-                        return (
-                          <div className="space-y-2.5 pt-1">
+                    return (
+                      <motion.div
+                        key="step-success"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-center py-2 space-y-4"
+                      >
+                        <div className="h-14 w-14 rounded-full bg-[#cba758] text-black flex items-center justify-center mx-auto shadow-lg ring-4 ring-[#cba758]/20">
+                          <CheckCircle2 size={28} />
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#cba758] bg-[#cba758]/20 px-3 py-1 rounded-full border border-[#cba758]/40">
+                            SLOT CONFIRMED · {confirmedBooking.id}
+                          </span>
+                          <h3 className="text-xl font-serif font-bold text-white mt-2">
+                            Consultation Scheduled!
+                          </h3>
+                          <p className="text-xs text-slate-300 mt-1">
+                            Thank you, <strong>{form.name}</strong>. Your consultation with <strong>Adv. Shareen Hussain</strong> has been scheduled for{" "}
+                            <strong>
+                              {confirmedBooking.date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} at {formatSlotLabel(confirmedBooking.slot)}
+                            </strong>.
+                          </p>
+                        </div>
+
+                        {/* Pass details card */}
+                        <div className="p-4 rounded-2xl bg-[#121214] border border-[#cba758]/35 text-left text-xs space-y-2.5 text-slate-200">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-[#cba758] font-bold">Booking Details</span>
+                            <span className="text-[10px] font-mono text-zinc-400">ID: {confirmedBooking.id}</span>
+                          </div>
+                          <p><strong>Legal Matter:</strong> {effectiveMatter}</p>
+                          <p>
+                            <strong>Consultation Mode:</strong>{" "}
+                            {isOnline ? "Google Meet Video Call" : "In-Person Office Visit (Trisharan Sq, Nagpur)"}
+                          </p>
+
+                          {/* Show Google Meet Link directly with clickable button */}
+                          {isOnline && meetUrl && (
+                            <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div className="min-w-0">
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-bold block">
+                                  Google Meet Consultation Room
+                                </span>
+                                <a
+                                  href={meetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-white underline font-mono truncate block hover:text-[#cba758] mt-0.5"
+                                >
+                                  {meetUrl}
+                                </a>
+                              </div>
+                              <a
+                                href={meetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0 flex items-center justify-center gap-1.5 no-underline shadow-sm"
+                              >
+                                <Video size={13} />
+                                <span>Join Room</span>
+                              </a>
+                            </div>
+                          )}
+
+                          {!isOnline && (
+                            <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-700/60 text-zinc-300 flex items-center justify-between gap-2">
+                              <div>
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-[#cba758] font-bold block">
+                                  Chamber Location
+                                </span>
+                                <span className="text-xs text-zinc-200 block mt-0.5">
+                                  Near Trisharan Square, Nagpur - 440027, Maharashtra
+                                </span>
+                              </div>
+                              <a
+                                href="https://maps.google.com/?q=Trisharan+Square+Nagpur"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[#cba758] border border-[#cba758]/30 font-bold text-xs shrink-0 flex items-center gap-1 no-underline"
+                              >
+                                <MapPin size={12} />
+                                <span>Directions</span>
+                              </a>
+                            </div>
+                          )}
+
+                          <p><strong>Registered Phone:</strong> {form.phone}</p>
+                        </div>
+
+                        {/* Calendar Integration Section */}
+                        <div className="space-y-2 pt-1 text-left">
+                          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#cba758] block">
+                            📅 Add to Calendar:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <a
-                              href={waUrl}
+                              href={googleCalendarUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="w-full py-3 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1ebe5d] transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer no-underline"
+                              className="py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer no-underline border border-[#cba758]"
+                              style={{
+                                backgroundColor: "#cba758",
+                                color: "#000000",
+                              }}
                             >
-                              <MessageCircle size={16} />
-                              <span>Open / Save WhatsApp Booking Pass</span>
+                              <CalendarPlus size={15} />
+                              <span>Google Calendar</span>
                             </a>
 
                             <button
                               type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(passText);
-                                setCopiedPass(true);
-                                setTimeout(() => setCopiedPass(false), 2000);
-                              }}
-                              className="w-full py-2 rounded-xl border border-white/20 text-xs font-semibold text-slate-300 hover:bg-white/10 flex items-center justify-center gap-1.5 cursor-pointer"
+                              onClick={downloadIcs}
+                              className="py-2.5 px-3 rounded-xl border border-white/20 text-xs font-semibold text-slate-200 hover:bg-white/10 flex items-center justify-center gap-2 cursor-pointer transition-all"
                             >
-                              {copiedPass ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
-                              <span>{copiedPass ? "Pass Copied!" : "Copy Pass Details"}</span>
+                              <Download size={14} className="text-[#cba758]" />
+                              <span>{downloadedIcs ? "Added to Calendar!" : "Apple / Outlook (.ics)"}</span>
                             </button>
                           </div>
-                        );
-                      })()}
-                    </motion.div>
-                  )}
+                        </div>
+
+                        {/* WhatsApp Pass & Notification Section */}
+                        <div className="space-y-2 pt-1 text-left">
+                          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#25D366] block">
+                            💬 WhatsApp Pass & Confirmation:
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <a
+                              href={chamberWaUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1ebe5d] transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer no-underline"
+                            >
+                              <MessageCircle size={15} />
+                              <span>Chamber WhatsApp</span>
+                            </a>
+
+                            {cleanClientPhone && (
+                              <a
+                                href={clientWaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="py-2.5 px-3 rounded-xl border border-[#25D366]/40 text-xs font-semibold text-[#25D366] hover:bg-[#25D366]/10 flex items-center justify-center gap-2 cursor-pointer no-underline"
+                              >
+                                <Share2 size={14} />
+                                <span>Send to My WhatsApp</span>
+                              </a>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(passText);
+                              setCopiedPass(true);
+                              setTimeout(() => setCopiedPass(false), 2000);
+                            }}
+                            className="w-full py-2 rounded-xl border border-white/15 text-xs font-medium text-slate-300 hover:bg-white/10 flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                          >
+                            {copiedPass ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
+                            <span>{copiedPass ? "Pass Copied to Clipboard!" : "Copy Full Pass Details"}</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })()}
                 </AnimatePresence>
               </div>
             </motion.div>
@@ -1200,7 +1410,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border border-[#cba758]/40"
               style={{
-                backgroundColor: "#0d1411",
+                backgroundColor: "#09090b",
                 color: "#faf7f0",
               }}
             >
