@@ -388,23 +388,24 @@ export default function AiLegalAssistantBot() {
   return (
     <>
       {/* Floating Launcher Widget (Combined WhatsApp & AI Assistant) */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-auto">
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3.5 pointer-events-auto select-none">
         {/* Secondary WhatsApp Pill */}
-        <motion.a
-          href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen Hussain, I would like to book a legal consultation.")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="btn-whatsapp !px-3.5 !py-2 !text-xs !shadow-lg border border-white/25"
-          style={{ backgroundColor: "#25D366", color: "#ffffff" }}
-        >
-          <Phone size={14} style={{ color: "#ffffff" }} className="fill-white" />
-          <span style={{ color: "#ffffff", fontWeight: 700 }}>Direct WhatsApp</span>
-        </motion.a>
+        {!isOpen && (
+          <motion.a
+            href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen Hussain, I would like to book a legal consultation.")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold text-white bg-[#25D366] hover:bg-[#1ebe5d] transition-colors shadow-lg border border-white/20 no-underline cursor-pointer mb-0.5"
+          >
+            <Phone size={13} className="fill-white text-white" />
+            <span className="text-white font-bold tracking-wide">Direct WhatsApp</span>
+          </motion.a>
+        )}
 
         {/* Primary AI Bot Trigger Button */}
         <motion.button
@@ -413,9 +414,9 @@ export default function AiLegalAssistantBot() {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 350, damping: 25 }}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.94 }}
-          className="relative flex items-center gap-2.5 px-4 py-3.5 rounded-full shadow-2xl transition-all duration-300"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.95 }}
+          className="relative flex items-center gap-2.5 px-4 py-3 rounded-full shadow-2xl transition-all duration-300 cursor-pointer"
           style={{
             background: "linear-gradient(135deg, #123526 0%, #1e4b38 100%)",
             border: "2px solid rgba(203, 167, 88, 0.6)",
