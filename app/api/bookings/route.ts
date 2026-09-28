@@ -7,6 +7,8 @@ import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
 import { saveLocalBooking, BookingRecord } from "@/lib/bookings-store";
 
+import { getChamberStatus } from "@/lib/chamber-status";
+
 // Postgres unique_violation error code
 const UNIQUE_VIOLATION = "23505";
 
@@ -28,6 +30,28 @@ export async function POST(req: NextRequest) {
     }
 
     const mode: "online" | "offline" = consultationMode === "online" ? "online" : "offline";
+
+    // Validate live chamber status for today
+    const chamber = getChamberStatus();
+    const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+    if (bookingDate === todayStr) {
+      if (mode === "offline" && !chamber.isOfficeOpen) {
+        return NextResponse.json(
+          {
+            error: `In-person chamber visits are currently paused today (${chamber.awayReason || "Advocate unavailable"}). Resuming: ${chamber.returnEstimate || "tomorrow"}. Please select an online consultation or an upcoming date.`,
+          },
+          { status: 400 }
+        );
+      }
+      if (mode === "online" && !chamber.isOnlineOpen) {
+        return NextResponse.json(
+          {
+            error: `Online video consultations are currently closed today (${chamber.awayReason || "Advocate unavailable"}). Resuming: ${chamber.returnEstimate || "tomorrow"}. Please choose an upcoming date.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const [y, m, d] = bookingDate.split("-").map(Number);
     if (!isDateBookable(new Date(y, m - 1, d))) {
