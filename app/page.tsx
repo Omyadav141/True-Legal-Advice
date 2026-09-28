@@ -32,7 +32,7 @@ export default function Home() {
       <AnimatedMarquee />
 
       {/* ============ Modern Trust Band ============ */}
-      <section className="border-b border-[var(--gold)]/20 bg-[var(--green)] py-6 text-[var(--paper)]">
+      <section className="border-b border-[var(--gold)]/20 bg-black py-6 text-white">
         <div className="container grid grid-cols-2 gap-4 md:grid-cols-4">
           {[
             { label: "High Court & District Court", desc: "Nagpur Bench & District Court" },
@@ -104,7 +104,7 @@ export default function Home() {
                   <blockquote className="m-0 flex-1 text-sm italic leading-relaxed text-[var(--ink-soft)]">
                     {t.text}
                   </blockquote>
-                  <figcaption className="mt-5 text-xs font-bold text-[var(--green)] border-t border-[var(--line)] pt-3">
+                  <figcaption className="mt-5 text-xs font-bold text-black border-t border-[var(--line)] pt-3">
                     — {t.name}
                   </figcaption>
                 </figure>
@@ -115,7 +115,7 @@ export default function Home() {
       </section>
 
       {/* ============ Brand Tagline ============ */}
-      <section className="py-14 bg-[var(--green-deep)] text-center border-t border-[var(--gold)]/20">
+      <section className="py-14 bg-black text-center border-t border-[var(--gold)]/20">
         <div className="container">
           <p className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--gold-light)] mb-3">True Legal Advice</p>
           <h2 className="text-2xl md:text-4xl font-serif" style={{ color: "var(--paper)" }}>

@@ -41,9 +41,9 @@ export default function AdminLoginPage() {
 
   return (
     <section className="flex min-h-[calc(100dvh-72px)] items-center justify-center px-5 py-16">
-      <div className="fade-up w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_rgba(18,53,38,0.16)] md:grid md:grid-cols-5">
+      <div className="fade-up w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_rgba(0,0,0,0.3)] md:grid md:grid-cols-5">
         {/* Brand panel */}
-        <div className="relative hidden flex-col justify-between bg-[var(--green-deep)] p-10 md:col-span-2 md:flex">
+        <div className="relative hidden flex-col justify-between bg-[#09090b] border-r border-[#27272a] p-10 md:col-span-2 md:flex">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -57,15 +57,15 @@ export default function AdminLoginPage() {
               <Scale size={22} color="var(--gold-light)" aria-hidden="true" />
             </div>
             <p className="eyebrow eyebrow-light mt-8">Staff area</p>
-            <h1 className="mt-3 text-2xl leading-snug text-[var(--paper)]">
+            <h1 className="mt-3 text-2xl leading-snug text-white">
               {site.businessName}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[rgba(250,247,240,0.65)]">
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
               Manage consultation bookings, confirm appointments, and keep the
               practice calendar in order.
             </p>
           </div>
-          <p className="relative text-xs text-[rgba(250,247,240,0.45)]">
+          <p className="relative text-xs text-zinc-500">
             Adv. {site.lawyerName} &middot; {site.city}
           </p>
         </div>
@@ -73,7 +73,7 @@ export default function AdminLoginPage() {
         {/* Form panel */}
         <div className="p-8 sm:p-10 md:col-span-3 md:p-12">
           <div className="mb-8 md:hidden">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--green)]">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-black border border-[var(--gold)]/30">
               <Scale size={20} color="var(--gold-light)" aria-hidden="true" />
             </div>
             <h1 className="text-2xl">Staff login</h1>

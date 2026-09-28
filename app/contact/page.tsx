@@ -66,9 +66,9 @@ I submitted an inquiry through your True Legal Advice website:
   return (
     <div className="bg-[var(--paper)] text-[var(--ink)]">
       {/* ============ Header Hero ============ */}
-      <section className="relative py-16 md:py-24 bg-[var(--green-deep)] text-white overflow-hidden">
+      <section className="relative py-16 md:py-24 bg-black text-white overflow-hidden">
         <div className="pointer-events-none absolute -top-32 right-10 h-96 w-96 rounded-full bg-[var(--gold)]/15 blur-[120px]" />
-        <div className="pointer-events-none absolute -bottom-32 left-10 h-96 w-96 rounded-full bg-emerald-500/10 blur-[130px]" />
+        <div className="pointer-events-none absolute -bottom-32 left-10 h-96 w-96 rounded-full bg-white/5 blur-[130px]" />
 
         <div className="container relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-[var(--gold-light)] text-xs font-mono uppercase tracking-wider mb-4">
@@ -191,7 +191,7 @@ I submitted an inquiry through your True Legal Advice website:
                             onClick={() => setFormData({ ...formData, mode: m })}
                             className={`px-4 py-3 rounded-xl border text-xs font-bold text-left transition-all ${
                               formData.mode === m
-                                ? "border-[var(--green)] bg-[var(--green)] text-white shadow-sm"
+                                ? "border-black bg-black text-white shadow-sm"
                                 : "border-[var(--border)] bg-slate-50 text-[var(--ink-soft)] hover:border-slate-400"
                             }`}
                           >
@@ -216,8 +216,8 @@ I submitted an inquiry through your True Legal Advice website:
                     </div>
 
                     {/* Privacy Guarantee Note */}
-                    <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-900 leading-relaxed flex items-center gap-2">
-                      <ShieldCheck size={16} className="text-emerald-700 shrink-0" />
+                    <div className="rounded-xl bg-zinc-100 border border-zinc-200 p-3.5 text-xs text-zinc-900 leading-relaxed flex items-center gap-2">
+                      <ShieldCheck size={16} className="text-[#cba758] shrink-0" />
                       <span>
                         <strong>Confidentiality Guarantee:</strong> All shared details are protected by advocate-client legal privilege.
                       </span>
@@ -236,7 +236,7 @@ I submitted an inquiry through your True Legal Advice website:
                 </div>
               ) : (
                 <div className="py-8 text-center">
-                  <div className="h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                  <div className="h-16 w-16 rounded-full bg-[#cba758] text-black flex items-center justify-center mx-auto mb-4">
                     <CheckCircle2 size={36} />
                   </div>
                   <h3 className="text-2xl font-serif font-bold text-[var(--ink)]">
@@ -315,18 +315,18 @@ I submitted an inquiry through your True Legal Advice website:
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-800 shrink-0">
                     <MessageCircle size={18} />
                   </div>
                   <div>
-                    <p className="text-xs font-mono font-bold uppercase text-emerald-700">
+                    <p className="text-xs font-mono font-bold uppercase text-zinc-800">
                       INSTANT WHATSAPP DESK
                     </p>
                     <a
                       href={`https://wa.me/${site.whatsappNumber}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-base font-bold text-[var(--ink)] hover:text-emerald-600 transition-colors mt-0.5 block"
+                      className="text-base font-bold text-[var(--ink)] hover:text-[#cba758] transition-colors mt-0.5 block"
                     >
                       +91 83296 31199
                     </a>
@@ -335,7 +335,7 @@ I submitted an inquiry through your True Legal Advice website:
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[var(--green)] shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-black shrink-0">
                     <MapPin size={18} />
                   </div>
                   <div>
@@ -375,7 +375,7 @@ I submitted an inquiry through your True Legal Advice website:
             </div>
 
             {/* Direct Booking Highlight Card */}
-            <div className="rounded-3xl bg-[var(--green-deep)] text-white p-7 relative overflow-hidden border border-[var(--gold)]/30">
+            <div className="rounded-3xl bg-black text-white p-7 relative overflow-hidden border border-[var(--gold)]/30">
               <div className="relative z-10">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--gold-light)] font-bold">
                   FAST-TRACK SCHEDULING

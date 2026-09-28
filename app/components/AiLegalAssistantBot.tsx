@@ -400,9 +400,9 @@ export default function AiLegalAssistantBot() {
           whileTap={{ scale: 0.95 }}
           className="relative flex items-center gap-2.5 px-4 py-3.5 rounded-full shadow-2xl transition-all duration-300 cursor-pointer"
           style={{
-            background: "linear-gradient(135deg, #123526 0%, #1e4b38 100%)",
-            border: "2px solid rgba(203, 167, 88, 0.6)",
-            boxShadow: "0 10px 30px rgba(18, 53, 38, 0.4), 0 0 20px rgba(203, 167, 88, 0.3)",
+            background: "linear-gradient(135deg, #09090b 0%, #18181b 100%)",
+            border: "2px solid #cba758",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(203, 167, 88, 0.3)",
           }}
         >
           {/* Avatar Thumbnail with Pulse */}
@@ -413,7 +413,7 @@ export default function AiLegalAssistantBot() {
               fill
               className="object-cover"
             />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white" />
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#cba758] border border-white" />
           </div>
 
           <div className="flex flex-col text-left">
@@ -454,7 +454,7 @@ export default function AiLegalAssistantBot() {
             <div
               className="px-4 py-3.5 flex items-center justify-between text-white flex-shrink-0"
               style={{
-                background: "linear-gradient(135deg, #0d281d 0%, #153c2c 100%)",
+                background: "linear-gradient(135deg, #09090b 0%, #18181b 100%)",
                 borderBottom: "1px solid rgba(203, 167, 88, 0.3)",
               }}
             >
@@ -466,7 +466,7 @@ export default function AiLegalAssistantBot() {
                     fill
                     className="object-cover"
                   />
-                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0d281d]" />
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#cba758] border-2 border-black" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
@@ -492,7 +492,7 @@ export default function AiLegalAssistantBot() {
                 </button>
                 <Link
                   href="/book"
-                  className="px-3 py-1 text-xs font-bold rounded-md bg-[var(--gold)] text-[#0d281d] hover:bg-[var(--gold-light)] transition-colors shadow-sm"
+                  className="px-3 py-1 text-xs font-bold rounded-md bg-[var(--gold)] text-black hover:bg-[var(--gold-light)] transition-colors shadow-sm"
                 >
                   Book
                 </Link>
@@ -507,12 +507,12 @@ export default function AiLegalAssistantBot() {
             </div>
 
             {/* High-Contrast Chamber Notice Banner */}
-            <div className="bg-[#0a2217] border-b border-[var(--gold)]/30 px-3.5 py-2 flex items-center justify-between text-xs text-white">
+            <div className="bg-black border-b border-[var(--gold)]/30 px-3.5 py-2 flex items-center justify-between text-xs text-white">
               <span className="flex items-center gap-1.5 font-semibold text-[var(--gold-light)]">
                 <Scale size={13} className="text-[var(--gold)]" />
                 Nagpur High Court & District Court
               </span>
-              <span className="font-bold text-emerald-400 text-[11px]">Private consultation</span>
+              <span className="font-bold text-[var(--gold-light)] text-[11px]">Private consultation</span>
             </div>
 
             {/* Chat Messages Body */}
@@ -528,7 +528,7 @@ export default function AiLegalAssistantBot() {
                   <div
                     className={`max-w-[88%] rounded-2xl px-4 py-3 leading-relaxed shadow-sm ${
                       msg.sender === "user"
-                        ? "bg-[var(--green)] text-white font-medium rounded-tr-sm"
+                        ? "bg-black text-white font-medium rounded-tr-sm"
                         : "bg-white text-slate-900 font-normal border border-slate-200 rounded-tl-sm shadow-xs"
                     }`}
                   >
@@ -554,7 +554,7 @@ export default function AiLegalAssistantBot() {
                                 href={action.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-white border border-[var(--gold)] text-[var(--green)] hover:bg-[var(--green)] hover:text-white transition-all shadow-xs"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-white border border-[var(--gold)] text-black hover:bg-black hover:text-white transition-all shadow-xs"
                               >
                                 <span>{action.label}</span>
                                 <ArrowUpRight size={12} />
@@ -565,7 +565,7 @@ export default function AiLegalAssistantBot() {
                             <Link
                               key={i}
                               href={action.href}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-white border border-[var(--gold)] text-[var(--green)] hover:bg-[var(--green)] hover:text-white transition-all shadow-xs"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-white border border-[var(--gold)] text-black hover:bg-black hover:text-white transition-all shadow-xs"
                             >
                               <span>{action.label}</span>
                               <ArrowUpRight size={12} />
@@ -578,7 +578,7 @@ export default function AiLegalAssistantBot() {
                             onClick={() => {
                               if (action.query) sendMessage(action.query);
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-slate-300 text-slate-800 hover:border-[var(--green)] hover:text-[var(--green)] transition-all shadow-xs text-left"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs text-left"
                           >
                             <span>{action.label}</span>
                           </button>
@@ -601,25 +601,25 @@ export default function AiLegalAssistantBot() {
             <div className="p-2 bg-slate-100 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => sendMessage("What are the consultation charges and booking process?")}
-                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-[var(--green)] hover:text-[var(--green)] transition-all shadow-xs"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
                 Consultation details
               </button>
               <button
                 onClick={() => sendMessage("Can you help with Love Marriage and Court Marriage?")}
-                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-[var(--green)] hover:text-[var(--green)] transition-all shadow-xs"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
                 Court Marriage Help
               </button>
               <button
                 onClick={() => sendMessage("I need Trademark and Company Registration for my startup.")}
-                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-[var(--green)] hover:text-[var(--green)] transition-all shadow-xs"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
                 Trademark / Startup
               </button>
               <button
                 onClick={() => sendMessage("What are the walk-in chamber timings at Trisharan Square Nagpur?")}
-                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-[var(--green)] hover:text-[var(--green)] transition-all shadow-xs"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
                 Nagpur Office Timings
               </button>
@@ -644,7 +644,7 @@ export default function AiLegalAssistantBot() {
               <button
                 type="submit"
                 disabled={!input.trim() || loading}
-                className="p-2 rounded-xl bg-[var(--green)] text-white hover:bg-[var(--green-light)] disabled:opacity-40 transition-colors flex-shrink-0"
+                className="p-2 rounded-xl bg-black text-white hover:bg-zinc-800 disabled:opacity-40 transition-colors flex-shrink-0 cursor-pointer"
                 aria-label="Send message"
               >
                 <Send size={15} />

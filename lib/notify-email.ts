@@ -37,7 +37,7 @@ export async function sendBookingEmail(booking: Booking) {
       subject: `New appointment request: ${booking.name}`,
       html: `
         <div style="font-family: sans-serif; max-width: 500px;">
-          <h2 style="color: #123526;">New appointment request</h2>
+          <h2 style="color: #09090b;">New appointment request</h2>
           <p><strong>Name:</strong> ${booking.name}</p>
           <p><strong>Phone:</strong> ${booking.phone}</p>
           ${booking.email ? `<p><strong>Email:</strong> ${booking.email}</p>` : ""}

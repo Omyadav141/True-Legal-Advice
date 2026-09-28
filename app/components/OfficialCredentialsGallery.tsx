@@ -172,7 +172,7 @@ function AccentureCompactCard({ card, index }: { card: CardItem; index: number }
             ? "rgba(203, 167, 88, 0.65)"
             : "rgba(255, 255, 255, 0.12)",
         }}
-        className="group relative h-full flex flex-col justify-between rounded-xl overflow-hidden p-6 border bg-[#0d1411] text-white transition-all select-text"
+        className="group relative h-full flex flex-col justify-between rounded-xl overflow-hidden p-6 border bg-[#09090b] text-white transition-all select-text"
       >
         {/* Dynamic Cursor Spotlight Effect */}
         {isHovered && (
@@ -198,7 +198,7 @@ function AccentureCompactCard({ card, index }: { card: CardItem; index: number }
           >
             {card.tag}
           </span>
-          <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/10 border border-white/15 text-white group-hover:scale-110 group-hover:bg-[var(--gold)] group-hover:text-[#0b1310] transition-all">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/10 border border-white/15 text-white group-hover:scale-110 group-hover:bg-[var(--gold)] group-hover:text-black transition-all">
             <Icon size={16} />
           </div>
         </div>
@@ -260,14 +260,14 @@ function AccentureCompactCard({ card, index }: { card: CardItem; index: number }
             className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md group/btn hover:brightness-110 active:scale-[0.98]"
             style={{
               backgroundColor: "#cba758",
-              color: "#0a2217",
+              color: "#000000",
             }}
           >
-            <span className="font-semibold tracking-wide" style={{ color: "#0a2217" }}>
+            <span className="font-semibold tracking-wide" style={{ color: "#000000" }}>
               {card.ctaText}
             </span>
             <div className="h-6 w-6 rounded-lg bg-black/10 flex items-center justify-center transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5">
-              <ArrowUpRight size={14} style={{ color: "#0a2217" }} />
+              <ArrowUpRight size={14} style={{ color: "#000000" }} />
             </div>
           </Link>
         </div>
@@ -300,7 +300,7 @@ export default function OfficialCredentialsGallery() {
           <div className="shrink-0">
             <Link
               href="/about"
-              className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--gold)] hover:text-[var(--green)] transition-colors no-underline"
+              className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[var(--gold)] hover:text-black transition-colors no-underline"
             >
               <span>VIEW ALL PRACTICE AREAS & CREDENTIALS</span>
               <ArrowRight size={14} />

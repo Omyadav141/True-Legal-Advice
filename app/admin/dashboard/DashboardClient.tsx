@@ -61,9 +61,9 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     label: "Awaiting Review",
   },
   confirmed: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-800",
-    border: "border-emerald-200",
+    bg: "bg-black",
+    text: "text-[#cba758]",
+    border: "border-[#cba758]/40",
     label: "Confirmed Slot",
   },
   completed: {
@@ -91,9 +91,9 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     label: "Contacted",
   },
   converted: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-800",
-    border: "border-emerald-200",
+    bg: "bg-black",
+    text: "text-[#cba758]",
+    border: "border-[#cba758]/40",
     label: "Retained",
   },
   closed: {
@@ -148,11 +148,11 @@ function getInitials(name: string): string {
 }
 
 const AVATAR_COLORS = [
-  "bg-emerald-700 text-white",
-  "bg-amber-700 text-white",
-  "bg-teal-700 text-white",
-  "bg-indigo-700 text-white",
-  "bg-slate-700 text-white",
+  "bg-black text-[#cba758] border border-[#cba758]/30",
+  "bg-zinc-800 text-white",
+  "bg-zinc-900 text-zinc-100",
+  "bg-[#18181b] text-[#cba758] border border-[#cba758]/30",
+  "bg-zinc-700 text-white",
 ];
 
 export default function DashboardClient() {
@@ -546,12 +546,12 @@ Please click the Google Meet link above at your scheduled appointment time.`;
   }, [bookings, contacts, viewTab, statusFilter, searchQuery, todayStr]);
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] text-[#131f18]">
+    <div className="min-h-screen bg-[#fafafa] text-[#09090b]">
       {/* ================= Modern Executive Header ================= */}
-      <header className="border-b border-[#e1e8e3] bg-white sticky top-0 z-30 shadow-2xs">
+      <header className="border-b border-zinc-200 bg-white sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-[#0f2c1f] text-[#cba758] flex items-center justify-center font-bold shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold shadow-sm">
               <Scale size={20} />
             </div>
             <div>
@@ -559,11 +559,11 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                 <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#9f7d32]">
                   CHAMBERS OF ADV. SHAREEN HUSSAIN
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#0f2c1f]/10 text-[#0f2c1f]">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-black/5 text-[#09090b] border border-black/10">
                   {role === "admin" ? "Advocate Master Desk" : "Legal Staff Desk"}
                 </span>
               </div>
-              <h1 className="text-lg sm:text-xl font-serif font-bold text-[#0f2c1f]">
+              <h1 className="text-lg sm:text-xl font-serif font-bold text-[#09090b]">
                 Chamber Client Mandates & Legal Database
               </h1>
             </div>
@@ -576,11 +576,11 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               onClick={() => setShowStatusModal(true)}
               className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer ${
                 chamberStatus.isOfficeOpen
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                  ? "bg-black text-[#cba758] border-[#cba758]/40 hover:bg-zinc-900"
                   : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
               }`}
             >
-              <span className={`h-2 w-2 rounded-full ${chamberStatus.isOfficeOpen ? "bg-emerald-600 animate-pulse" : "bg-amber-600 animate-pulse"}`} />
+              <span className={`h-2 w-2 rounded-full ${chamberStatus.isOfficeOpen ? "bg-[#cba758] animate-pulse" : "bg-amber-600 animate-pulse"}`} />
               <span>
                 {chamberStatus.isOfficeOpen
                   ? "Chamber Desk: Open"
@@ -592,7 +592,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             {/* Refresh */}
             <button
               onClick={loadData}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#d6ded8] text-[#344038] hover:bg-[#f2f7f4] transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-zinc-300 text-zinc-700 hover:bg-zinc-100 transition-all shadow-2xs cursor-pointer"
               title="Refresh database"
             >
               <RefreshCw size={13} className={loading ? "animate-spin text-[#9f7d32]" : ""} />
@@ -622,16 +622,16 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             }}
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               viewTab === "all" && statusFilter === "all"
-                ? "bg-white border-[#0f2c1f] ring-2 ring-[#0f2c1f]/10"
-                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+                ? "bg-white border-black ring-2 ring-black/10"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
-            <div className="flex items-center justify-between text-[#617267]">
+            <div className="flex items-center justify-between text-zinc-500">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider">All Mandates</span>
               <Users size={16} />
             </div>
-            <p className="text-2xl font-serif font-bold text-[#0f2c1f] mt-2">{stats.totalRecords}</p>
-            <p className="text-[11px] text-[#718277] mt-0.5">Database total</p>
+            <p className="text-2xl font-serif font-bold text-[#09090b] mt-2">{stats.totalRecords}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Database total</p>
           </div>
 
           {/* Stat 2: Today's Appointments */}
@@ -643,15 +643,15 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               statusFilter === "today"
                 ? "bg-white border-[#cba758] ring-2 ring-[#cba758]/20"
-                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
             <div className="flex items-center justify-between text-[#9f7d32]">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Today&apos;s Slots</span>
               <CalendarDays size={16} />
             </div>
-            <p className="text-2xl font-serif font-bold text-[#0f2c1f] mt-2">{stats.todayBookings}</p>
-            <p className="text-[11px] text-[#718277] mt-0.5">Scheduled today</p>
+            <p className="text-2xl font-serif font-bold text-[#09090b] mt-2">{stats.todayBookings}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Scheduled today</p>
           </div>
 
           {/* Stat 3: Attended / Came (The "see he has came here or not") */}
@@ -662,16 +662,16 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             }}
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               statusFilter === "attended"
-                ? "bg-emerald-50/70 border-emerald-600 ring-2 ring-emerald-600/15"
-                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+                ? "bg-black text-[#cba758] border-[#cba758] ring-2 ring-[#cba758]/20"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
-            <div className="flex items-center justify-between text-emerald-800">
+            <div className="flex items-center justify-between text-zinc-900">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Attended / Came</span>
-              <CheckCheck size={16} />
+              <CheckCheck size={16} className="text-[#cba758]" />
             </div>
-            <p className="text-2xl font-serif font-bold text-emerald-800 mt-2">{stats.attendedCount}</p>
-            <p className="text-[11px] text-emerald-700/80 mt-0.5">Visited chamber</p>
+            <p className="text-2xl font-serif font-bold text-[#09090b] mt-2">{stats.attendedCount}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Visited chamber</p>
           </div>
 
           {/* Stat 4: Website Contact Inquiries */}
@@ -683,7 +683,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               viewTab === "contacts"
                 ? "bg-white border-blue-600 ring-2 ring-blue-600/15"
-                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
             <div className="flex items-center justify-between text-blue-700">
@@ -691,7 +691,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               <Mail size={16} />
             </div>
             <p className="text-2xl font-serif font-bold text-blue-900 mt-2">{stats.totalContacts}</p>
-            <p className="text-[11px] text-[#718277] mt-0.5">From Contact Us form</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">From Contact Us form</p>
           </div>
 
           {/* Stat 5: Needs Action / Pending */}
@@ -703,7 +703,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               statusFilter === "pending"
                 ? "bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20"
-                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+                : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
             <div className="flex items-center justify-between text-amber-800">
@@ -718,15 +718,15 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-[#718277] mt-0.5">Pending confirmation</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Pending confirmation</p>
           </div>
         </div>
 
         {/* ================= Navigation Tabs, Sub-Filters & Live Search Bar ================= */}
-        <div className="bg-white rounded-2xl border border-[#e1e8e3] p-4 shadow-2xs space-y-3.5">
+        <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-2xs space-y-3.5">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             {/* Master View Tabs (All vs Bookings vs Contacts) */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-[#f0f4f1] w-fit">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-100 w-fit">
               {[
                 { id: "all", label: "All Records", count: stats.totalRecords },
                 { id: "bookings", label: "Chamber Bookings", count: stats.totalBookings },
@@ -739,12 +739,12 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     onClick={() => setViewTab(tab.id as any)}
                     className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                       isActive
-                        ? "bg-white text-[#0f2c1f] shadow-xs"
-                        : "text-[#526359] hover:text-[#0f2c1f]"
+                        ? "bg-white text-black shadow-xs"
+                        : "text-zinc-600 hover:text-black"
                     }`}
                   >
                     <span>{tab.label}</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? "bg-[#0f2c1f]/10 text-[#0f2c1f]" : "bg-black/5 text-[#63756a]"}`}>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? "bg-black/10 text-black" : "bg-black/5 text-zinc-500"}`}>
                       {tab.count}
                     </span>
                   </button>
@@ -754,13 +754,13 @@ Please click the Google Meet link above at your scheduled appointment time.`;
 
             {/* Live Search Input */}
             <div className="relative w-full lg:w-80">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7d8f83]" />
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by client, phone, matter, or date..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl border border-[#d6ded8] bg-white text-xs text-[#131f18] placeholder-[#7d8f83] focus:border-[#0f2c1f] focus:outline-none shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-zinc-300 bg-white text-xs text-[#09090b] placeholder-zinc-400 focus:border-black focus:outline-none shadow-2xs"
               />
               {searchQuery && (
                 <button
@@ -774,8 +774,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
           </div>
 
           {/* Secondary Quick Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#eef3f0]">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#7d8f83] mr-2 flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-100">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-2 flex items-center gap-1">
               <Filter size={12} />
               <span>Status:</span>
             </span>
@@ -795,8 +795,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                   onClick={() => setStatusFilter(f.id as any)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-[#0f2c1f] text-white shadow-2xs font-bold"
-                      : "bg-[#f4f7f5] text-[#4d5e53] hover:bg-[#e8eee9]"
+                      ? "bg-black text-white shadow-2xs font-bold"
+                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                   }`}
                 >
                   {f.label}
@@ -807,21 +807,21 @@ Please click the Google Meet link above at your scheduled appointment time.`;
         </div>
 
         {/* ================= Modern Database Table (Image 3 Style) ================= */}
-        <div className="bg-white rounded-2xl border border-[#e1e8e3] shadow-xs overflow-hidden">
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
           {loading ? (
             <div className="py-24 text-center">
               <Loader2 size={32} className="animate-spin text-[#cba758] mx-auto mb-2" />
-              <p className="text-xs font-mono font-bold text-[#718277] uppercase tracking-wider">
+              <p className="text-xs font-mono font-bold text-zinc-500 uppercase tracking-wider">
                 Loading chamber records...
               </p>
             </div>
           ) : filteredRows.length === 0 ? (
             <div className="py-20 px-6 text-center max-w-md mx-auto">
-              <div className="h-14 w-14 rounded-2xl bg-[#f4f7f5] text-[#718277] flex items-center justify-center mx-auto mb-3">
+              <div className="h-14 w-14 rounded-2xl bg-zinc-100 text-zinc-500 flex items-center justify-center mx-auto mb-3">
                 <Inbox size={26} />
               </div>
-              <h3 className="text-base font-serif font-bold text-[#0f2c1f]">No Records Found</h3>
-              <p className="text-xs text-[#526359] mt-1 leading-relaxed">
+              <h3 className="text-base font-serif font-bold text-[#09090b]">No Records Found</h3>
+              <p className="text-xs text-zinc-600 mt-1 leading-relaxed">
                 {searchQuery
                   ? `No entries match "${searchQuery}". Clear your search term to see all client mandates.`
                   : "No mandates match the selected filter criteria."}
@@ -832,7 +832,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     setSearchQuery("");
                     setStatusFilter("all");
                   }}
-                  className="mt-4 px-4 py-1.5 rounded-xl bg-[#0f2c1f] text-white text-xs font-bold"
+                  className="mt-4 px-4 py-1.5 rounded-xl bg-black text-white text-xs font-bold"
                 >
                   Reset Filters
                 </button>
@@ -842,7 +842,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-[#e1e8e3] bg-[#fafbfb] text-[#55675c] font-mono text-[11px] uppercase tracking-wider">
+                  <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
                     <th className="py-3 px-4 font-semibold">Client</th>
                     <th className="py-3 px-4 font-semibold">Channel / Type</th>
                     <th className="py-3 px-4 font-semibold">Legal Matter</th>
@@ -853,7 +853,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     <th className="py-3 px-4 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#edf2ee]">
+                <tbody className="divide-y divide-zinc-100">
                   {filteredRows.map((r, idx) => {
                     const statusMeta = statusStyles[r.status] || statusStyles.pending;
                     const cleanPhone = formatWhatsAppNumber(r.phone);
@@ -863,7 +863,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-[#f9fcfa] transition-colors group"
+                        className="hover:bg-zinc-50/80 transition-colors group"
                       >
                         {/* Column 1: Client Name, Initials, Phone, Email */}
                         <td className="py-3.5 px-4">
@@ -872,10 +872,10 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                               {getInitials(r.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-serif font-bold text-[#0f2c1f] text-sm truncate">
+                              <p className="font-serif font-bold text-[#09090b] text-sm truncate">
                                 {r.name}
                               </p>
-                              <div className="flex items-center gap-2 text-[11px] text-[#63756a] mt-0.5">
+                              <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-0.5">
                                 <span className="font-mono">{r.phone}</span>
                                 {r.email && (
                                   <>
@@ -891,7 +891,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         {/* Column 2: Source Badge */}
                         <td className="py-3.5 px-4">
                           {r.type === "booking" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#0f2c1f]/10 text-[#0f2c1f] border border-[#0f2c1f]/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-black/5 text-[#09090b] border border-black/15">
                               <CalendarDays size={10} />
                               <span>Booking</span>
                             </span>
@@ -905,14 +905,14 @@ Please click the Google Meet link above at your scheduled appointment time.`;
 
                         {/* Column 3: Legal Service & Matter */}
                         <td className="py-3.5 px-4 max-w-[220px]">
-                          <p className="font-bold text-[#0f2c1f] truncate">{r.service}</p>
+                          <p className="font-bold text-[#09090b] truncate">{r.service}</p>
                           {r.sub_service && (
                             <span className="text-[10px] font-mono text-[#9f7d32] font-semibold truncate block mt-0.5">
                               {r.sub_service}
                             </span>
                           )}
                           {r.message && !r.sub_service && (
-                            <p className="text-[11px] text-[#718277] truncate mt-0.5">
+                            <p className="text-[11px] text-zinc-500 truncate mt-0.5">
                               &ldquo;{r.message}&rdquo;
                             </p>
                           )}
@@ -926,7 +926,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                               <span>Google Meet</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-zinc-100 text-zinc-900 border border-zinc-300">
                               <MapPin size={12} />
                               <span>Office Visit</span>
                             </span>
@@ -936,7 +936,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         {/* Column 5: Scheduled Date & Slot */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-[#131f18]">
+                            <span className="font-semibold text-[#09090b]">
                               {formatDateLabel(r.date)}
                             </span>
                             {isToday && (
@@ -946,7 +946,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                             )}
                           </div>
                           {r.time && (
-                            <p className="text-[11px] font-mono text-[#718277] mt-0.5">
+                            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
                               {formatTime12(r.time)}
                             </p>
                           )}
@@ -967,8 +967,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                                 disabled={updatingId === r.id}
                                 className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                                   r.attendance === "attended"
-                                    ? "bg-emerald-600 text-white border-emerald-700 shadow-2xs"
-                                    : "bg-white text-slate-600 border-slate-300 hover:border-emerald-500 hover:text-emerald-700"
+                                    ? "bg-black text-[#cba758] border-[#cba758] shadow-2xs"
+                                    : "bg-white text-zinc-600 border-zinc-300 hover:border-black hover:text-black"
                                 }`}
                                 title="Toggle customer attendance: Click to mark Attended / Visited"
                               >
@@ -1020,7 +1020,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                                 href={`https://wa.me/${cleanPhone}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="h-7 w-7 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366] text-emerald-800 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                                className="h-7 w-7 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366] text-[#09090b] hover:text-white flex items-center justify-center transition-all shadow-2xs"
                                 title={`WhatsApp ${r.phone}`}
                               >
                                 <MessageCircle size={14} />
@@ -1031,7 +1031,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                             {r.phone && (
                               <a
                                 href={`tel:${r.phone}`}
-                                className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-[#0f2c1f] text-slate-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                                className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-black text-slate-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
                                 title={`Call ${r.phone}`}
                               >
                                 <Phone size={13} />
@@ -1042,7 +1042,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                             {r.type === "booking" && r.status === "pending" && (
                               <button
                                 onClick={() => openConfirmModal(r.raw as Booking)}
-                                className="px-2.5 py-1 rounded-lg bg-[#0f2c1f] text-white text-[11px] font-bold hover:bg-[#1a4733] transition-all shadow-2xs cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-black text-[#cba758] text-[11px] font-bold hover:bg-zinc-900 border border-[#cba758]/30 transition-all shadow-2xs cursor-pointer"
                               >
                                 Confirm
                               </button>
@@ -1076,18 +1076,18 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-[#d6ded8] space-y-5"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-5"
             >
-              <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-3">
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-[#0f2c1f] text-[#cba758] flex items-center justify-center font-bold">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
                     <Building2 size={18} />
                   </div>
                   <div>
-                    <h3 className="text-base font-serif font-bold text-[#0f2c1f]">
+                    <h3 className="text-base font-serif font-bold text-[#09090b]">
                       Chamber Availability & Away Manager
                     </h3>
-                    <p className="text-[11px] font-mono text-[#718277]">
+                    <p className="text-[11px] font-mono text-zinc-500">
                       Configure real-time presence and customer-facing notice
                     </p>
                   </div>
@@ -1120,9 +1120,9 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         returnEstimate: "",
                       });
                     }}
-                    className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-left text-xs font-bold hover:bg-emerald-100 transition-all cursor-pointer flex items-center gap-2"
+                    className="p-2.5 rounded-xl border border-zinc-300 bg-zinc-50 text-zinc-900 text-left text-xs font-bold hover:bg-zinc-100 transition-all cursor-pointer flex items-center gap-2"
                   >
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 shrink-0" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-black shrink-0" />
                     <span>🟢 Desk Open (Full Active)</span>
                   </button>
 
@@ -1189,7 +1189,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               </div>
 
               {/* Custom Configuration Form */}
-              <div className="space-y-3 pt-1 border-t border-[#e1e8e3]">
+              <div className="space-y-3 pt-1 border-t border-zinc-200">
                 <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#9f7d32] block">
                   Or Custom Availability Settings
                 </label>
@@ -1200,7 +1200,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                       type="checkbox"
                       checked={statusModalOfficeOpen}
                       onChange={(e) => setStatusModalOfficeOpen(e.target.checked)}
-                      className="rounded text-[#0f2c1f]"
+                      className="rounded text-black"
                     />
                     <span>Office Visits Open</span>
                   </label>
@@ -1210,14 +1210,14 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                       type="checkbox"
                       checked={statusModalOnlineOpen}
                       onChange={(e) => setStatusModalOnlineOpen(e.target.checked)}
-                      className="rounded text-[#0f2c1f]"
+                      className="rounded text-black"
                     />
                     <span>Google Meet Video Open</span>
                   </label>
                 </div>
 
                 {!statusModalOfficeOpen && (
-                  <div className="space-y-3 p-3 rounded-2xl bg-[#fafbfb] border border-[#d6ded8]">
+                  <div className="space-y-3 p-3 rounded-2xl bg-zinc-50 border border-zinc-200">
                     <div>
                       <label className="text-[11px] font-mono font-bold uppercase text-slate-600 block mb-1">
                         Reason for Away Status
@@ -1227,7 +1227,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         value={statusModalReason}
                         onChange={(e) => setStatusModalReason(e.target.value)}
                         placeholder="e.g. Attending High Court Hearing Session"
-                        className="w-full px-3 py-2 rounded-xl border border-[#d6ded8] text-xs"
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-xs"
                       />
                     </div>
 
@@ -1252,7 +1252,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                         value={statusModalEstimate}
                         onChange={(e) => setStatusModalEstimate(e.target.value)}
                         placeholder="e.g. 1–2 Hours (Returning at ~4:00 PM)"
-                        className="w-full px-3 py-2 rounded-xl border border-[#d6ded8] text-xs"
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-xs"
                       />
                     </div>
                   </div>
@@ -1271,7 +1271,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                   type="button"
                   disabled={statusSaving}
                   onClick={() => saveChamberAvailability()}
-                  className="px-5 py-2 rounded-xl bg-[#0f2c1f] text-white text-xs font-bold hover:bg-[#1a4733] transition-all flex items-center gap-1.5 shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 text-xs font-bold hover:bg-zinc-900 transition-all flex items-center gap-1.5 shadow-sm"
                 >
                   {statusSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                   <span>Save Chamber Status</span>
@@ -1294,12 +1294,12 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               className="w-full max-w-lg h-full bg-white shadow-2xl p-6 sm:p-8 flex flex-col justify-between overflow-y-auto"
             >
               <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-4">
+                <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
                   <div>
                     <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#9f7d32]">
                       {selectedRecord.type === "booking" ? "APPOINTMENT MANDATE DETAILS" : "CONTACT INQUIRY DETAILS"}
                     </span>
-                    <h3 className="text-xl font-serif font-bold text-[#0f2c1f] mt-0.5">
+                    <h3 className="text-xl font-serif font-bold text-[#09090b] mt-0.5">
                       {selectedRecord.data.name}
                     </h3>
                   </div>
@@ -1312,7 +1312,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                 </div>
 
                 <div className="space-y-4 text-xs">
-                  <div className="p-3.5 rounded-2xl bg-[#fafbfb] border border-[#e1e8e3] space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2">
                     <p><strong>Phone:</strong> {selectedRecord.data.phone}</p>
                     {selectedRecord.data.email && <p><strong>Email:</strong> {selectedRecord.data.email}</p>}
                     <p><strong>Service:</strong> {selectedRecord.data.service}</p>
@@ -1336,7 +1336,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                       <label className="text-[11px] font-mono font-bold uppercase text-slate-500 block mb-1">
                         Client Message / Case Brief
                       </label>
-                      <div className="p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#e1e8e3] text-[#344038] leading-relaxed">
+                      <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-800 leading-relaxed">
                         {selectedRecord.data.message}
                       </div>
                     </div>
@@ -1344,8 +1344,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
 
                   {/* Attendance Controls */}
                   {selectedRecord.type === "booking" && (
-                    <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/50 space-y-2">
-                      <label className="text-[11px] font-mono font-bold uppercase text-emerald-900 block">
+                    <div className="p-3.5 rounded-2xl border border-zinc-300 bg-zinc-50 space-y-2">
+                      <label className="text-[11px] font-mono font-bold uppercase text-zinc-900 block">
                         Customer Attendance Tracking
                       </label>
                       <div className="flex gap-2">
@@ -1354,8 +1354,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                           onClick={() => updateAttendance(selectedRecord.data.id, "attended")}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                             selectedRecord.data.attendance === "attended"
-                              ? "bg-emerald-700 text-white shadow-xs"
-                              : "bg-white text-emerald-800 border border-emerald-300"
+                              ? "bg-black text-[#cba758] border border-[#cba758]/40 shadow-xs"
+                              : "bg-white text-zinc-800 border border-zinc-300"
                           }`}
                         >
                           <Check size={13} />
@@ -1391,7 +1391,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                               onClick={() => updateBookingStatus(selectedRecord.data.id, st as any)}
                               className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
                                 selectedRecord.data.status === st
-                                  ? "bg-[#0f2c1f] text-white"
+                                  ? "bg-black text-white"
                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                               }`}
                             >
@@ -1407,7 +1407,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                               onClick={() => updateContactStatus(selectedRecord.data.id, st as any)}
                               className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
                                 selectedRecord.data.status === st
-                                  ? "bg-[#0f2c1f] text-white"
+                                  ? "bg-black text-white"
                                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                               }`}
                             >
@@ -1422,7 +1422,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               </div>
 
               {/* Bottom Quick Contact Bar */}
-              <div className="pt-6 border-t border-[#e1e8e3] flex gap-3">
+              <div className="pt-6 border-t border-zinc-200 flex gap-3">
                 <a
                   href={`https://wa.me/${formatWhatsAppNumber(selectedRecord.data.phone)}`}
                   target="_blank"
@@ -1434,7 +1434,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                 </a>
                 <a
                   href={`tel:${selectedRecord.data.phone}`}
-                  className="px-4 py-2.5 rounded-xl bg-[#0f2c1f] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                  className="px-4 py-2.5 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Phone size={14} />
                   <span>Call</span>
@@ -1453,18 +1453,18 @@ Please click the Google Meet link above at your scheduled appointment time.`;
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-[#d6ded8] space-y-4"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4"
             >
-              <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-3">
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
                     <CheckCircle2 size={20} />
                   </div>
                   <div>
-                    <h3 className="text-base font-serif font-bold text-[#0f2c1f]">
+                    <h3 className="text-base font-serif font-bold text-[#09090b]">
                       Confirm Appointment & Dispatch WhatsApp
                     </h3>
-                    <p className="text-[11px] font-mono text-[#718277]">
+                    <p className="text-[11px] font-mono text-zinc-500">
                       Client: {confirmModalBooking.name} ({confirmModalBooking.phone})
                     </p>
                   </div>
@@ -1482,7 +1482,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                   rows={8}
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
-                  className="w-full p-3 rounded-2xl border border-[#d6ded8] text-xs font-sans text-[#131f18] focus:border-[#0f2c1f] focus:outline-none"
+                  className="w-full p-3 rounded-2xl border border-zinc-300 text-xs font-sans text-[#09090b] focus:border-black focus:outline-none"
                 />
               </div>
 
@@ -1496,7 +1496,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                   }}
                   className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
                 >
-                  {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                  {copied ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
                   <span>{copied ? "Copied!" : "Copy Text"}</span>
                 </button>
 
@@ -1507,7 +1507,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                       updateBookingStatus(confirmModalBooking.id, "confirmed");
                       closeConfirmModal();
                     }}
-                    className="px-4 py-2 rounded-xl border border-[#0f2c1f] text-xs font-bold text-[#0f2c1f] hover:bg-[#f0f5f2]"
+                    className="px-4 py-2 rounded-xl border border-black text-xs font-bold text-black hover:bg-zinc-100"
                   >
                     Confirm (No Dispatch)
                   </button>

@@ -72,13 +72,13 @@ export default function InteractiveFaq() {
                   aria-expanded={isOpen}
                   className="flex w-full items-center justify-between p-5 text-left cursor-pointer gap-4"
                 >
-                  <span className="font-serif text-base sm:text-lg font-semibold text-[var(--green)]">
+                  <span className="font-serif text-base sm:text-lg font-semibold text-[var(--ink)]">
                     {faq.q}
                   </span>
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${
                       isOpen
-                        ? "bg-[var(--gold)] text-[var(--green-deep)] rotate-180"
+                        ? "bg-[var(--gold)] text-black rotate-180"
                         : "bg-[var(--paper-dark)] text-[var(--ink-soft)]"
                     }`}
                   >
@@ -109,7 +109,7 @@ export default function InteractiveFaq() {
         {/* Still have questions card */}
         <div className="mt-10 rounded-2xl border border-[var(--line)] bg-[var(--card)] p-6 text-center sm:flex sm:items-center sm:justify-between sm:text-left">
           <div>
-            <h4 className="font-serif text-lg font-bold text-[var(--green)]">
+            <h4 className="font-serif text-lg font-bold text-[var(--ink)]">
               Still have a specific query?
             </h4>
             <p className="text-xs sm:text-sm text-[var(--ink-soft)] mt-1">

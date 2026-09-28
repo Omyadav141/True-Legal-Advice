@@ -75,7 +75,7 @@ export default function RoleModelAdvocateShowcase() {
             className="lg:col-span-5 relative"
           >
             <div className="relative mx-auto max-w-[430px] rounded-3xl p-3 bg-gradient-to-b from-[var(--gold)]/40 via-[var(--gold)]/10 to-[var(--border)] shadow-2xl">
-              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden shadow-inner border border-[var(--gold)]/40 bg-[#0d281d]">
+              <div className="relative aspect-[3/4] w-full rounded-2xl overflow-hidden shadow-inner border border-[var(--gold)]/40 bg-black">
                 <Image
                   src={site.advocateDeskPhoto}
                   alt="Adv. Shareen Hussain at Chamber Office desk"
@@ -86,10 +86,10 @@ export default function RoleModelAdvocateShowcase() {
                 />
 
                 {/* Subtle vignette overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0d281d]/90 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none" />
 
                 {/* Overlaid Badge */}
-                <div className="absolute bottom-4 left-4 right-4 p-3.5 rounded-xl bg-[#0d281d]/85 backdrop-blur-md border border-[var(--gold)]/40 text-white">
+                <div className="absolute bottom-4 left-4 right-4 p-3.5 rounded-xl bg-black/90 backdrop-blur-md border border-[var(--gold)]/40 text-white">
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
@@ -100,7 +100,7 @@ export default function RoleModelAdvocateShowcase() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--gold)] text-[#0d281d]">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--gold)] text-black">
                         Bar Enrolled
                       </span>
                       <p className="text-[10px] text-[var(--paper)]/70 mt-0.5">High Court & District Court</p>
@@ -113,7 +113,7 @@ export default function RoleModelAdvocateShowcase() {
               <motion.div
                 animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-4 -right-4 bg-[var(--green)] text-white px-4 py-2 rounded-2xl shadow-xl border border-[var(--gold)] flex items-center gap-2"
+                className="absolute -top-4 -right-4 bg-black text-white px-4 py-2 rounded-2xl shadow-xl border border-[var(--gold)] flex items-center gap-2"
               >
                 <ShieldCheck size={18} className="text-[var(--gold)]" />
                 <div>
@@ -133,7 +133,7 @@ export default function RoleModelAdvocateShowcase() {
             className="lg:col-span-7 space-y-6"
           >
             {/* The "TIME IS MONEY" Policy Badge directly from the user's poster */}
-            <div className="p-5 rounded-2xl bg-[#0d281d] text-white border-2 border-[var(--gold)] shadow-xl relative overflow-hidden">
+            <div className="p-5 rounded-2xl bg-black text-white border-2 border-[var(--gold)] shadow-xl relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
                 <Clock size={160} />
               </div>
@@ -168,7 +168,7 @@ export default function RoleModelAdvocateShowcase() {
             {/* Comprehensive practice areas grid matching real banner image */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
               <div className="p-4 rounded-xl bg-white border border-[var(--border)] shadow-xs hover:border-[var(--gold)] transition-colors">
-                <div className="flex items-center gap-2.5 text-[var(--green)] mb-1.5 font-bold text-sm">
+                <div className="flex items-center gap-2.5 text-[var(--ink)] mb-1.5 font-bold text-sm">
                   <HeartHandshake size={18} className="text-[var(--gold)]" />
                   <span>Court Marriage & Love Marriage</span>
                 </div>
@@ -178,7 +178,7 @@ export default function RoleModelAdvocateShowcase() {
               </div>
 
               <div className="p-4 rounded-xl bg-white border border-[var(--border)] shadow-xs hover:border-[var(--gold)] transition-colors">
-                <div className="flex items-center gap-2.5 text-[var(--green)] mb-1.5 font-bold text-sm">
+                <div className="flex items-center gap-2.5 text-[var(--ink)] mb-1.5 font-bold text-sm">
                   <Building2 size={18} className="text-[var(--gold)]" />
                   <span>Trademark & Startup Legal</span>
                 </div>
@@ -188,7 +188,7 @@ export default function RoleModelAdvocateShowcase() {
               </div>
 
               <div className="p-4 rounded-xl bg-white border border-[var(--border)] shadow-xs hover:border-[var(--gold)] transition-colors">
-                <div className="flex items-center gap-2.5 text-[var(--green)] mb-1.5 font-bold text-sm">
+                <div className="flex items-center gap-2.5 text-[var(--ink)] mb-1.5 font-bold text-sm">
                   <FileCheck2 size={18} className="text-[var(--gold)]" />
                   <span>Property Deeds & Verification</span>
                 </div>
@@ -198,7 +198,7 @@ export default function RoleModelAdvocateShowcase() {
               </div>
 
               <div className="p-4 rounded-xl bg-white border border-[var(--border)] shadow-xs hover:border-[var(--gold)] transition-colors">
-                <div className="flex items-center gap-2.5 text-[var(--green)] mb-1.5 font-bold text-sm">
+                <div className="flex items-center gap-2.5 text-[var(--ink)] mb-1.5 font-bold text-sm">
                   <Scale size={18} className="text-[var(--gold)]" />
                   <span>Litigation & Court Practice</span>
                 </div>
@@ -216,8 +216,8 @@ export default function RoleModelAdvocateShowcase() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[var(--green)]">Walk-in Consultation Desk</span>
-                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Open Daily</span>
+                    <span className="font-bold text-[var(--ink)]">Walk-in Consultation Desk</span>
+                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-100 text-zinc-900 border border-zinc-200">Open Daily</span>
                   </div>
                   <span className="text-[var(--ink-soft)] text-xs block mt-0.5">
                     Morning: 9:30 AM – 11:00 AM &bull; Evening: 5:30 PM – 8:30 PM
@@ -230,9 +230,9 @@ export default function RoleModelAdvocateShowcase() {
 
               <a
                 href={`tel:${site.phone}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md shrink-0 cursor-pointer hover:bg-[#1a4733]"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md shrink-0 cursor-pointer hover:bg-zinc-800"
                 style={{
-                  backgroundColor: "#123526",
+                  backgroundColor: "#000000",
                   color: "#ffffff",
                   border: "1px solid rgba(203, 167, 88, 0.4)",
                 }}

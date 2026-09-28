@@ -35,7 +35,7 @@ export default function Header() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 border-b" style={{ background: "rgba(250,247,240,0.92)", backdropFilter: "blur(12px)", borderColor: "var(--line)" }}>
+    <header className="sticky top-0 z-50 border-b" style={{ background: "rgba(255,255,255,0.96)", backdropFilter: "blur(12px)", borderColor: "var(--line)" }}>
       <div className="container flex h-[72px] items-center justify-between gap-3">
         <Link href="/" className="no-underline flex-shrink-0" aria-label={`${site.businessName} — home`}>
           <Logo />
@@ -51,7 +51,7 @@ export default function Header() {
                 href={link.href}
                 className="relative px-3 py-1.5 text-[14px] font-medium no-underline transition-all duration-200 whitespace-nowrap flex-shrink-0"
                 style={{
-                  color: active ? "var(--green)" : "var(--ink-soft)",
+                  color: active ? "var(--ink)" : "var(--ink-soft)",
                   fontWeight: active ? 700 : 500,
                 }}
               >
@@ -81,7 +81,7 @@ export default function Header() {
             href={`tel:${site.phone.replace(/\s/g, "")}`}
             aria-label={`Call ${site.phone}`}
             className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{ background: "var(--green-mist)", color: "var(--green)" }}
+            style={{ background: "#f4f4f5", color: "#09090b" }}
           >
             <Phone size={18} />
           </a>
@@ -90,7 +90,7 @@ export default function Header() {
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-none"
-            style={{ background: "var(--green)", color: "var(--paper)" }}
+            style={{ background: "#09090b", color: "#ffffff" }}
           >
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -122,7 +122,7 @@ export default function Header() {
                       href={link.href}
                       className="flex items-center justify-between border-b py-4 text-base no-underline"
                       style={{
-                        color: active ? "var(--green)" : "var(--ink-soft)",
+                        color: active ? "var(--ink)" : "var(--ink-soft)",
                         fontWeight: active ? 700 : 500,
                         borderColor: "var(--paper-dark)",
                       }}

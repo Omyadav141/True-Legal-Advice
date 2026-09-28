@@ -36,10 +36,10 @@ export default function LegalProcessRoadmap() {
   const [activeStep, setActiveStep] = useState(0);
 
   return (
-    <section className="section bg-[var(--green-deep)] text-[var(--paper)] overflow-hidden relative" aria-labelledby="roadmap-heading">
+    <section className="section bg-black text-[var(--paper)] overflow-hidden relative" aria-labelledby="roadmap-heading">
       {/* Decorative luxury accents */}
       <div className="pointer-events-none absolute top-0 left-1/4 h-96 w-96 rounded-full bg-[var(--gold)]/10 blur-[130px]" />
-      <div className="pointer-events-none absolute bottom-0 right-10 h-80 w-80 rounded-full bg-[var(--green-light)]/20 blur-[100px]" />
+      <div className="pointer-events-none absolute bottom-0 right-10 h-80 w-80 rounded-full bg-zinc-800/20 blur-[100px]" />
 
       <div className="container relative z-10">
         
@@ -70,7 +70,7 @@ export default function LegalProcessRoadmap() {
                 transition={{ duration: 0.3 }}
                 className={`relative rounded-3xl p-7 transition-all duration-300 border ${
                   isHovered
-                    ? "bg-[var(--green)]/90 border-[var(--gold-light)] shadow-2xl shadow-[var(--gold)]/10"
+                    ? "bg-[#09090b] border-[var(--gold-light)] shadow-2xl shadow-[var(--gold)]/10"
                     : "bg-white/[0.04] border-white/10 hover:border-white/20"
                 }`}
               >
@@ -80,7 +80,7 @@ export default function LegalProcessRoadmap() {
                     {item.step}
                   </span>
                   <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                    isHovered ? "bg-[var(--gold)] text-[var(--green-deep)]" : "bg-white/10 text-[var(--gold-light)]"
+                    isHovered ? "bg-[var(--gold)] text-black font-bold" : "bg-white/10 text-[var(--gold-light)]"
                   } transition-colors duration-300`}>
                     <Icon size={22} />
                   </div>

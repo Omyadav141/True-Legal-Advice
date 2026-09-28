@@ -86,7 +86,7 @@ export default function TrademarkPage() {
         "GST Registration, Returns & FSSAI Central/State Food Licensing",
       ],
       badge: "Startup India & MSME Facilitation",
-      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      badgeColor: "bg-black text-[#cba758] border-[#cba758]/30",
     },
   ];
 
@@ -330,7 +330,7 @@ export default function TrademarkPage() {
                     href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I would like to inquire about ${track.title}.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-[var(--green)] transition-colors"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-black transition-colors"
                   >
                     <span>Quick WhatsApp Desk</span>
                     <ArrowUpRight size={13} />
@@ -362,7 +362,7 @@ export default function TrademarkPage() {
                 className="rounded-2xl border border-[var(--border)] bg-white p-6 sm:p-7 shadow-sm flex flex-col justify-between"
               >
                 <div>
-                  <div className="h-10 w-10 rounded-xl bg-[var(--green)] text-[var(--gold-light)] flex items-center justify-center mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-black text-[var(--gold-light)] flex items-center justify-center mb-4">
                     {idx === 0 ? <FileCheck2 size={20} /> : idx === 1 ? <Zap size={20} /> : <Building2 size={20} />}
                   </div>
 
@@ -388,7 +388,7 @@ export default function TrademarkPage() {
                     href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I need help preparing documents for ${doc.category} trademark registration.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--green)] hover:text-[var(--gold)] transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-black hover:text-[var(--gold)] transition-colors"
                   >
                     <span>Verify My Documents on WhatsApp</span>
                     <ArrowUpRight size={13} />
@@ -401,7 +401,7 @@ export default function TrademarkPage() {
       </section>
 
       {/* ============ 5-Step Trademark Lifecycle Roadmap ============ */}
-      <section className="py-20 lg:py-28 bg-[#0b1310] text-white relative overflow-hidden">
+      <section className="py-20 lg:py-28 bg-[#09090b] text-white relative overflow-hidden">
         <div
           className="pointer-events-none absolute inset-0 opacity-25"
           style={{
@@ -433,7 +433,7 @@ export default function TrademarkPage() {
                 className="group relative rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-md p-6 sm:p-8 hover:bg-white/[0.08] hover:border-[var(--gold-light)]/50 transition-all duration-300"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
-                  <div className="shrink-0 h-12 w-12 rounded-lg bg-[var(--gold)]/15 border border-[var(--gold)]/40 flex items-center justify-center font-mono font-bold text-base text-[var(--gold-light)] group-hover:scale-105 group-hover:bg-[var(--gold)] group-hover:text-[#0b1310] transition-all">
+                  <div className="shrink-0 h-12 w-12 rounded-lg bg-[var(--gold)]/15 border border-[var(--gold)]/40 flex items-center justify-center font-mono font-bold text-base text-[var(--gold-light)] group-hover:scale-105 group-hover:bg-[var(--gold)] group-hover:text-black transition-all">
                     {st.num}
                   </div>
 
@@ -479,7 +479,7 @@ export default function TrademarkPage() {
                 key={idx}
                 className="group rounded-xl border border-[var(--border)] bg-[var(--paper)] p-5 sm:p-6 [&_summary::-webkit-details-marker]:hidden"
               >
-                <summary className="flex cursor-pointer items-center justify-between gap-4 font-serif font-bold text-base sm:text-lg text-[var(--ink)] group-open:text-[var(--green)]">
+                <summary className="flex cursor-pointer items-center justify-between gap-4 font-serif font-bold text-base sm:text-lg text-[var(--ink)] group-open:text-black">
                   <span>{faq.q}</span>
                   <span className="h-6 w-6 shrink-0 rounded-full bg-white border border-[var(--border)] flex items-center justify-center text-xs font-mono group-open:rotate-180 transition-transform">
                     ↓
@@ -495,7 +495,7 @@ export default function TrademarkPage() {
       </section>
 
       {/* ============ Chamber Helpline & Final Action Strip ============ */}
-      <section className="py-16 bg-[var(--green-deep)] text-white relative overflow-hidden">
+      <section className="py-16 bg-black text-white relative overflow-hidden">
         <div className="container relative z-10">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             <div className="max-w-2xl text-center lg:text-left">

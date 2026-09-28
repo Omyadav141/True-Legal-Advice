@@ -27,7 +27,7 @@ export default function GoogleRating() {
       </svg>
       <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--green)" }}>{site.googleRating}</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>{site.googleRating}</span>
           <div style={{ display: "flex", gap: 1 }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <Star key={i} size={13} fill="#FFC107" color="#FFC107" />

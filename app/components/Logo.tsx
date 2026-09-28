@@ -2,8 +2,8 @@ import { site } from "@/lib/site-config";
 
 export default function Logo({ variant = "dark" }: { variant?: "dark" | "light" }) {
   const ring = variant === "light" ? "var(--gold-light)" : "var(--gold)";
-  const mark = variant === "light" ? "var(--white)" : "var(--green)";
-  const nameColor = variant === "light" ? "var(--white)" : "var(--green)";
+  const mark = variant === "light" ? "var(--white)" : "var(--ink)";
+  const nameColor = variant === "light" ? "var(--white)" : "var(--ink)";
   const subColor = variant === "light" ? "rgba(255,255,255,0.72)" : "var(--ink-muted)";
 
   return (

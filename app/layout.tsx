@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#123526",
+  themeColor: "#000000",
 };
 
 import { LayoutWrapper } from "./components/LayoutWrapper";

@@ -54,7 +54,7 @@ export default function CourtMarriagePage() {
         "High Court recognized valid legal status",
       ],
       badge: "Fast-Track Registration",
-      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      badgeColor: "bg-black text-[#cba758] border-[#cba758]/30",
     },
     {
       title: "Muslim Personal Law & Nikahnama",
@@ -271,7 +271,7 @@ export default function CourtMarriagePage() {
                   <div className="mt-6 space-y-2 border-t border-[var(--border)] pt-4">
                     {p.highlights.map((h, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs text-[var(--ink-soft)]">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0 mt-0.5" />
+                        <CheckCircle2 size={13} className="text-[#cba758] shrink-0 mt-0.5" />
                         <span>{h}</span>
                       </div>
                     ))}
@@ -313,7 +313,7 @@ export default function CourtMarriagePage() {
                 className="p-6 rounded-2xl bg-[var(--paper)] border border-[var(--border)] flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center gap-2 mb-4 text-[var(--green)]">
+                  <div className="flex items-center gap-2 mb-4 text-black">
                     <FileCheck2 size={18} className="text-[var(--gold)]" />
                     <h3 className="font-serif font-bold text-base">{docGroup.party}</h3>
                   </div>
@@ -380,11 +380,11 @@ export default function CourtMarriagePage() {
       </section>
 
       {/* ============ Article 21 & Legal Security Band ============ */}
-      <section className="py-16 bg-[#0a2217] text-white relative overflow-hidden">
+      <section className="py-16 bg-black text-white relative overflow-hidden">
         <div className="container relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-8">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono uppercase tracking-wider mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#cba758]/20 text-[#cba758] text-xs font-mono uppercase tracking-wider mb-3">
                 <ShieldCheck size={14} />
                 <span>CONSTITUTIONAL PROTECTION FOR CONSENTING ADULTS</span>
               </span>
@@ -454,7 +454,7 @@ export default function CourtMarriagePage() {
       </section>
 
       {/* ============ Bottom Consultation CTA ============ */}
-      <section className="py-20 bg-[var(--green)] text-white text-center">
+      <section className="py-20 bg-black text-white text-center">
         <div className="container max-w-2xl">
           <h2
             style={{ color: "#ffffff" }}

@@ -24,21 +24,22 @@
 
 :root {
   color-scheme: light;
-  --green: #123526;
-  --green-deep: #0a2217;
-  --green-light: #1e5038;
-  --green-mist: #e9efe9;
+  /* Advocate Formal Prestige Palette: Pure Black, Crisp White, Refined Gold, Subtle Slate */
+  --green: #09090b;
+  --green-deep: #000000;
+  --green-light: #18181b;
+  --green-mist: #f4f4f5;
   --gold: #b08a3e;
   --gold-light: #cba758;
-  --gold-soft: #efe6cd;
-  --paper: #faf7f0;
-  --paper-dark: #f0ebdd;
-  --ink: #1a1f1c;
-  --ink-soft: #47504a;
-  --ink-muted: #7c847d;
-  --line: #e2dbc8;
-  --success: #2f7a4f;
-  --danger: #a33b2e;
+  --gold-soft: #fbf7ee;
+  --paper: #ffffff;
+  --paper-dark: #f4f4f5;
+  --ink: #09090b;
+  --ink-soft: #3f3f46;
+  --ink-muted: #71717a;
+  --line: #e4e4e7;
+  --success: #16a34a;
+  --danger: #dc2626;
   --white: #ffffff;
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-body: var(--font-inter), "Segoe UI", -apple-system, sans-serif;
@@ -50,12 +51,12 @@
 
 ::selection {
   background: #cba758;
-  color: #0a2217;
+  color: #000000;
 }
 
 ::-moz-selection {
   background: #cba758;
-  color: #0a2217;
+  color: #000000;
 }
 
 html {
@@ -86,7 +87,7 @@ body h1:not([class*="text-"]):not([style*="color"]),
 body h2:not([class*="text-"]):not([style*="color"]),
 body h3:not([class*="text-"]):not([style*="color"]),
 body h4:not([class*="text-"]):not([style*="color"]) {
-  color: var(--green);
+  color: var(--ink);
 }
 
 /* Ensure headings on dark backgrounds are always bright white/paper */
@@ -153,7 +154,7 @@ p {
   justify-content: center;
   gap: 8px;
   background: var(--gold);
-  color: var(--green-deep);
+  color: #000000;
   padding: 14px 30px;
   border-radius: 999px;
   font-weight: 700;
@@ -167,7 +168,7 @@ p {
 .btn-primary:hover {
   background: var(--gold-light);
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(176, 138, 62, 0.32);
+  box-shadow: 0 10px 24px rgba(203, 167, 88, 0.35);
 }
 .btn-primary:disabled {
   opacity: 0.55;
@@ -182,19 +183,19 @@ p {
   justify-content: center;
   gap: 8px;
   background: transparent;
-  color: var(--green);
+  color: var(--ink);
   padding: 14px 30px;
   border-radius: 999px;
   font-weight: 600;
   font-size: 15px;
-  border: 1.5px solid var(--green);
+  border: 1.5px solid var(--ink);
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
 }
 .btn-secondary:hover {
-  background: var(--green);
+  background: var(--ink);
   color: var(--white);
 }
 
@@ -256,8 +257,8 @@ p {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background-color: #123526 !important;
-  color: #faf7f0 !important;
+  background-color: #09090b !important;
+  color: #ffffff !important;
   padding: 11px 20px;
   border-radius: 12px;
   font-weight: 700;
@@ -266,14 +267,14 @@ p {
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(18, 53, 38, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 .btn-pathway:hover {
-  background-color: #1e5038 !important;
+  background-color: #18181b !important;
   color: #ffffff !important;
   border-color: #cba758;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(18, 53, 38, 0.28);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 .btn-pathway span,
 .btn-pathway svg {
@@ -355,7 +356,7 @@ label {
   display: block;
   font-size: 13.5px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--ink);
   margin-bottom: 6px;
 }
 
@@ -377,9 +378,9 @@ label {
   inset: 0;
   background: linear-gradient(
     180deg,
-    rgba(10, 34, 23, 0.72) 0%,
-    rgba(10, 34, 23, 0.5) 45%,
-    rgba(10, 34, 23, 0.82) 100%
+    rgba(0, 0, 0, 0.78) 0%,
+    rgba(9, 9, 11, 0.55) 45%,
+    rgba(0, 0, 0, 0.88) 100%
   );
 }
 @keyframes kenburns {
@@ -517,26 +518,26 @@ label {
 }
 
 .glass-card {
-  background: rgba(250, 247, 240, 0.88);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(226, 219, 200, 0.8);
-  box-shadow: 0 8px 32px rgba(18, 53, 38, 0.05);
+  border: 1px solid rgba(228, 228, 231, 0.8);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(176, 138, 62, 0.6);
-  box-shadow: 0 16px 40px rgba(18, 53, 38, 0.12), 0 0 0 1px rgba(176, 138, 62, 0.2);
+  border-color: rgba(203, 167, 88, 0.6);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(203, 167, 88, 0.2);
 }
 
 .glass-dark {
-  background: rgba(10, 34, 23, 0.85);
+  background: rgba(9, 9, 11, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(203, 167, 88, 0.25);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(203, 167, 88, 0.3);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
 }
 
 .shimmer-badge {

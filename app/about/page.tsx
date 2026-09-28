@@ -88,7 +88,7 @@ export default function AboutPage() {
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: "var(--gold-soft)", color: "var(--gold)" }}>
                     <Icon size={20} />
                   </div>
-                  <h3 className="text-sm font-bold" style={{ color: "var(--green)" }}>{item.title}</h3>
+                  <h3 className="text-sm font-bold" style={{ color: "var(--ink)" }}>{item.title}</h3>
                   <p className="text-xs leading-relaxed" style={{ color: "var(--ink-soft)" }}>{item.desc}</p>
                 </div>
               );
@@ -141,11 +141,11 @@ export default function AboutPage() {
                 href={s.href || `/book?service=other&matter=${encodeURIComponent(s.title)}`}
                 className="group flex items-center gap-3 whitespace-nowrap rounded-2xl border border-[var(--line)] bg-white px-5 py-3.5 shadow-xs transition-all duration-300 hover:border-[var(--gold)] hover:shadow-lg hover:-translate-y-1 no-underline"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--gold-soft)] text-[var(--gold)] group-hover:bg-[var(--gold)] group-hover:text-[#0a2217] transition-colors">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--gold-soft)] text-[var(--gold)] group-hover:bg-[var(--gold)] group-hover:text-black transition-colors">
                   <Scale size={16} />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-[var(--green)] group-hover:text-[var(--gold)] transition-colors">
+                  <p className="text-xs font-bold text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors">
                     {s.title}
                   </p>
                   <p className="text-[11px] text-[var(--ink-muted)]">
@@ -168,7 +168,7 @@ export default function AboutPage() {
               <Link
                 key={service.title}
                 href={service.href || `/book?service=other&matter=${encodeURIComponent(service.title)}`}
-                className="rounded-full border border-[var(--line)] bg-white px-4 py-2 text-xs font-semibold text-[var(--green)] shadow-xs transition-all duration-200 hover:border-[var(--gold)] hover:bg-[var(--gold-soft)] hover:text-[#0a2217] hover:shadow-sm flex items-center gap-1.5"
+                className="rounded-full border border-[var(--line)] bg-white px-4 py-2 text-xs font-semibold text-black shadow-xs transition-all duration-200 hover:border-[var(--gold)] hover:bg-[var(--gold-soft)] hover:text-black hover:shadow-sm flex items-center gap-1.5"
               >
                 <span>{service.title}</span>
                 <ArrowRight size={11} className="text-[var(--gold)]" />
@@ -181,7 +181,7 @@ export default function AboutPage() {
       <PracticeApproach />
 
       {/* Brand Tagline */}
-      <section className="py-16 bg-[var(--green-deep)] text-center">
+      <section className="py-16 bg-black text-center">
         <div className="container">
           <p className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--gold-light)] mb-3">True Legal Advice</p>
           <h2 className="text-2xl md:text-4xl font-serif" style={{ color: "var(--paper)" }}>

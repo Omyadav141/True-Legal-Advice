@@ -371,9 +371,9 @@ function BookClient() {
   return (
     <div className="min-h-screen bg-[#fcfbfa] text-[var(--ink)]">
       {/* ============ Top Hero & Advocate Chamber Desk (The "First Screen") ============ */}
-      <section className="relative py-12 lg:py-20 bg-[var(--green-deep)] text-white overflow-hidden">
+      <section className="relative py-12 lg:py-20 bg-black text-white overflow-hidden">
         <div className="pointer-events-none absolute -top-24 right-10 h-80 w-80 rounded-full bg-[var(--gold)]/15 blur-[100px]" />
-        <div className="pointer-events-none absolute -bottom-24 left-10 h-80 w-80 rounded-full bg-emerald-500/10 blur-[110px]" />
+        <div className="pointer-events-none absolute -bottom-24 left-10 h-80 w-80 rounded-full bg-white/5 blur-[110px]" />
 
         <div className="container relative z-10 max-w-4xl space-y-6">
           {/* Prominent Chamber Alert Notice Banner (When Advocate is Away or Closed) */}
@@ -381,11 +381,11 @@ function BookClient() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-amber-400/50 bg-[#12281e] p-5 sm:p-6 text-amber-100 shadow-xl"
+              className="rounded-2xl border border-amber-400/50 bg-[#18181b] p-5 sm:p-6 text-amber-100 shadow-xl"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
-                  <div className="h-11 w-11 rounded-xl bg-[#cba758] text-[#0a2217] flex items-center justify-center shrink-0 font-bold shadow-md">
+                  <div className="h-11 w-11 rounded-xl bg-[#cba758] text-black flex items-center justify-center shrink-0 font-bold shadow-md">
                     <Scale size={22} />
                   </div>
                   <div>
@@ -409,7 +409,7 @@ function BookClient() {
                 <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-center">
                   <button
                     onClick={() => setShowCallbackModal(true)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#cba758] text-[#0a2217] hover:bg-[#dfbe73] transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#cba758] text-black hover:bg-[#dfbe73] transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Calendar size={13} />
                     <span>Ask for In-Chamber Meeting</span>
@@ -547,7 +547,7 @@ function BookClient() {
               transition={{ duration: 0.25 }}
               className="relative w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col border border-[#cba758]/40"
               style={{
-                backgroundColor: "#0d1411",
+                backgroundColor: "#09090b",
                 boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 30px rgba(203, 167, 88, 0.15)",
                 color: "#faf7f0",
               }}
@@ -555,14 +555,14 @@ function BookClient() {
               {/* Modal Top Bar (Dark Luxury) */}
               <div
                 className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-white/10"
-                style={{ backgroundColor: "#08100c" }}
+                style={{ backgroundColor: "#000000" }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-[#cba758] text-[#0a2217] flex items-center justify-center font-serif font-bold text-sm shadow-md">
+                  <div className="h-9 w-9 rounded-xl bg-[#cba758] text-black flex items-center justify-center font-serif font-bold text-sm shadow-md">
                     <Scale size={18} />
                   </div>
                   <div>
-                    <h3 className="text-base font-serif font-bold text-[#faf7f0]">
+                    <h3 className="text-base font-serif font-bold text-white">
                       Consultation Booking Desk
                     </h3>
                     <p className="text-[11px] font-mono text-[#cba758]">
@@ -582,7 +582,7 @@ function BookClient() {
 
               {/* Step Progress Indicators */}
               {step !== "success" && (
-                <div className="px-6 py-3 shrink-0 border-b border-white/10 bg-[#09130f]">
+                <div className="px-6 py-3 shrink-0 border-b border-white/10 bg-[#121214]">
                   <div className="flex items-center justify-between text-xs">
                     {[
                       { num: 1, label: "Mode & Service" },
@@ -596,9 +596,9 @@ function BookClient() {
                           <div
                             className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
                               isDone
-                                ? "bg-emerald-600 text-white"
+                                ? "bg-[#cba758] text-black"
                                 : isActive
-                                ? "bg-[#cba758] text-[#0a2217] font-extrabold ring-2 ring-[#cba758]/40"
+                                ? "bg-[#cba758] text-black font-extrabold ring-2 ring-[#cba758]/40"
                                 : "bg-white/10 text-slate-400"
                             }`}
                           >
@@ -614,7 +614,7 @@ function BookClient() {
                           {idx < 2 && (
                             <div
                               className={`h-0.5 flex-1 mx-2 transition-all ${
-                                currentStepNum > s.num ? "bg-emerald-600" : "bg-white/10"
+                                currentStepNum > s.num ? "bg-[#cba758]" : "bg-white/10"
                               }`}
                             />
                           )}
@@ -674,7 +674,7 @@ function BookClient() {
                                   isOnlineClosed && !isBothClosed
                                     ? "opacity-40 cursor-not-allowed border-dashed border-slate-700 bg-white/5"
                                     : isSelected
-                                    ? "border-[#cba758] bg-[#14291f] ring-2 ring-[#cba758]/30 shadow-md cursor-pointer"
+                                    ? "border-[#cba758] bg-[#18181b] ring-2 ring-[#cba758]/30 shadow-md cursor-pointer"
                                     : "border-white/10 bg-white/5 hover:border-white/20 cursor-pointer"
                                 }`}
                               >
@@ -710,11 +710,11 @@ function BookClient() {
                                   isOfficeClosed && !isBothClosed
                                     ? "opacity-40 cursor-not-allowed border-dashed border-slate-700 bg-white/5"
                                     : isSelected
-                                    ? "border-[#cba758] bg-[#14291f] ring-2 ring-[#cba758]/30 shadow-md cursor-pointer"
+                                    ? "border-[#cba758] bg-[#18181b] ring-2 ring-[#cba758]/30 shadow-md cursor-pointer"
                                     : "border-white/10 bg-white/5 hover:border-white/20 cursor-pointer"
                                 }`}
                               >
-                                <div className="flex items-center gap-2 text-emerald-400">
+                                <div className="flex items-center gap-2 text-[#cba758]">
                                   <MapPin size={17} />
                                   <span className="font-bold text-xs text-white">Office Visit</span>
                                 </div>
@@ -781,18 +781,18 @@ function BookClient() {
                         <select
                           value={selectedMatter}
                           onChange={(e) => setSelectedMatter(e.target.value)}
-                          className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
+                          className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
                         >
-                          <option value="" className="bg-[#0d1411] text-slate-300">
+                          <option value="" className="bg-[#09090b] text-slate-300">
                             -- N/A - General Consultation (Select if unsure) --
                           </option>
-                          <option value="N/A - General Legal Consultation" className="bg-[#0d1411] text-slate-200">
+                          <option value="N/A - General Legal Consultation" className="bg-[#09090b] text-slate-200">
                             N/A - General Legal Consultation
                           </option>
 
                           {selectedService &&
                             SERVICE_MATTERS[selectedService]?.matters.map((m) => (
-                              <option key={m} value={m} className="bg-[#0d1411] text-white">
+                              <option key={m} value={m} className="bg-[#09090b] text-white">
                                 {m}
                               </option>
                             ))}
@@ -808,7 +808,7 @@ function BookClient() {
                           className="w-full py-3.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                           style={{
                             backgroundColor: "#cba758",
-                            color: "#0a2217",
+                            color: "#000000",
                           }}
                         >
                           <span>Continue to Select Date & Slot</span>
@@ -933,7 +933,7 @@ function BookClient() {
                                   onClick={() => setSelectedSlot(slot)}
                                   className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                                     isSelected
-                                      ? "border-[#cba758] bg-[#cba758] text-[#0a2217] font-bold shadow-md ring-2 ring-[#cba758]/40"
+                                      ? "border-[#cba758] bg-[#cba758] text-black font-bold shadow-md ring-2 ring-[#cba758]/40"
                                       : "border-white/15 bg-white/5 text-slate-200 hover:border-[#cba758]/50"
                                   }`}
                                 >
@@ -962,7 +962,7 @@ function BookClient() {
                           className="flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                           style={{
                             backgroundColor: "#cba758",
-                            color: "#0a2217",
+                            color: "#000000",
                           }}
                         >
                           <span>Proceed to Client Details</span>
@@ -983,7 +983,7 @@ function BookClient() {
                       className="space-y-4"
                     >
                       {/* Summary Capsule */}
-                      <div className="p-3 rounded-2xl bg-[#09130f] border border-[#cba758]/30 text-xs flex items-center justify-between">
+                      <div className="p-3 rounded-2xl bg-[#121214] border border-[#cba758]/30 text-xs flex items-center justify-between">
                         <div>
                           <p className="font-bold text-[#cba758]">
                             {formatSlotLabel(selectedSlot!)} · {targetDate.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
@@ -1012,7 +1012,7 @@ function BookClient() {
                           value={form.name}
                           onChange={handleChange}
                           placeholder="Your complete name"
-                          className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
+                          className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
                         />
                       </div>
 
@@ -1027,7 +1027,7 @@ function BookClient() {
                           value={form.phone}
                           onChange={handleChange}
                           placeholder="10-digit mobile number (e.g. 9823012345)"
-                          className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
+                          className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
                         />
                       </div>
 
@@ -1041,7 +1041,7 @@ function BookClient() {
                           value={form.email}
                           onChange={handleChange}
                           placeholder="your.email@example.com"
-                          className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
+                          className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
                         />
                       </div>
 
@@ -1055,7 +1055,7 @@ function BookClient() {
                           value={form.message}
                           onChange={handleChange}
                           placeholder="Summary of case or specific legal documentation required..."
-                          className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
+                          className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:border-[#cba758] focus:outline-none"
                         />
                       </div>
 
@@ -1081,7 +1081,7 @@ function BookClient() {
                           className="flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
                           style={{
                             backgroundColor: "#cba758",
-                            color: "#0a2217",
+                            color: "#000000",
                           }}
                         >
                           {submitStatus === "loading" ? (
@@ -1108,7 +1108,7 @@ function BookClient() {
                       animate={{ opacity: 1, scale: 1 }}
                       className="text-center py-4 space-y-5"
                     >
-                      <div className="h-14 w-14 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg ring-4 ring-emerald-900/50">
+                      <div className="h-14 w-14 rounded-full bg-[#cba758] text-black flex items-center justify-center mx-auto shadow-lg ring-4 ring-[#cba758]/20">
                         <CheckCircle2 size={28} />
                       </div>
 
@@ -1175,7 +1175,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                               }}
                               className="w-full py-2 rounded-xl border border-white/20 text-xs font-semibold text-slate-300 hover:bg-white/10 flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                              {copiedPass ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                              {copiedPass ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
                               <span>{copiedPass ? "Pass Copied!" : "Copy Pass Details"}</span>
                             </button>
                           </div>
@@ -1217,7 +1217,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
               {!callbackSent ? (
                 <form onSubmit={handleCallbackSubmit} className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-[#cba758] text-[#0a2217] flex items-center justify-center font-bold">
+                    <div className="h-10 w-10 rounded-xl bg-[#cba758] text-black flex items-center justify-center font-bold">
                       <Clock size={20} />
                     </div>
                     <div>
@@ -1230,7 +1230,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-[#14291f] border border-[#cba758]/30 text-xs text-amber-100">
+                  <div className="p-3 rounded-xl bg-[#18181b] border border-[#cba758]/30 text-xs text-amber-100">
                     <strong>Current Status:</strong> {chamberStatus.awayReason || "Court Hearing Session"}{" "}
                     ({chamberStatus.returnEstimate ? `Resuming: ${chamberStatus.returnEstimate}` : "Resuming Soon"})
                   </div>
@@ -1245,7 +1245,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                       value={callbackName}
                       onChange={(e) => setCallbackName(e.target.value)}
                       placeholder="e.g. Rahul Sharma"
-                      className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
                     />
                   </div>
 
@@ -1259,7 +1259,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                       value={callbackPhone}
                       onChange={(e) => setCallbackPhone(e.target.value)}
                       placeholder="e.g. 9823012345"
-                      className="w-full rounded-xl border border-white/20 bg-[#14201a] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-[#121214] px-3.5 py-2.5 text-xs text-white focus:border-[#cba758] focus:outline-none"
                     />
                   </div>
 
@@ -1269,7 +1269,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                     className="w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
                     style={{
                       backgroundColor: "#cba758",
-                      color: "#0a2217",
+                      color: "#000000",
                     }}
                   >
                     {callbackLoading ? (
@@ -1287,7 +1287,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                 </form>
               ) : (
                 <div className="text-center py-4 space-y-3">
-                  <div className="h-12 w-12 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
+                  <div className="h-12 w-12 rounded-full bg-[#cba758] text-black flex items-center justify-center mx-auto shadow-md">
                     <CheckCircle2 size={24} />
                   </div>
                   <h4 className="text-base font-serif font-bold text-white">
@@ -1301,7 +1301,7 @@ ${consultationMode === "offline" ? "📍 *Chamber:* Near Trisharan Square, Nagpu
                       setShowCallbackModal(false);
                       setCallbackSent(false);
                     }}
-                    className="mt-2 px-5 py-2 rounded-xl text-xs font-bold bg-[#cba758] text-[#0a2217]"
+                    className="mt-2 px-5 py-2 rounded-xl text-xs font-bold bg-[#cba758] text-black"
                   >
                     Close
                   </button>
@@ -1319,7 +1319,7 @@ export default function BookPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[60vh] flex items-center justify-center bg-[var(--green-deep)] text-white">
+        <div className="min-h-[60vh] flex items-center justify-center bg-black text-white">
           <div className="text-center text-xs text-slate-300">
             <Loader2 size={24} className="animate-spin text-[#cba758] mx-auto mb-2" />
             <span>Loading Consultation Desk...</span>

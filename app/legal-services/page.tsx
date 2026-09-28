@@ -30,7 +30,7 @@ const practiceHighlights = [
     timeline: "2 to 5 Working Days",
     icon: Building2,
     badge: "High Demand",
-    badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    badgeColor: "bg-black text-[#cba758] border-[#cba758]/30",
     desc: "Rigorous 30-year title verification, search reports, encumbrance verification, drafting Sale Deeds, Gift Deeds, Wills, Lease Deeds, and Sub-Registrar execution.",
     deliverables: [
       "30-Year Title Search & Non-Encumbrance Report",
@@ -240,7 +240,7 @@ export default function LegalServicesPage() {
                       </p>
                       {p.deliverables.map((h, i) => (
                         <div key={i} className="flex items-start gap-2 text-xs text-[var(--ink-soft)]">
-                          <CheckCircle2 size={13} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <CheckCircle2 size={13} className="text-[#cba758] shrink-0 mt-0.5" />
                           <span>{h}</span>
                         </div>
                       ))}
@@ -260,7 +260,7 @@ export default function LegalServicesPage() {
                       href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I would like to consult on: ${p.title}.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-[var(--green)] transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-black transition-colors"
                     >
                       <span>Quick WhatsApp Desk</span>
                       <ArrowUpRight size={12} />
@@ -274,7 +274,7 @@ export default function LegalServicesPage() {
       </section>
 
       {/* ============ Chamber Walk-in & Direct Consultation Banner ============ */}
-      <section className="py-16 bg-[var(--green-deep)] text-white border-y border-[var(--gold)]/20">
+      <section className="py-16 bg-black text-white border-y border-[var(--gold)]/20">
         <div className="container">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-8">

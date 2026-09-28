@@ -29,37 +29,37 @@ const PLACEHOLDER_REELS = [
   {
     title: "Court Marriage Guide",
     subtitle: "Step-by-step legal process",
-    gradient: "linear-gradient(135deg, #0d281d 0%, #1e5038 50%, #b08a3e 100%)",
+    gradient: "linear-gradient(135deg, #09090b 0%, #18181b 50%, #cba758 100%)",
     icon: "💍",
   },
   {
     title: "Trademark Filing Tips",
     subtitle: "Protect your brand identity",
-    gradient: "linear-gradient(135deg, #1a1f1c 0%, #123526 50%, #cba758 100%)",
+    gradient: "linear-gradient(135deg, #18181b 0%, #27272a 50%, #dfbe75 100%)",
     icon: "™️",
   },
   {
     title: "Property Due Diligence",
     subtitle: "What to check before buying",
-    gradient: "linear-gradient(135deg, #0a2217 0%, #2f7a4f 50%, #b08a3e 100%)",
+    gradient: "linear-gradient(135deg, #000000 0%, #18181b 50%, #b08a3e 100%)",
     icon: "🏠",
   },
   {
     title: "Legal Drafting 101",
     subtitle: "Agreements made simple",
-    gradient: "linear-gradient(135deg, #123526 0%, #0d281d 50%, #efe6cd 100%)",
+    gradient: "linear-gradient(135deg, #18181b 0%, #09090b 50%, #cba758 100%)",
     icon: "📄",
   },
   {
     title: "Consumer Rights",
     subtitle: "Know your legal protection",
-    gradient: "linear-gradient(135deg, #1e5038 0%, #0a2217 50%, #b08a3e 100%)",
+    gradient: "linear-gradient(135deg, #27272a 0%, #000000 50%, #b08a3e 100%)",
     icon: "⚖️",
   },
   {
     title: "Business Registration",
     subtitle: "GST, Udyam & more",
-    gradient: "linear-gradient(135deg, #0d281d 0%, #123526 50%, #cba758 100%)",
+    gradient: "linear-gradient(135deg, #09090b 0%, #18181b 50%, #dfbe75 100%)",
     icon: "🏢",
   },
 ];

@@ -13,10 +13,10 @@ const items = [
 
 export default function AnimatedMarquee() {
   return (
-    <div className="relative overflow-hidden border-y border-[var(--gold)]/20 bg-[var(--green-deep)] py-3.5 text-[var(--paper)] select-none">
+    <div className="relative overflow-hidden border-y border-[var(--gold)]/20 bg-black py-3.5 text-white select-none">
       {/* Edge gradient masks */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[var(--green-deep)] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[var(--green-deep)] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-black to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-black to-transparent" />
 
       <div className="animate-marquee flex items-center gap-8">
         {[...items, ...items, ...items].map((item, idx) => {
@@ -24,7 +24,7 @@ export default function AnimatedMarquee() {
           return (
             <div
               key={idx}
-              className="flex items-center gap-3 whitespace-nowrap rounded-full border border-[var(--gold)]/25 bg-[var(--green)]/60 px-4 py-1.5 text-xs font-semibold tracking-wider text-[var(--paper)] transition-all duration-300 hover:border-[var(--gold-light)] hover:bg-[var(--green)]"
+              className="flex items-center gap-3 whitespace-nowrap rounded-full border border-[var(--gold)]/25 bg-zinc-900/90 px-4 py-1.5 text-xs font-semibold tracking-wider text-white transition-all duration-300 hover:border-[var(--gold-light)] hover:bg-black"
             >
               <Icon size={14} className="text-[var(--gold-light)]" />
               <span>{item.label}</span>

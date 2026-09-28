@@ -15,9 +15,9 @@ export default function NewGenHero() {
       <OrganicParticleCanvas />
 
       {/* Modern gradient aurora overlays */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--green-deep)]/40 via-transparent to-[var(--green-deep)]/60" style={{ zIndex: 2 }} />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" style={{ zIndex: 2 }} />
       <div className="pointer-events-none absolute -top-40 right-10 h-[500px] w-[500px] rounded-full bg-[var(--gold)]/10 blur-[120px]" style={{ zIndex: 2 }} />
-      <div className="pointer-events-none absolute -bottom-32 left-10 h-[450px] w-[450px] rounded-full bg-[var(--green-light)]/20 blur-[100px]" style={{ zIndex: 2 }} />
+      <div className="pointer-events-none absolute -bottom-32 left-10 h-[450px] w-[450px] rounded-full bg-[var(--gold)]/10 blur-[100px]" style={{ zIndex: 2 }} />
 
       <div className="container relative py-16 md:py-24" style={{ zIndex: 10 }}>
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
@@ -29,11 +29,11 @@ export default function NewGenHero() {
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="inline-flex flex-wrap items-center gap-2.5 rounded-full border border-[var(--gold)]/30 bg-[var(--green)]/70 px-4 py-1.5 text-xs font-semibold tracking-wide text-[var(--paper)] backdrop-blur-md"
+              className="inline-flex flex-wrap items-center gap-2.5 rounded-full border border-[var(--gold)]/30 bg-black/80 px-4 py-1.5 text-xs font-semibold tracking-wide text-white backdrop-blur-md"
             >
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#cba758] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#cba758]" />
               </span>
               <span>Advocate & Trade Mark Attorney</span>
               <span className="text-[var(--gold-light)] font-mono">· Trisharan Sq., Nagpur</span>
@@ -151,8 +151,8 @@ export default function NewGenHero() {
                   </div>
                 </div>
 
-                <span className="flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="flex items-center gap-1 rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/15 px-2.5 py-1 text-[11px] font-semibold text-[var(--gold-light)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#cba758] animate-pulse" />
                   Active
                 </span>
               </div>
@@ -194,7 +194,7 @@ export default function NewGenHero() {
                 <div className="mt-3 flex gap-2">
                   <Link
                     href="/book"
-                    className="flex-1 rounded-full bg-[var(--gold)] py-2.5 text-xs font-bold text-[var(--green-deep)] transition-all hover:bg-[var(--gold-light)] text-center no-underline"
+                    className="flex-1 rounded-full bg-[var(--gold)] py-2.5 text-xs font-bold text-black transition-all hover:bg-[var(--gold-light)] text-center no-underline"
                   >
                     Select Slot Now
                   </Link>

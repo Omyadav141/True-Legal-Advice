@@ -55,7 +55,7 @@ export default function PracticeApproach() {
           </div>
 
           <div className="rounded-2xl border border-[var(--gold)]/30 bg-[var(--gold)]/10 p-4 mt-2">
-            <p className="text-xs font-bold text-[var(--green)]">
+            <p className="text-xs font-bold text-black">
               {site.tagline}
             </p>
           </div>
@@ -75,7 +75,7 @@ export default function PracticeApproach() {
                   {principle.num}
                 </span>
                 <div className="flex-1">
-                  <h3 className="font-serif text-xl font-bold text-[var(--green)] group-hover:text-[var(--gold-dark)] transition-colors">
+                  <h3 className="font-serif text-xl font-bold text-[var(--ink)] group-hover:text-[var(--gold)] transition-colors">
                     {principle.title}
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-[var(--ink-soft)]">

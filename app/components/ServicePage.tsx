@@ -80,7 +80,7 @@ export default function ServicePage({
                   )}
                   <div
                     className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                    style={{ background: "var(--green)", color: "var(--gold-light)" }}
+                    style={{ background: "black", color: "var(--gold-light)" }}
                   >
                     {i + 1}
                   </div>
@@ -95,7 +95,7 @@ export default function ServicePage({
             </ol>
           </div>
 
-          <div className="card h-fit lg:sticky lg:top-24" style={{ background: "var(--green)", border: "none" }}>
+          <div className="card h-fit lg:sticky lg:top-24 text-white" style={{ background: "black", border: "1px solid rgba(203, 167, 88, 0.3)" }}>
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: "rgba(250,247,240,0.12)" }}>
                 <FileText size={20} style={{ color: "var(--gold-light)" }} />
@@ -129,7 +129,7 @@ export default function ServicePage({
           <div className="flex flex-col gap-3">
             {faqs.map((faq) => (
               <details key={faq.q} className="card group !p-0">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-6 text-base font-semibold" style={{ color: "var(--green)", fontFamily: "var(--font-display)" }}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-6 text-base font-semibold" style={{ color: "var(--ink)", fontFamily: "var(--font-display)" }}>
                   {faq.q}
                   <span
                     aria-hidden="true"
