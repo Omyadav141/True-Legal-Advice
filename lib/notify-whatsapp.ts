@@ -4,6 +4,7 @@ type Booking = {
   name: string;
   phone: string;
   service: string;
+  sub_service?: string | null;
   booking_date: string;
   booking_time: string;
   consultation_mode?: string;
@@ -18,16 +19,6 @@ const serviceLabels: Record<string, string> = {
 
 // Sends a WhatsApp message to the lawyer via Meta's WhatsApp Cloud API
 // whenever a new booking comes in.
-//
-// SETUP NEEDED (one-time, done by you in Meta Business dashboard):
-// 1. Create a Meta Business Account: business.facebook.com
-// 2. Set up WhatsApp Business Platform, verify the business phone number
-// 3. Get: WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN
-// 4. Add both to .env.local
-// 5. IMPORTANT: Meta requires the first message in a 24hr window to use an
-//    approved "template" message (not free text). Create a simple template
-//    called "new_booking_alert" in Meta's dashboard with variables for
-//    name, service, phone — then reference it below.
 export async function sendBookingWhatsApp(booking: Booking) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -37,6 +28,10 @@ export async function sendBookingWhatsApp(booking: Booking) {
     console.warn("WhatsApp API credentials not set — skipping WhatsApp notification.");
     return;
   }
+
+  const matterLabel = booking.sub_service
+    ? `${booking.sub_service} (${serviceLabels[booking.service] || booking.service})`
+    : serviceLabels[booking.service] || booking.service;
 
   try {
     await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
@@ -57,7 +52,7 @@ export async function sendBookingWhatsApp(booking: Booking) {
               type: "body",
               parameters: [
                 { type: "text", text: booking.name },
-                { type: "text", text: serviceLabels[booking.service] || booking.service },
+                { type: "text", text: matterLabel },
                 { type: "text", text: booking.phone },
               ],
             },
@@ -116,3 +111,44 @@ export async function sendClientMeetLinkWhatsApp(booking: Booking) {
     console.error("Failed to send client Meet link notification:", err);
   }
 }
+
+export async function sendClientOfficeVisitWhatsApp(booking: Booking) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  if (!phoneNumberId || !accessToken) {
+    return;
+  }
+
+  try {
+    await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: `91${booking.phone.replace(/\D/g, "").slice(-10)}`,
+        type: "template",
+        template: {
+          name: "office_visit_confirmation",
+          language: { code: "en" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: booking.name },
+                { type: "text", text: `${booking.booking_date} at ${booking.booking_time}` },
+                { type: "text", text: "Trisharan Square, Nagpur - 440027, Maharashtra" },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to send client office visit notification:", err);
+  }
+}
+

@@ -83,14 +83,14 @@ How can I assist you with your legal matter today? You can inquire about:
     query.includes("process")
   ) {
     return {
-      text: `Adv. Shareen Hussain provides dedicated, private legal consultations for both Video Consultation (Google Meet) and In-Chamber sessions at Trisharan Square, Nagpur.
+      text: `Adv. Shareen Hussain provides dedicated, private legal consultations for both Video Consultation (Google Meet) and Office Visit sessions at Trisharan Square, Nagpur.
 
 📋 How to Book Your Slot:
 1. Tap "Book a Consultation Slot" below to view live calendar availability
-2. Choose between Online Video Call or In-Person Chamber Visit
+2. Choose between Online Video Call or In-Person Office Visit
 3. Select your preferred date & time slot
 4. Provide your contact details & brief overview of your case
-5. Instant WhatsApp confirmation from our chamber desk`,
+5. Instant WhatsApp confirmation from our legal desk`,
       suggestedActions: [
         { label: "Book a Consultation Slot", href: "/book" },
         { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I would like to book a legal consultation session.")}`, external: true },
@@ -253,7 +253,7 @@ Please feel free to ask about any of our legal practice areas:
 • Trademark, Copyright & Business Registration
 • Property Title Verification, Sale Deeds & Wills
 • Matrimonial, Divorce & Family Court litigation
-• In-Chamber & Online Consultation appointments`,
+• Office Visit & Online Consultation appointments`,
     suggestedActions: [
       { label: "Court Marriage Information", href: "/court-marriage" },
       { label: "Trademark Practice", href: "/trademark-registration" },
@@ -399,10 +399,11 @@ export default function AiLegalAssistantBot() {
           transition={{ duration: 0.4, delay: 0.2 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-colors border border-white/20"
+          className="btn-whatsapp !px-3.5 !py-2 !text-xs !shadow-lg border border-white/25"
+          style={{ backgroundColor: "#25D366", color: "#ffffff" }}
         >
-          <Phone size={14} className="fill-white" />
-          <span>Direct WhatsApp</span>
+          <Phone size={14} style={{ color: "#ffffff" }} className="fill-white" />
+          <span style={{ color: "#ffffff", fontWeight: 700 }}>Direct WhatsApp</span>
         </motion.a>
 
         {/* Primary AI Bot Trigger Button */}

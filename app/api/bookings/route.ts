@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { sendBookingEmail } from "@/lib/notify-email";
-import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp } from "@/lib/notify-whatsapp";
+import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp, sendClientOfficeVisitWhatsApp } from "@/lib/notify-whatsapp";
 import { getAllDaySlots, isDateBookable } from "@/lib/availability";
 import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
@@ -13,7 +13,8 @@ const UNIQUE_VIOLATION = "23505";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, phone, email, service, bookingDate, bookingTime, consultationMode, message } = body;
+    const { name, phone, email, service, sub_service, subService, bookingDate, bookingTime, consultationMode, message } = body;
+    const finalSubService = sub_service || subService || null;
 
     if (!name || !phone || !service || !bookingDate || !bookingTime) {
       return NextResponse.json(
@@ -44,10 +45,11 @@ export async function POST(req: NextRequest) {
       const end = new Date(start);
       end.setHours(end.getHours() + 1);
       const serviceLabel = services.find((s) => s.slug === service)?.title || service;
+      const matterDetail = finalSubService ? ` - ${finalSubService}` : "";
 
       const result = await createGoogleMeetLink({
-        summary: `${serviceLabel} consultation — ${name}`,
-        description: `Video consultation with ${site.lawyerName} (${site.businessName}).\nClient: ${name}\nPhone: ${phone}`,
+        summary: `${serviceLabel}${matterDetail} consultation — ${name}`,
+        description: `Video consultation with ${site.lawyerName} (${site.businessName}).\nClient: ${name}\nPhone: ${phone}\nMatter: ${finalSubService || serviceLabel}`,
         startISO: start.toISOString(),
         endISO: end.toISOString(),
         attendeeEmail: email || null,
@@ -55,18 +57,22 @@ export async function POST(req: NextRequest) {
       meetLink = result.meetLink;
     }
 
+    // Office visit consultations are auto-confirmed (paid slot); online can be confirmed or pending review
+    const initialStatus = mode === "offline" ? "confirmed" : "pending";
+
     let bookingRecord: BookingRecord = {
       id: "bk_" + Date.now(),
       name,
       phone,
       email: email || null,
       service,
+      sub_service: finalSubService,
       booking_date: bookingDate,
       booking_time: bookingTime,
       consultation_mode: mode,
       meet_link: meetLink || site.googleMeetRoom,
       message: message || null,
-      status: "pending",
+      status: initialStatus,
       created_at: new Date().toISOString(),
     };
 
@@ -82,20 +88,22 @@ export async function POST(req: NextRequest) {
 
       if (hasSupabase) {
         const supabase = supabaseServer();
+        const payload: Record<string, unknown> = {
+          name,
+          phone,
+          email: email || null,
+          service,
+          booking_date: bookingDate,
+          booking_time: bookingTime,
+          consultation_mode: mode,
+          meet_link: meetLink,
+          message: finalSubService ? `[Matter: ${finalSubService}] ${message || ""}`.trim() : (message || null),
+          status: initialStatus,
+        };
+
         const { data: dbData, error } = await supabase
           .from("bookings")
-          .insert({
-            name,
-            phone,
-            email: email || null,
-            service,
-            booking_date: bookingDate,
-            booking_time: bookingTime,
-            consultation_mode: mode,
-            meet_link: meetLink,
-            message: message || null,
-            status: "pending",
-          })
+          .insert(payload)
           .select()
           .single();
 
@@ -108,7 +116,7 @@ export async function POST(req: NextRequest) {
           }
           console.warn("Supabase insert notification:", error.message);
         } else if (dbData) {
-          bookingRecord = { ...bookingRecord, ...dbData };
+          bookingRecord = { ...bookingRecord, ...dbData, sub_service: finalSubService };
         }
       }
     } catch (sbErr) {
@@ -122,7 +130,9 @@ export async function POST(req: NextRequest) {
     await Promise.allSettled([
       sendBookingEmail(bookingRecord),
       sendBookingWhatsApp(bookingRecord),
-      sendClientMeetLinkWhatsApp(bookingRecord),
+      mode === "offline"
+        ? sendClientOfficeVisitWhatsApp(bookingRecord)
+        : sendClientMeetLinkWhatsApp(bookingRecord),
     ]);
 
     return NextResponse.json({ success: true, booking: bookingRecord });

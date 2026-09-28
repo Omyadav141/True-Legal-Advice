@@ -59,14 +59,56 @@ export const services = [
 ];
 
 export const otherLegalServices = [
-  { title: "Trademark & Intellectual Property", description: "Trademark registration and prosecution, with guidance on protecting your brand and intellectual property." },
-  { title: "Property & Real Estate", description: "Property documentation, due diligence, deeds and guidance for property transactions and matters." },
-  { title: "Family & Muslim Law", description: "Personalised legal consultation and assistance with family and Muslim Law matters." },
-  { title: "Consumer matters", description: "Legal advice, documentation and representation for consumer matters." },
-  { title: "Motor Accident matters", description: "Legal consultation and assistance with motor accident matters." },
-  { title: "Drafting & agreements", description: "Legal agreements, notices, deeds, Power of Attorney and other important documentation." },
-  { title: "Business registrations & compliance", description: "Assistance with GST, Udyam Registration, Gumasta, FSSAI-related work and company registration." },
-  { title: "Consultation & representation", description: "Practical advisory and representation for individuals, entrepreneurs, businesses, startups and organisations." },
+  {
+    title: "Court Marriage & Registration",
+    description: "Confidential procedures under Special Marriage Act, Hindu Marriage Act & Muslim Law. Protection and certified registration.",
+    href: "/court-marriage",
+  },
+  {
+    title: "Trademark & Intellectual Property",
+    description: "Trademark registration and prosecution, with guidance on protecting your brand and intellectual property.",
+    href: "/trademark-registration",
+  },
+  {
+    title: "Litigation & Court Practice",
+    description: "Bombay High Court (Nagpur Bench) & District Court. Civil suits, Cheque bounce (138 NI), MACT accident claims, FIR drafting.",
+    href: "/legal-services",
+  },
+  {
+    title: "Property & Real Estate",
+    description: "Property documentation, due diligence, deeds and guidance for property transactions and matters.",
+    href: "/legal-services",
+  },
+  {
+    title: "Family & Muslim Law",
+    description: "Personalised legal consultation and assistance with family and Muslim Law matters.",
+    href: "/legal-services",
+  },
+  {
+    title: "Consumer matters",
+    description: "Legal advice, documentation and representation for consumer matters.",
+    href: "/legal-services",
+  },
+  {
+    title: "Motor Accident matters",
+    description: "Legal consultation and assistance with motor accident matters.",
+    href: "/legal-services",
+  },
+  {
+    title: "Drafting & agreements",
+    description: "Legal agreements, notices, deeds, Power of Attorney and other important documentation.",
+    href: "/legal-services",
+  },
+  {
+    title: "Business registrations & compliance",
+    description: "Assistance with GST, Udyam Registration, Gumasta, FSSAI-related work and company registration.",
+    href: "/legal-services",
+  },
+  {
+    title: "Consultation & representation",
+    description: "Practical advisory and representation for individuals, entrepreneurs, businesses, startups and organisations.",
+    href: "/book",
+  },
 ];
 
 export const testimonials: { name: string; text: string }[] = [];

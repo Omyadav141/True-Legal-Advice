@@ -25,23 +25,30 @@ export default function ContactPage() {
     phone: "",
     email: "",
     service: "Court Marriage & Registration",
-    mode: "In-Chamber (Trisharan Square, Nagpur)",
+    mode: "Office Visit (Trisharan Square, Nagpur)",
     message: "",
   });
 
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.phone.trim()) return;
 
     setSubmitting(true);
-    // Simulate instantaneous processing
-    setTimeout(() => {
+    try {
+      await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+    } catch (err) {
+      console.error("Failed to send contact inquiry:", err);
+    } finally {
       setSubmitting(false);
       setSubmitted(true);
-    }, 500);
+    }
   };
 
   const whatsappMessage = encodeURIComponent(
@@ -175,7 +182,7 @@ I submitted an inquiry through your True Legal Advice website:
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
-                          "In-Chamber (Trisharan Square, Nagpur)",
+                          "Office Visit (Trisharan Square, Nagpur)",
                           "Online Video Call (Google Meet)",
                         ].map((m) => (
                           <button
@@ -267,7 +274,7 @@ I submitted an inquiry through your True Legal Advice website:
                         phone: "",
                         email: "",
                         service: "Court Marriage & Registration",
-                        mode: "In-Chamber (Trisharan Square, Nagpur)",
+                        mode: "Office Visit (Trisharan Square, Nagpur)",
                         message: "",
                       });
                     }}

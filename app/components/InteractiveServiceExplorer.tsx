@@ -264,7 +264,7 @@ export default function InteractiveServiceExplorer() {
                     </Link>
 
                     <Link
-                      href="/book"
+                      href={`/book?service=${service.id === "court-marriage" ? "court-marriage" : service.id === "trademark-registration" ? "trademark" : "other"}&matter=${encodeURIComponent(service.title)}`}
                       className="rounded-full bg-[var(--gold)] px-3.5 py-1.5 text-xs font-semibold text-[var(--green-deep)] hover:bg-[var(--gold-light)] transition-colors no-underline shadow-sm"
                     >
                       Book Slot

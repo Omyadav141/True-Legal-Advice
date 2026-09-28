@@ -191,7 +191,7 @@ export default function TrademarkPage() {
   return (
     <div className="bg-[var(--paper)] text-[var(--ink)]">
       {/* ============ Cinematic Hero ============ */}
-      <section className="relative flex min-h-[75svh] items-end overflow-hidden">
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden">
         <div className="hero-media">
           <Image
             src="/images/hero-trademark.png"
@@ -244,7 +244,7 @@ export default function TrademarkPage() {
 
           {/* CTAs */}
           <div className="fade-up fade-up-delay-3 mt-8 flex flex-wrap items-center gap-4">
-            <Link href="/book" className="btn-primary shimmer-badge !py-3.5 !px-7 text-sm">
+            <Link href="/book?service=trademark" className="btn-primary shimmer-badge !py-3.5 !px-7 text-sm">
               <span>Book IP Consultation</span>
               <ArrowRight size={16} />
             </Link>
@@ -253,7 +253,7 @@ export default function TrademarkPage() {
               href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need brand clearance and trademark registration guidance for my business.")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all shadow-md"
+              className="btn-whatsapp !py-3.5 !px-7 text-sm"
             >
               <Phone size={16} />
               <span>WhatsApp Brand Clearance</span>
@@ -317,13 +317,13 @@ export default function TrademarkPage() {
                   </div>
                 </div>
 
-                <div className="mt-8 pt-5 border-t border-[var(--border)] flex items-center justify-between">
+                <div className="mt-8 pt-5 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
                   <Link
-                    href="/book"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--green)] hover:text-[var(--gold)] transition-colors"
+                    href={`/book?service=trademark&matter=${encodeURIComponent(track.title)}`}
+                    className="btn-pathway !text-xs !py-2 !px-4 !text-white"
                   >
-                    <span>Schedule Case Review</span>
-                    <ArrowRight size={14} />
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Schedule Case Review</span>
+                    <ArrowRight size={13} style={{ color: "#cba758" }} />
                   </Link>
 
                   <a

@@ -253,27 +253,22 @@ function AccentureCompactCard({ card, index }: { card: CardItem; index: number }
           </div>
         </div>
 
-        {/* Bottom Metadata & Action CTA Link */}
-        <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[9.5px] font-mono uppercase tracking-wider text-slate-400 font-semibold truncate">
-              {card.metaLabel}
-            </p>
-            <p className="text-xs font-medium text-slate-200 mt-0.5 truncate" title={card.metaValue}>
-              {card.metaValue}
-            </p>
-          </div>
-
+        {/* Bottom Clean Action CTA Link */}
+        <div className="relative z-10 pt-3 border-t border-white/10 mt-auto">
           <Link
             href={card.href}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shrink-0 whitespace-nowrap hover:brightness-110 active:scale-95"
+            className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md group/btn hover:brightness-110 active:scale-[0.98]"
             style={{
               backgroundColor: "#cba758",
               color: "#0a2217",
             }}
           >
-            <span style={{ color: "#0a2217" }}>{card.ctaText}</span>
-            <ArrowUpRight size={13} style={{ color: "#0a2217" }} />
+            <span className="font-semibold tracking-wide" style={{ color: "#0a2217" }}>
+              {card.ctaText}
+            </span>
+            <div className="h-6 w-6 rounded-lg bg-black/10 flex items-center justify-center transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5">
+              <ArrowUpRight size={14} style={{ color: "#0a2217" }} />
+            </div>
           </Link>
         </div>
       </div>

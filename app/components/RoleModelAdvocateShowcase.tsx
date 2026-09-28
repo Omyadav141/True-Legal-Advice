@@ -209,13 +209,18 @@ export default function RoleModelAdvocateShowcase() {
             </div>
 
             {/* Chamber Walk-in Timings Banner */}
-            <div className="p-4 rounded-xl bg-[var(--paper-dark)] border border-[var(--border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-[var(--ink)]">
-                <MapPin size={16} className="text-[var(--gold)] flex-shrink-0" />
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-[var(--paper-dark)] to-white border border-[var(--gold)]/35 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+              <div className="flex items-center gap-3 text-[var(--ink)]">
+                <div className="h-9 w-9 rounded-xl bg-[var(--gold)]/15 border border-[var(--gold)]/30 flex items-center justify-center shrink-0 text-[var(--gold)]">
+                  <MapPin size={18} />
+                </div>
                 <div>
-                  <span className="font-bold">Walk-in Consultation Desk: </span>
-                  <span className="text-[var(--ink-soft)]">
-                    9:30 AM – 11:00 AM & 5:30 PM – 8:30 PM
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[var(--green)]">Walk-in Consultation Desk</span>
+                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Open Daily</span>
+                  </div>
+                  <span className="text-[var(--ink-soft)] text-xs block mt-0.5">
+                    Morning: 9:30 AM – 11:00 AM &bull; Evening: 5:30 PM – 8:30 PM
                   </span>
                   <span className="block text-[11px] text-[var(--ink-muted)]">
                     Trisharan Square, Nagpur - 440027
@@ -225,10 +230,15 @@ export default function RoleModelAdvocateShowcase() {
 
               <a
                 href={`tel:${site.phone}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--green)] text-white font-semibold hover:bg-[var(--green-light)] transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md shrink-0 cursor-pointer hover:bg-[#1a4733]"
+                style={{
+                  backgroundColor: "#123526",
+                  color: "#ffffff",
+                  border: "1px solid rgba(203, 167, 88, 0.4)",
+                }}
               >
-                <Phone size={13} />
-                <span>8329631199</span>
+                <Phone size={14} style={{ color: "#cba758" }} />
+                <span style={{ color: "#ffffff", fontWeight: 700 }}>Call: {site.phone}</span>
               </a>
             </div>
           </motion.div>

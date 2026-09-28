@@ -7,12 +7,14 @@ export interface BookingRecord {
   phone: string;
   email: string | null;
   service: string;
+  sub_service?: string | null;
   booking_date: string;
   booking_time: string;
   consultation_mode: "online" | "offline";
   meet_link: string | null;
   message: string | null;
   status: "pending" | "confirmed" | "completed" | "cancelled";
+  attendance?: "attended" | "no_show" | "scheduled" | null;
   created_at: string;
 }
 
@@ -56,6 +58,20 @@ export function saveLocalBooking(record: BookingRecord): BookingRecord {
 }
 
 export function updateLocalBookingStatus(id: string, status: BookingRecord["status"]): boolean {
+  return updateLocalBookingRecord(id, { status });
+}
+
+export function updateLocalBookingAttendance(
+  id: string,
+  attendance: "attended" | "no_show" | "scheduled"
+): boolean {
+  return updateLocalBookingRecord(id, { attendance });
+}
+
+export function updateLocalBookingRecord(
+  id: string,
+  updates: Partial<BookingRecord>
+): boolean {
   try {
     ensureFileExists();
     const existing = getLocalBookings();
@@ -63,7 +79,7 @@ export function updateLocalBookingStatus(id: string, status: BookingRecord["stat
     const updated = existing.map((b) => {
       if (b.id === id) {
         found = true;
-        return { ...b, status };
+        return { ...b, ...updates };
       }
       return b;
     });
@@ -72,7 +88,7 @@ export function updateLocalBookingStatus(id: string, status: BookingRecord["stat
     }
     return found;
   } catch (err) {
-    console.error("Error updating local booking status:", err);
+    console.error("Error updating local booking record:", err);
     return false;
   }
 }

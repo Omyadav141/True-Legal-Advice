@@ -30,28 +30,27 @@ import {
   Send,
   X,
   Scale,
+  Users,
+  Eye,
+  Filter,
+  CheckCheck,
+  AlertCircle,
+  ChevronDown,
+  Building2,
+  Briefcase,
+  HelpCircle,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
+import type { BookingRecord } from "@/lib/bookings-store";
+import type { ContactInquiry } from "@/lib/contacts-store";
+import type { ChamberStatus } from "@/lib/chamber-status";
 
-export type Booking = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  service: string;
-  booking_date: string;
-  booking_time: string;
-  consultation_mode: "online" | "offline";
-  meet_link: string | null;
-  message: string | null;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
-  created_at: string;
-};
+export type Booking = BookingRecord;
 
 const serviceLabels: Record<string, string> = {
   "court-marriage": "Court Marriage & Registration",
   "trademark-registration": "Trademark & Brand Protection",
-  "legal-services": "Chamber Documentation & Litigation",
+  "legal-services": "Chamber Litigation & Deeds",
 };
 
 const statusStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
@@ -59,55 +58,51 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     bg: "bg-amber-50",
     text: "text-amber-800",
     border: "border-amber-200",
-    label: "Awaiting Confirmation",
+    label: "Awaiting Review",
   },
   confirmed: {
     bg: "bg-emerald-50",
     text: "text-emerald-800",
     border: "border-emerald-200",
-    label: "Confirmed & Scheduled",
+    label: "Confirmed Slot",
   },
   completed: {
     bg: "bg-slate-50",
     text: "text-slate-700",
     border: "border-slate-200",
-    label: "Consultation Completed",
+    label: "Completed",
   },
   cancelled: {
     bg: "bg-rose-50",
     text: "text-rose-800",
     border: "border-rose-200",
-    label: "Declined / Cancelled",
+    label: "Declined",
+  },
+  new: {
+    bg: "bg-blue-50",
+    text: "text-blue-800",
+    border: "border-blue-200",
+    label: "New Inquiry",
+  },
+  contacted: {
+    bg: "bg-purple-50",
+    text: "text-purple-800",
+    border: "border-purple-200",
+    label: "Contacted",
+  },
+  converted: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    label: "Retained",
+  },
+  closed: {
+    bg: "bg-slate-50",
+    text: "text-slate-600",
+    border: "border-slate-200",
+    label: "Closed",
   },
 };
-
-const ADVOCATE_QUOTES = [
-  {
-    quote: "Justice is truth in action. When you stand before the court or advise a citizen in your chamber, you hold the shield of constitutional dignity.",
-    author: "Chamber Motto",
-    title: "Adv. Shareen Hussain Chambers",
-  },
-  {
-    quote: "A lawyer without history or literature is a mechanic, a mere working mason; if he possesses some knowledge of these, he may venture to call himself an architect.",
-    author: "Sir Walter Scott",
-    title: "Architect of Legal Remedies",
-  },
-  {
-    quote: "Cultivate the spirit of fearless advocacy. The legal profession is not a trade; it is a sacred trust to protect the rights of the citizen under the Constitution.",
-    author: "Justice V. R. Krishna Iyer",
-    title: "Judicial Beacon",
-  },
-  {
-    quote: "Law and order are the medicine of the body politic and when the body politic gets sick, medicine must be administered with precision and courage.",
-    author: "Dr. B. R. Ambedkar",
-    title: "Father of Indian Constitution",
-  },
-  {
-    quote: "Every citizen who walks into Trisharan Square brings their deepest hope for justice. Deliver with clarity, uncompromising ethics, and strategic mastery.",
-    author: "High Court & District Court Practice",
-    title: "True Legal Advice",
-  },
-];
 
 function formatWhatsAppNumber(phone: string): string {
   const digits = phone.replace(/\D/g, "");
@@ -143,75 +138,260 @@ function formatDateLabel(d: string): string {
   });
 }
 
-function getTimeOfDayGreeting(): { greeting: string; icon: any } {
-  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  const hour = ist.getUTCHours();
-  if (hour < 12) return { greeting: "Good morning", icon: Sun };
-  if (hour < 17) return { greeting: "Good afternoon", icon: Sun };
-  return { greeting: "Good evening", icon: Moon };
+function getInitials(name: string): string {
+  if (!name) return "CL";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
 }
+
+const AVATAR_COLORS = [
+  "bg-emerald-700 text-white",
+  "bg-amber-700 text-white",
+  "bg-teal-700 text-white",
+  "bg-indigo-700 text-white",
+  "bg-slate-700 text-white",
+];
 
 export default function DashboardClient() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "today" | "confirmed" | "completed" | "cancelled">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [role, setRole] = useState<"admin" | "secretary">("admin");
-  const [quoteIndex, setQuoteIndex] = useState(0);
 
-  // Modal State for Confirmation & Direct WhatsApp Dispatch
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [contacts, setContacts] = useState<ContactInquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<"admin" | "secretary">("admin");
+
+  // Tab: All Clients / Mandates vs Bookings vs Contact Forms
+  const [viewTab, setViewTab] = useState<"all" | "bookings" | "contacts">("all");
+
+  // Sub-filter: All, Today, Pending, Confirmed, Attended, Completed, Cancelled
+  const [statusFilter, setStatusFilter] = useState<"all" | "today" | "pending" | "confirmed" | "attended" | "completed" | "cancelled">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Chamber Availability & Away Manager Modal
+  const [chamberStatus, setChamberStatus] = useState<ChamberStatus>({
+    isOfficeOpen: true,
+    isOnlineOpen: true,
+    status: "available",
+    channelsAffected: "none",
+    awayReason: "",
+    returnEstimate: "",
+    returnTime: "",
+    notice: "Office visits are open today at Trisharan Square, Nagpur.",
+    updatedAt: new Date().toISOString(),
+  });
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusModalReason, setStatusModalReason] = useState("");
+  const [statusModalEstimate, setStatusModalEstimate] = useState("");
+  const [statusModalOfficeOpen, setStatusModalOfficeOpen] = useState(true);
+  const [statusModalOnlineOpen, setStatusModalOnlineOpen] = useState(true);
+  const [statusSaving, setStatusSaving] = useState(false);
+
+  // Selected Item for Detail Slide-Over / Modal
+  const [selectedRecord, setSelectedRecord] = useState<{ type: "booking" | "contact"; data: any } | null>(null);
+
+  // Custom Confirmation & WhatsApp Modal
   const [confirmModalBooking, setConfirmModalBooking] = useState<Booking | null>(null);
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const loadBookings = useCallback(async () => {
+  const todayStr = useMemo(() => todayInIndia(), []);
+
+  // Fetch Bookings & Contacts
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/bookings");
-      if (res.status === 401) {
+      const [bookRes, contRes, statusRes] = await Promise.all([
+        fetch("/api/admin/bookings"),
+        fetch("/api/admin/contacts"),
+        fetch("/api/admin/chamber-status"),
+      ]);
+
+      if (bookRes.status === 401) {
         router.push("/admin/login");
         return;
       }
-      const data = await res.json();
-      setBookings(data.bookings || []);
-      if (data.role) setRole(data.role);
+
+      if (bookRes.ok) {
+        const bookData = await bookRes.json();
+        setBookings(bookData.bookings || []);
+        if (bookData.role) setRole(bookData.role);
+      }
+
+      if (contRes.ok) {
+        const contData = await contRes.json();
+        setContacts(contData.contacts || []);
+      }
+
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setChamberStatus(statusData);
+        setStatusModalOfficeOpen(statusData.isOfficeOpen);
+        setStatusModalOnlineOpen(statusData.isOnlineOpen);
+        setStatusModalReason(statusData.awayReason || "");
+        setStatusModalEstimate(statusData.returnEstimate || "");
+      }
     } catch (err) {
-      console.error("Failed to load chamber bookings:", err);
+      console.error("Failed to load dashboard data:", err);
     } finally {
       setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+    loadData();
+  }, [loadData]);
 
-  // Rotate quotes every 45 seconds or on manual click
-  const nextQuote = () => {
-    setQuoteIndex((prev) => (prev + 1) % ADVOCATE_QUOTES.length);
+  // Handle Logout
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+      router.push("/admin/login");
+    } catch {
+      router.push("/admin/login");
+    }
   };
+
+  // Chamber Status Saver
+  const saveChamberAvailability = async (preset?: {
+    isOfficeOpen: boolean;
+    isOnlineOpen: boolean;
+    awayReason: string;
+    returnEstimate: string;
+  }) => {
+    setStatusSaving(true);
+    try {
+      const officeOpen = preset ? preset.isOfficeOpen : statusModalOfficeOpen;
+      const onlineOpen = preset ? preset.isOnlineOpen : statusModalOnlineOpen;
+      const reason = preset ? preset.awayReason : statusModalReason.trim();
+      const estimate = preset ? preset.returnEstimate : statusModalEstimate.trim();
+
+      let noticeText = "";
+      if (officeOpen && onlineOpen) {
+        noticeText = "Office visits are active at Trisharan Square, Nagpur. Online video consultations are also open.";
+      } else if (!officeOpen && onlineOpen) {
+        noticeText = `Advocate Shareen Hussain is currently away attending ${reason || "court hearings"}. Office visits will resume in approximately ${estimate || "1–2 hours"}. Online Google Meet video consultations remain available.`;
+      } else {
+        noticeText = `Advocate Shareen Hussain's chamber is currently closed (${reason || "Court sessions / Leave"}). Resuming at ${estimate || "the next scheduled session"}.`;
+      }
+
+      const res = await fetch("/api/admin/chamber-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isOfficeOpen: officeOpen,
+          isOnlineOpen: onlineOpen,
+          status: officeOpen ? "available" : "away",
+          channelsAffected: !officeOpen && !onlineOpen ? "both" : !officeOpen ? "office_only" : "none",
+          awayReason: reason,
+          returnEstimate: estimate,
+          notice: noticeText,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setChamberStatus(data.status);
+        setShowStatusModal(false);
+      }
+    } catch (err) {
+      console.error("Failed to update chamber status:", err);
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  // Status Updater (Bookings)
+  async function updateBookingStatus(id: string, status: Booking["status"]) {
+    setUpdatingId(id);
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, status } : b))
+        );
+        if (selectedRecord && selectedRecord.data.id === id) {
+          setSelectedRecord((prev) => prev ? { ...prev, data: { ...prev.data, status } } : null);
+        }
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  // Attendance Updater (Mark if customer came or not)
+  async function updateAttendance(id: string, attendance: "attended" | "no_show" | "scheduled") {
+    setUpdatingId(id);
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, attendance }),
+      });
+      if (res.ok) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, attendance } : b))
+        );
+        if (selectedRecord && selectedRecord.data.id === id) {
+          setSelectedRecord((prev) => prev ? { ...prev, data: { ...prev.data, attendance } } : null);
+        }
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  // Contact Status Updater
+  async function updateContactStatus(id: string, status: ContactInquiry["status"]) {
+    setUpdatingId(id);
+    try {
+      const res = await fetch("/api/admin/contacts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) {
+        setContacts((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, status } : c))
+        );
+        if (selectedRecord && selectedRecord.data.id === id) {
+          setSelectedRecord((prev) => prev ? { ...prev, data: { ...prev.data, status } } : null);
+        }
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
 
   // Generate customized WhatsApp confirmation text
   const buildConfirmationMessage = useCallback((b: Booking) => {
     const dateStr = formatDateLabel(b.booking_date);
     const timeStr = formatTime12(b.booking_time);
-    const serviceTitle = serviceLabels[b.service] || b.service;
+    const serviceTitle = b.sub_service
+      ? `${b.sub_service} (${serviceLabels[b.service] || b.service})`
+      : serviceLabels[b.service] || b.service;
 
     if (b.consultation_mode === "offline") {
       return `Hello ${b.name},
 
-Your In-Chamber Legal Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
+Your Office Visit Legal Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
 
-🏛️ Chamber: True Legal Advice
+🏛️ Office: True Legal Advice
 ⚖️ Matter: ${serviceTitle}
 📅 Date: ${dateStr}
 ⏰ Scheduled Slot: ${timeStr}
-📍 Address: Trisharan Square, Nagpur - 440027, Maharashtra
+📍 Address: Near Trisharan Square, Nagpur - 440027, Maharashtra
 📞 Helpline: +91 83296 31199
 
-Please arrive 5 to 10 minutes prior with all relevant case documents, notices, or identity proofs. Adv. Shareen Hussain looks forward to assisting you.`;
+Please arrive 5 to 10 minutes prior with all relevant case documents, notices, or identity proofs. Adv. Shareen Hussain looks forward to meeting you at our Nagpur office.`;
     } else {
       const meetLink = b.meet_link || site.googleMeetRoom;
       return `Hello ${b.name},
@@ -240,707 +420,1112 @@ Please click the Google Meet link above at your scheduled appointment time.`;
     setCopied(false);
   };
 
-  // Status Updater
-  async function updateStatus(id: string, status: Booking["status"]) {
-    setUpdatingId(id);
-    try {
-      const res = await fetch("/api/admin/bookings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
-      });
-      if (res.ok) {
-        setBookings((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, status } : b))
-        );
-      }
-    } finally {
-      setUpdatingId(null);
-    }
-  }
+  // Metrics Calculations (Trend / Summary stats like Image 3)
+  const stats = useMemo(() => {
+    const totalBookings = bookings.length;
+    const totalContacts = contacts.length;
+    const totalRecords = totalBookings + totalContacts;
 
-  // Handle Dispatch & Confirm from Modal
-  async function handleConfirmAndDispatchWhatsApp() {
-    if (!confirmModalBooking) return;
-    const b = confirmModalBooking;
-    const cleanPhone = formatWhatsAppNumber(b.phone);
-    const textParam = encodeURIComponent(customMessage);
-    const waUrl = `https://wa.me/${cleanPhone}?text=${textParam}`;
+    const todayBookings = bookings.filter((b) => b.booking_date === todayStr).length;
+    const attendedCount = bookings.filter((b) => b.attendance === "attended").length;
+    const pendingBookings = bookings.filter((b) => b.status === "pending").length;
+    const newContacts = contacts.filter((c) => c.status === "new").length;
 
-    // 1. Update database status to confirmed
-    await updateStatus(b.id, "confirmed");
-
-    // 2. Open WhatsApp immediately on direct user click
-    window.open(waUrl, "_blank");
-
-    closeConfirmModal();
-  }
-
-  async function handleConfirmSilently() {
-    if (!confirmModalBooking) return;
-    await updateStatus(confirmModalBooking.id, "confirmed");
-    closeConfirmModal();
-  }
-
-  async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
-  }
-
-  const copyText = (txt: string) => {
-    navigator.clipboard.writeText(txt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const todayStr = todayInIndia();
-
-  const counts = useMemo(() => {
     return {
-      all: bookings.length,
-      pending: bookings.filter((b) => b.status === "pending").length,
-      today: bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled").length,
-      confirmed: bookings.filter((b) => b.status === "confirmed").length,
-      completed: bookings.filter((b) => b.status === "completed").length,
-      cancelled: bookings.filter((b) => b.status === "cancelled").length,
+      totalRecords,
+      totalBookings,
+      totalContacts,
+      todayBookings,
+      attendedCount,
+      pendingAction: pendingBookings + newContacts,
     };
-  }, [bookings, todayStr]);
+  }, [bookings, contacts, todayStr]);
 
-  const filteredBookings = useMemo(() => {
-    let list = [...bookings];
+  // Combined and Filtered Records for Data Table
+  const filteredRows = useMemo(() => {
+    let rows: Array<{
+      type: "booking" | "contact";
+      id: string;
+      name: string;
+      phone: string;
+      email: string | null;
+      service: string;
+      sub_service?: string | null;
+      date: string;
+      time?: string;
+      mode?: "online" | "offline" | string;
+      status: string;
+      attendance?: "attended" | "no_show" | "scheduled" | null;
+      message?: string | null;
+      created_at: string;
+      raw: Booking | ContactInquiry;
+    }> = [];
 
-    if (activeTab === "pending") {
-      list = list.filter((b) => b.status === "pending");
-    } else if (activeTab === "today") {
-      list = list.filter((b) => b.booking_date === todayStr);
-    } else if (activeTab === "confirmed") {
-      list = list.filter((b) => b.status === "confirmed");
-    } else if (activeTab === "completed") {
-      list = list.filter((b) => b.status === "completed");
-    } else if (activeTab === "cancelled") {
-      list = list.filter((b) => b.status === "cancelled");
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (b) =>
-          b.name.toLowerCase().includes(q) ||
-          b.phone.toLowerCase().includes(q) ||
-          (b.email && b.email.toLowerCase().includes(q)) ||
-          b.service.toLowerCase().includes(q) ||
-          b.booking_date.includes(q)
+    if (viewTab === "all" || viewTab === "bookings") {
+      rows.push(
+        ...bookings.map((b) => ({
+          type: "booking" as const,
+          id: b.id,
+          name: b.name,
+          phone: b.phone,
+          email: b.email,
+          service: serviceLabels[b.service] || b.service,
+          sub_service: b.sub_service,
+          date: b.booking_date,
+          time: b.booking_time,
+          mode: b.consultation_mode,
+          status: b.status,
+          attendance: b.attendance,
+          message: b.message,
+          created_at: b.created_at,
+          raw: b,
+        }))
       );
     }
 
-    return list.sort((a, b) => {
-      // Pending requests come to the top
-      if (a.status === "pending" && b.status !== "pending") return -1;
-      if (b.status === "pending" && a.status !== "pending") return 1;
-      return `${b.booking_date} ${b.booking_time}`.localeCompare(`${a.booking_date} ${a.booking_time}`);
-    });
-  }, [bookings, activeTab, searchQuery, todayStr]);
+    if (viewTab === "all" || viewTab === "contacts") {
+      rows.push(
+        ...contacts.map((c) => ({
+          type: "contact" as const,
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          email: c.email,
+          service: c.service,
+          sub_service: null,
+          date: c.created_at.split("T")[0],
+          time: "",
+          mode: c.mode,
+          status: c.status,
+          attendance: null,
+          message: c.message,
+          created_at: c.created_at,
+          raw: c,
+        }))
+      );
+    }
 
-  const { greeting, icon: GreetingIcon } = getTimeOfDayGreeting();
-  const currentQuote = ADVOCATE_QUOTES[quoteIndex];
+    // Apply Sub-filter
+    if (statusFilter === "today") {
+      rows = rows.filter((r) => r.date === todayStr);
+    } else if (statusFilter === "pending") {
+      rows = rows.filter((r) => r.status === "pending" || r.status === "new");
+    } else if (statusFilter === "confirmed") {
+      rows = rows.filter((r) => r.status === "confirmed");
+    } else if (statusFilter === "attended") {
+      rows = rows.filter((r) => r.attendance === "attended");
+    } else if (statusFilter === "completed") {
+      rows = rows.filter((r) => r.status === "completed" || r.status === "converted" || r.status === "closed");
+    } else if (statusFilter === "cancelled") {
+      rows = rows.filter((r) => r.status === "cancelled");
+    }
+
+    // Apply Search Query across Name, Phone, Email, Service, Date
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      rows = rows.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.phone.toLowerCase().includes(q) ||
+          (r.email && r.email.toLowerCase().includes(q)) ||
+          r.service.toLowerCase().includes(q) ||
+          (r.sub_service && r.sub_service.toLowerCase().includes(q)) ||
+          r.date.includes(q) ||
+          (r.message && r.message.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort: Pending first, then by date descending
+    return rows.sort((a, b) => {
+      const aIsPending = a.status === "pending" || a.status === "new";
+      const bIsPending = b.status === "pending" || b.status === "new";
+      if (aIsPending && !bIsPending) return -1;
+      if (bIsPending && !aIsPending) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [bookings, contacts, viewTab, statusFilter, searchQuery, todayStr]);
 
   return (
-    <div className="min-h-screen bg-[#fcfbfa] text-[#1a1f1c]">
-      {/* ================= Top Sub-Bar & Chamber Header ================= */}
-      <header className="border-b border-[#e8e2d4] bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#123526] text-[#cba758] flex items-center justify-center font-serif font-bold text-lg border border-[#cba758]/30 shadow-sm">
-                <Scale size={20} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#b08a3e]">
-                    CHAMBERS OF ADV. SHAREEN HUSSAIN
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#123526]/10 text-[#123526] border border-[#123526]/20 capitalize">
-                    {role} Desk
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#123526] leading-tight">
-                  Chamber Appointments & Client Mandates
-                </h1>
-              </div>
+    <div className="min-h-screen bg-[#f8faf9] text-[#131f18]">
+      {/* ================= Modern Executive Header ================= */}
+      <header className="border-b border-[#e1e8e3] bg-white sticky top-0 z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[#0f2c1f] text-[#cba758] flex items-center justify-center font-bold shadow-sm">
+              <Scale size={20} />
             </div>
-
-            <div className="flex items-center gap-2.5 self-end sm:self-center">
-              <button
-                onClick={loadBookings}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-[#e0d9ca] text-[#47504a] hover:bg-[#faf7f0] hover:border-[#123526]/30 transition-all shadow-2xs"
-                title="Refresh booking list"
-              >
-                <RefreshCw size={13} className={loading ? "animate-spin text-[#b08a3e]" : ""} />
-                <span>Refresh</span>
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-all shadow-2xs"
-              >
-                <LogOut size={13} />
-                <span>Log out</span>
-              </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#9f7d32]">
+                  CHAMBERS OF ADV. SHAREEN HUSSAIN
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#0f2c1f]/10 text-[#0f2c1f]">
+                  {role === "admin" ? "Advocate Master Desk" : "Legal Staff Desk"}
+                </span>
+              </div>
+              <h1 className="text-lg sm:text-xl font-serif font-bold text-[#0f2c1f]">
+                Chamber Client Mandates & Legal Database
+              </h1>
             </div>
+          </div>
+
+          {/* Header Action Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center">
+            {/* Live Availability Status Quick Pill */}
+            <button
+              onClick={() => setShowStatusModal(true)}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer ${
+                chamberStatus.isOfficeOpen
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                  : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${chamberStatus.isOfficeOpen ? "bg-emerald-600 animate-pulse" : "bg-amber-600 animate-pulse"}`} />
+              <span>
+                {chamberStatus.isOfficeOpen
+                  ? "Chamber Desk: Open"
+                  : `Away: ${chamberStatus.returnEstimate || "1-2 Hours"}`}
+              </span>
+              <ChevronDown size={13} className="opacity-60" />
+            </button>
+
+            {/* Refresh */}
+            <button
+              onClick={loadData}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#d6ded8] text-[#344038] hover:bg-[#f2f7f4] transition-all shadow-2xs cursor-pointer"
+              title="Refresh database"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin text-[#9f7d32]" : ""} />
+              <span>Refresh</span>
+            </button>
+
+            {/* Log out */}
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-all shadow-2xs cursor-pointer"
+            >
+              <LogOut size={13} />
+              <span>Exit</span>
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* ================= Motivational Chamber Quote & Greeting Banner ================= */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="relative rounded-2xl overflow-hidden border border-[#dfd6c3] bg-gradient-to-br from-[#123526] via-[#153e2d] to-[#0c2419] text-[#faf7f0] p-6 sm:p-8 shadow-lg"
-        >
-          {/* Subtle Ambient Gold Glow Background */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* ================= Top Trend & Stats Cards (Like Image 3) ================= */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+          {/* Stat 1: Total Records */}
           <div
-            className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(203,167,88,0.25), transparent 70%)" }}
-          />
-
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="max-w-3xl space-y-3">
-              <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[#cba758]">
-                <GreetingIcon size={14} className="text-[#cba758]" />
-                <span>{greeting}, Adv. Shareen Hussain</span>
-                <span className="text-white/40">·</span>
-                <span>Trisharan Square Chambers, Nagpur</span>
-              </div>
-
-              {/* Animated Rotating Quote */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={quoteIndex}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-start gap-3.5"
-                >
-                  <Quote size={28} className="text-[#cba758]/70 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-base sm:text-lg font-serif italic text-white/95 leading-relaxed">
-                      &ldquo;{currentQuote.quote}&rdquo;
-                    </p>
-                    <p className="mt-2 text-xs font-mono font-bold text-[#cba758] flex items-center gap-1.5">
-                      <span>— {currentQuote.author}</span>
-                      <span className="text-white/40 font-normal">({currentQuote.title})</span>
-                    </p>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+            onClick={() => {
+              setViewTab("all");
+              setStatusFilter("all");
+            }}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
+              viewTab === "all" && statusFilter === "all"
+                ? "bg-white border-[#0f2c1f] ring-2 ring-[#0f2c1f]/10"
+                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between text-[#617267]">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">All Mandates</span>
+              <Users size={16} />
             </div>
-
-            {/* Quote Cycler Button */}
-            <div className="shrink-0 flex sm:flex-col items-center gap-2">
-              <button
-                onClick={nextQuote}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#cba758] text-[#0a2217] hover:bg-[#dfbe73] hover:shadow-md transition-all active:scale-95"
-              >
-                <Sparkles size={13} />
-                <span>Daily Chamber Boost</span>
-              </button>
-              <span className="text-[10px] font-mono text-white/60">Quote {quoteIndex + 1} of {ADVOCATE_QUOTES.length}</span>
-            </div>
+            <p className="text-2xl font-serif font-bold text-[#0f2c1f] mt-2">{stats.totalRecords}</p>
+            <p className="text-[11px] text-[#718277] mt-0.5">Database total</p>
           </div>
-        </motion.div>
 
-        {/* ================= 4 Metric Stat Cards ================= */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: All Requests */}
-          <motion.div
-            whileHover={{ y: -3 }}
-            onClick={() => setActiveTab("all")}
-            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
-              activeTab === "all"
-                ? "bg-white border-[#123526] ring-2 ring-[#123526]/15 shadow-md"
-                : "bg-white border-[#e5decb] hover:border-[#123526]/40 shadow-2xs"
+          {/* Stat 2: Today's Appointments */}
+          <div
+            onClick={() => {
+              setViewTab("bookings");
+              setStatusFilter("today");
+            }}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
+              statusFilter === "today"
+                ? "bg-white border-[#cba758] ring-2 ring-[#cba758]/20"
+                : "bg-white border-[#e1e8e3] hover:border-slate-300"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
-                All Appointments
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-[#123526]/10 text-[#123526] flex items-center justify-center">
-                <Inbox size={18} />
-              </div>
+            <div className="flex items-center justify-between text-[#9f7d32]">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Today&apos;s Slots</span>
+              <CalendarDays size={16} />
             </div>
-            <p className="text-3xl font-serif font-bold text-[#123526] mt-3">
-              {counts.all}
-            </p>
-            <p className="text-xs text-[#7c847d] mt-1">Total received records</p>
-          </motion.div>
+            <p className="text-2xl font-serif font-bold text-[#0f2c1f] mt-2">{stats.todayBookings}</p>
+            <p className="text-[11px] text-[#718277] mt-0.5">Scheduled today</p>
+          </div>
 
-          {/* Card 2: Pending Approval */}
-          <motion.div
-            whileHover={{ y: -3 }}
-            onClick={() => setActiveTab("pending")}
-            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
-              activeTab === "pending"
-                ? "bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20 shadow-md"
-                : "bg-white border-[#e5decb] hover:border-amber-400 shadow-2xs"
+          {/* Stat 3: Attended / Came (The "see he has came here or not") */}
+          <div
+            onClick={() => {
+              setViewTab("bookings");
+              setStatusFilter("attended");
+            }}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
+              statusFilter === "attended"
+                ? "bg-emerald-50/70 border-emerald-600 ring-2 ring-emerald-600/15"
+                : "bg-white border-[#e1e8e3] hover:border-slate-300"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-900">
-                Pending Requests
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-                <Clock size={18} />
-              </div>
+            <div className="flex items-center justify-between text-emerald-800">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Attended / Came</span>
+              <CheckCheck size={16} />
             </div>
-            <div className="flex items-center gap-2 mt-3">
-              <p className="text-3xl font-serif font-bold text-amber-800">
-                {counts.pending}
-              </p>
-              {counts.pending > 0 && (
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
-                  Needs Action
+            <p className="text-2xl font-serif font-bold text-emerald-800 mt-2">{stats.attendedCount}</p>
+            <p className="text-[11px] text-emerald-700/80 mt-0.5">Visited chamber</p>
+          </div>
+
+          {/* Stat 4: Website Contact Inquiries */}
+          <div
+            onClick={() => {
+              setViewTab("contacts");
+              setStatusFilter("all");
+            }}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
+              viewTab === "contacts"
+                ? "bg-white border-blue-600 ring-2 ring-blue-600/15"
+                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between text-blue-700">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Contact Inquiries</span>
+              <Mail size={16} />
+            </div>
+            <p className="text-2xl font-serif font-bold text-blue-900 mt-2">{stats.totalContacts}</p>
+            <p className="text-[11px] text-[#718277] mt-0.5">From Contact Us form</p>
+          </div>
+
+          {/* Stat 5: Needs Action / Pending */}
+          <div
+            onClick={() => {
+              setViewTab("all");
+              setStatusFilter("pending");
+            }}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
+              statusFilter === "pending"
+                ? "bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20"
+                : "bg-white border-[#e1e8e3] hover:border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between text-amber-800">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Needs Action</span>
+              <Clock size={16} />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <p className="text-2xl font-serif font-bold text-amber-800">{stats.pendingAction}</p>
+              {stats.pendingAction > 0 && (
+                <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
+                  Review
                 </span>
               )}
             </div>
-            <p className="text-xs text-amber-900/80 mt-1">Awaiting confirmation</p>
-          </motion.div>
-
-          {/* Card 3: Today's Appointments */}
-          <motion.div
-            whileHover={{ y: -3 }}
-            onClick={() => setActiveTab("today")}
-            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
-              activeTab === "today"
-                ? "bg-[#cba758]/10 border-[#cba758] ring-2 ring-[#cba758]/20 shadow-md"
-                : "bg-white border-[#e5decb] hover:border-[#cba758]/50 shadow-2xs"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
-                Today&apos;s Schedule
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-[#cba758]/15 text-[#b08a3e] flex items-center justify-center">
-                <CalendarDays size={18} />
-              </div>
-            </div>
-            <p className="text-3xl font-serif font-bold text-[#1a1f1c] mt-3">
-              {counts.today}
-            </p>
-            <p className="text-xs text-[#7c847d] mt-1">Scheduled for today</p>
-          </motion.div>
-
-          {/* Card 4: Confirmed & Completed */}
-          <motion.div
-            whileHover={{ y: -3 }}
-            onClick={() => setActiveTab("confirmed")}
-            className={`cursor-pointer rounded-2xl p-5 border transition-all ${
-              activeTab === "confirmed"
-                ? "bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md"
-                : "bg-white border-[#e5decb] hover:border-emerald-400 shadow-2xs"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
-                Confirmed Slots
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                <CheckCircle2 size={18} />
-              </div>
-            </div>
-            <p className="text-3xl font-serif font-bold text-emerald-800 mt-3">
-              {counts.confirmed}
-            </p>
-            <p className="text-xs text-emerald-800/80 mt-1">Active confirmed clients</p>
-          </motion.div>
+            <p className="text-[11px] text-[#718277] mt-0.5">Pending confirmation</p>
+          </div>
         </div>
 
-        {/* ================= Filter Tabs & Client Search Bar ================= */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-white border border-[#e5decb] shadow-2xs w-fit">
-            {[
-              { id: "all", label: "All Bookings", count: counts.all },
-              { id: "pending", label: "Pending", count: counts.pending },
-              { id: "today", label: "Today", count: counts.today },
-              { id: "confirmed", label: "Confirmed", count: counts.confirmed },
-              { id: "completed", label: "Completed", count: counts.completed },
-              { id: "cancelled", label: "Declined", count: counts.cancelled },
-            ].map((tab) => {
-              const isSelected = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    isSelected ? "text-white" : "text-[#47504a] hover:text-[#123526] hover:bg-[#faf7f0]"
-                  }`}
-                >
-                  {isSelected && (
-                    <motion.div
-                      layoutId="activeFilterPill"
-                      className="absolute inset-0 rounded-xl bg-[#123526] shadow-sm"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="relative z-10">{tab.label}</span>
-                  <span
-                    className={`relative z-10 px-2 py-0.5 rounded-full text-[10px] font-mono ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : tab.id === "pending" && tab.count > 0
-                        ? "bg-amber-100 text-amber-900 font-bold"
-                        : "bg-[#f0ebd9] text-[#47504a]"
+        {/* ================= Navigation Tabs, Sub-Filters & Live Search Bar ================= */}
+        <div className="bg-white rounded-2xl border border-[#e1e8e3] p-4 shadow-2xs space-y-3.5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Master View Tabs (All vs Bookings vs Contacts) */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-[#f0f4f1] w-fit">
+              {[
+                { id: "all", label: "All Records", count: stats.totalRecords },
+                { id: "bookings", label: "Chamber Bookings", count: stats.totalBookings },
+                { id: "contacts", label: "Contact Inquiries", count: stats.totalContacts },
+              ].map((tab) => {
+                const isActive = viewTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setViewTab(tab.id as any)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      isActive
+                        ? "bg-white text-[#0f2c1f] shadow-xs"
+                        : "text-[#526359] hover:text-[#0f2c1f]"
                     }`}
                   >
-                    {tab.count}
-                  </span>
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${isActive ? "bg-[#0f2c1f]/10 text-[#0f2c1f]" : "bg-black/5 text-[#63756a]"}`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Live Search Input */}
+            <div className="relative w-full lg:w-80">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7d8f83]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by client, phone, matter, or date..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-[#d6ded8] bg-white text-xs text-[#131f18] placeholder-[#7d8f83] focus:border-[#0f2c1f] focus:outline-none shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Secondary Quick Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#eef3f0]">
+            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#7d8f83] mr-2 flex items-center gap-1">
+              <Filter size={12} />
+              <span>Status:</span>
+            </span>
+            {[
+              { id: "all", label: "All Statuses" },
+              { id: "today", label: "Today's Mandates" },
+              { id: "pending", label: "Pending Review" },
+              { id: "confirmed", label: "Confirmed" },
+              { id: "attended", label: "Attended / Came" },
+              { id: "completed", label: "Completed" },
+              { id: "cancelled", label: "Declined" },
+            ].map((f) => {
+              const isSelected = statusFilter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setStatusFilter(f.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#0f2c1f] text-white shadow-2xs font-bold"
+                      : "bg-[#f4f7f5] text-[#4d5e53] hover:bg-[#e8eee9]"
+                  }`}
+                >
+                  {f.label}
                 </button>
               );
             })}
           </div>
-
-          {/* Search Box */}
-          <div className="relative min-w-[280px]">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7c847d]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by client, phone, or date..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#e5decb] bg-white text-xs text-[#1a1f1c] placeholder-[#7c847d] focus:border-[#123526] focus:outline-none shadow-2xs transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
         </div>
 
-        {/* ================= Bookings List Container ================= */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-28">
-            <Loader2 size={36} className="animate-spin text-[#cba758] mb-3" />
-            <p className="text-xs font-mono font-bold uppercase tracking-wider text-[#7c847d]">
-              Syncing chamber appointments desk...
-            </p>
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-3xl border border-[#e5decb] bg-white p-16 text-center flex flex-col items-center shadow-xs"
-          >
-            <div className="h-16 w-16 rounded-2xl bg-[#faf7f0] border border-[#e5decb] flex items-center justify-center text-[#7c847d] mb-4">
-              <Inbox size={28} />
+        {/* ================= Modern Database Table (Image 3 Style) ================= */}
+        <div className="bg-white rounded-2xl border border-[#e1e8e3] shadow-xs overflow-hidden">
+          {loading ? (
+            <div className="py-24 text-center">
+              <Loader2 size={32} className="animate-spin text-[#cba758] mx-auto mb-2" />
+              <p className="text-xs font-mono font-bold text-[#718277] uppercase tracking-wider">
+                Loading chamber records...
+              </p>
             </div>
-            <h3 className="text-xl font-serif font-bold text-[#123526]">
-              No appointments in this view
-            </h3>
-            <p className="text-xs text-[#47504a] mt-1.5 max-w-sm leading-relaxed">
-              {searchQuery
-                ? `No booking records match "${searchQuery}". Clear your search query to see all appointments.`
-                : activeTab === "pending"
-                ? "All caught up! There are currently no pending appointment requests awaiting confirmation."
-                : activeTab === "today"
-                ? "No consultations are scheduled for today. Check upcoming slots under All Bookings."
-                : "No appointment records match the selected filter."}
-            </p>
-            {(activeTab !== "all" || searchQuery) && (
-              <button
-                onClick={() => {
-                  setActiveTab("all");
-                  setSearchQuery("");
-                }}
-                className="mt-6 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#123526] text-white hover:bg-[#1a4733] transition-all shadow-xs"
-              >
-                Reset Filters & View All
-              </button>
-            )}
-          </motion.div>
-        ) : (
-          <div className="space-y-4">
-            <AnimatePresence>
-              {filteredBookings.map((b) => {
-                const isPending = b.status === "pending";
-                const isConfirmed = b.status === "confirmed";
-                const isOnline = b.consultation_mode === "online";
-                const meetLink = b.meet_link || site.googleMeetRoom;
-                const statusMeta = statusStyles[b.status] || statusStyles.pending;
-                const cleanPhone = formatWhatsAppNumber(b.phone);
+          ) : filteredRows.length === 0 ? (
+            <div className="py-20 px-6 text-center max-w-md mx-auto">
+              <div className="h-14 w-14 rounded-2xl bg-[#f4f7f5] text-[#718277] flex items-center justify-center mx-auto mb-3">
+                <Inbox size={26} />
+              </div>
+              <h3 className="text-base font-serif font-bold text-[#0f2c1f]">No Records Found</h3>
+              <p className="text-xs text-[#526359] mt-1 leading-relaxed">
+                {searchQuery
+                  ? `No entries match "${searchQuery}". Clear your search term to see all client mandates.`
+                  : "No mandates match the selected filter criteria."}
+              </p>
+              {(searchQuery || statusFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                  }}
+                  className="mt-4 px-4 py-1.5 rounded-xl bg-[#0f2c1f] text-white text-xs font-bold"
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-[#e1e8e3] bg-[#fafbfb] text-[#55675c] font-mono text-[11px] uppercase tracking-wider">
+                    <th className="py-3 px-4 font-semibold">Client</th>
+                    <th className="py-3 px-4 font-semibold">Channel / Type</th>
+                    <th className="py-3 px-4 font-semibold">Legal Matter</th>
+                    <th className="py-3 px-4 font-semibold">Mode</th>
+                    <th className="py-3 px-4 font-semibold">Date & Slot</th>
+                    <th className="py-3 px-4 font-semibold text-center">Attendance (Came?)</th>
+                    <th className="py-3 px-4 font-semibold">Status</th>
+                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#edf2ee]">
+                  {filteredRows.map((r, idx) => {
+                    const statusMeta = statusStyles[r.status] || statusStyles.pending;
+                    const cleanPhone = formatWhatsAppNumber(r.phone);
+                    const isToday = r.date === todayStr;
+                    const avatarBg = AVATAR_COLORS[idx % AVATAR_COLORS.length];
 
-                return (
-                  <motion.article
-                    key={b.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.25 }}
-                    className={`rounded-2xl border p-6 transition-all duration-200 shadow-xs ${
-                      isPending
-                        ? "border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-white"
-                        : "border-[#e5decb] bg-white hover:border-[#123526]/30"
-                    }`}
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                      {/* Left Side: Client Data, Date, Time & Details */}
-                      <div className="flex-1 space-y-3">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <h3 className="text-lg font-serif font-bold text-[#123526]">
-                            {b.name}
-                          </h3>
+                    return (
+                      <tr
+                        key={r.id}
+                        className="hover:bg-[#f9fcfa] transition-colors group"
+                      >
+                        {/* Column 1: Client Name, Initials, Phone, Email */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs ${avatarBg}`}>
+                              {getInitials(r.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-serif font-bold text-[#0f2c1f] text-sm truncate">
+                                {r.name}
+                              </p>
+                              <div className="flex items-center gap-2 text-[11px] text-[#63756a] mt-0.5">
+                                <span className="font-mono">{r.phone}</span>
+                                {r.email && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="truncate max-w-[120px]">{r.email}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
 
-                          {/* Status Badge */}
+                        {/* Column 2: Source Badge */}
+                        <td className="py-3.5 px-4">
+                          {r.type === "booking" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#0f2c1f]/10 text-[#0f2c1f] border border-[#0f2c1f]/20">
+                              <CalendarDays size={10} />
+                              <span>Booking</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                              <Mail size={10} />
+                              <span>Contact Form</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Column 3: Legal Service & Matter */}
+                        <td className="py-3.5 px-4 max-w-[220px]">
+                          <p className="font-bold text-[#0f2c1f] truncate">{r.service}</p>
+                          {r.sub_service && (
+                            <span className="text-[10px] font-mono text-[#9f7d32] font-semibold truncate block mt-0.5">
+                              {r.sub_service}
+                            </span>
+                          )}
+                          {r.message && !r.sub_service && (
+                            <p className="text-[11px] text-[#718277] truncate mt-0.5">
+                              &ldquo;{r.message}&rdquo;
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Column 4: Mode */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {r.mode === "online" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-800 border border-purple-200">
+                              <Video size={12} />
+                              <span>Google Meet</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <MapPin size={12} />
+                              <span>Office Visit</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Column 5: Scheduled Date & Slot */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-[#131f18]">
+                              {formatDateLabel(r.date)}
+                            </span>
+                            {isToday && (
+                              <span className="px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 text-[9.5px] font-mono font-bold">
+                                Today
+                              </span>
+                            )}
+                          </div>
+                          {r.time && (
+                            <p className="text-[11px] font-mono text-[#718277] mt-0.5">
+                              {formatTime12(r.time)}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Column 6: Attendance ("Did they come?") */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          {r.type === "booking" ? (
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateAttendance(
+                                    r.id,
+                                    r.attendance === "attended" ? "scheduled" : "attended"
+                                  )
+                                }
+                                disabled={updatingId === r.id}
+                                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                                  r.attendance === "attended"
+                                    ? "bg-emerald-600 text-white border-emerald-700 shadow-2xs"
+                                    : "bg-white text-slate-600 border-slate-300 hover:border-emerald-500 hover:text-emerald-700"
+                                }`}
+                                title="Toggle customer attendance: Click to mark Attended / Visited"
+                              >
+                                <Check size={11} strokeWidth={3} />
+                                <span>{r.attendance === "attended" ? "Came" : "Mark Came"}</span>
+                              </button>
+
+                              {r.attendance !== "attended" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateAttendance(
+                                      r.id,
+                                      r.attendance === "no_show" ? "scheduled" : "no_show"
+                                    )
+                                  }
+                                  disabled={updatingId === r.id}
+                                  className={`p-1 rounded-md text-[10px] transition-all cursor-pointer border ${
+                                    r.attendance === "no_show"
+                                      ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
+                                      : "bg-white text-slate-400 border-transparent hover:text-rose-600"
+                                  }`}
+                                  title="Mark No Show"
+                                >
+                                  {r.attendance === "no_show" ? "No-Show" : <X size={12} />}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-mono">—</span>
+                          )}
+                        </td>
+
+                        {/* Column 7: Status Pill */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} border`}
+                            className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} border`}
                           >
                             {statusMeta.label}
                           </span>
+                        </td>
 
-                          {/* Mode Badge */}
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                              isOnline
-                                ? "bg-purple-100 text-purple-900 border border-purple-200"
-                                : "bg-emerald-100 text-emerald-900 border border-emerald-200"
-                            }`}
-                          >
-                            {isOnline ? <Video size={13} /> : <MapPin size={13} />}
-                            <span>{isOnline ? "Online Video Call" : "In-Person Chamber Visit"}</span>
-                          </span>
-                        </div>
-
-                        {/* Service Label */}
-                        <p className="text-sm font-bold text-[#b08a3e] flex items-center gap-2">
-                          <ShieldCheck size={15} />
-                          <span>{serviceLabels[b.service] || b.service}</span>
-                        </p>
-
-                        {/* Date and Time Badges */}
-                        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[#1a1f1c]">
-                          <span className="flex items-center gap-1.5 bg-[#f4f0e6] px-3.5 py-1.5 rounded-lg border border-[#e2dbc8]">
-                            <CalendarDays size={14} className="text-[#b08a3e]" />
-                            <span>{formatDateLabel(b.booking_date)}</span>
-                          </span>
-
-                          <span className="flex items-center gap-1.5 bg-[#f4f0e6] px-3.5 py-1.5 rounded-lg border border-[#e2dbc8]">
-                            <Clock size={14} className="text-[#b08a3e]" />
-                            <span>{formatTime12(b.booking_time)}</span>
-                          </span>
-                        </div>
-
-                        {/* Client Phone & Contact info */}
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-[#47504a] pt-1">
-                          <span className="flex items-center gap-1.5 font-medium bg-slate-50 px-3 py-1 rounded-md border border-slate-200">
-                            <Phone size={13} className="text-[#123526]" />
-                            <span className="font-bold text-[#1a1f1c]">Number: {b.phone}</span>
-                          </span>
-
-                          {b.email && (
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <Mail size={13} className="text-[#b08a3e]" />
-                              <span>{b.email}</span>
-                            </span>
-                          )}
-
-                          <span className="text-[11px] text-[#7c847d]">
-                            Booked: {new Date(b.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </div>
-
-                        {/* Client Message */}
-                        {b.message && (
-                          <div className="mt-2.5 rounded-xl bg-[#faf7f0] border border-[#e5decb] p-3 text-xs text-[#47504a] flex items-start gap-2 max-w-2xl">
-                            <FileText size={14} className="shrink-0 mt-0.5 text-[#b08a3e]" />
-                            <span className="leading-relaxed">{b.message}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right Side: Action Buttons & Communication */}
-                      <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2.5 shrink-0 min-w-[220px]">
-                        {isPending ? (
-                          <>
-                            {/* Primary Confirm Button with WhatsApp Dispatch */}
-                            <button
-                              onClick={() => openConfirmModal(b)}
-                              className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-[#123526] text-white hover:bg-[#1a4733] transition-all shadow-sm flex items-center justify-center gap-2 group active:scale-95"
-                            >
-                              <CheckCircle2 size={15} className="text-[#cba758]" />
-                              <span>Confirm Appointment</span>
-                            </button>
-
-                            <button
-                              onClick={() => updateStatus(b.id, "cancelled")}
-                              disabled={updatingId === b.id}
-                              className="w-full px-4 py-2 rounded-xl text-xs font-semibold bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
-                            >
-                              <XCircle size={14} />
-                              <span>Decline Request</span>
-                            </button>
-                          </>
-                        ) : isConfirmed ? (
-                          <>
-                            {isOnline && (
+                        {/* Column 8: Direct Actions (WhatsApp, Call, View) */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            {/* WhatsApp Button */}
+                            {cleanPhone && (
                               <a
-                                href={meetLink}
+                                href={`https://wa.me/${cleanPhone}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-700 text-white hover:bg-purple-800 transition-all shadow-sm flex items-center justify-center gap-2"
+                                className="h-7 w-7 rounded-lg bg-[#25D366]/15 hover:bg-[#25D366] text-emerald-800 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                                title={`WhatsApp ${r.phone}`}
                               >
-                                <Video size={14} />
-                                <span>Join Google Meet</span>
+                                <MessageCircle size={14} />
                               </a>
                             )}
 
+                            {/* Call Button */}
+                            {r.phone && (
+                              <a
+                                href={`tel:${r.phone}`}
+                                className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-[#0f2c1f] text-slate-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                                title={`Call ${r.phone}`}
+                              >
+                                <Phone size={13} />
+                              </a>
+                            )}
+
+                            {/* Quick Confirm / Status Trigger */}
+                            {r.type === "booking" && r.status === "pending" && (
+                              <button
+                                onClick={() => openConfirmModal(r.raw as Booking)}
+                                className="px-2.5 py-1 rounded-lg bg-[#0f2c1f] text-white text-[11px] font-bold hover:bg-[#1a4733] transition-all shadow-2xs cursor-pointer"
+                              >
+                                Confirm
+                              </button>
+                            )}
+
+                            {/* Detail Drawer Trigger */}
                             <button
-                              onClick={() => updateStatus(b.id, "completed")}
-                              disabled={updatingId === b.id}
-                              className="w-full px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                              onClick={() => setSelectedRecord({ type: r.type, data: r.raw })}
+                              className="h-7 w-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-all cursor-pointer"
+                              title="View Mandate Details"
                             >
-                              <Check size={14} />
-                              <span>Mark as Completed</span>
+                              <Eye size={13} />
                             </button>
-                          </>
-                        ) : null}
-
-                        {/* Direct Communication Strip: WhatsApp & Call */}
-                        <div className="flex items-center gap-2 w-full pt-1">
-                          <a
-                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(buildConfirmationMessage(b))}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 px-3 py-2 rounded-lg text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                            title={`Send direct WhatsApp message to ${b.phone}`}
-                          >
-                            <MessageCircle size={14} />
-                            <span>WhatsApp ({b.phone})</span>
-                          </a>
-
-                          <a
-                            href={`tel:${b.phone}`}
-                            className="px-3 py-2 rounded-lg text-xs font-bold bg-white text-[#1a1f1c] border border-[#e5decb] hover:bg-[#faf7f0] transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                            title={`Call ${b.phone}`}
-                          >
-                            <Phone size={14} />
-                            <span>Call</span>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.article>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </main>
 
-      {/* ================= Confirmation & WhatsApp Dispatch Modal ================= */}
+      {/* ================= Chamber Availability & Away Manager Modal ================= */}
       <AnimatePresence>
-        {confirmModalBooking && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        {showStatusModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 20 }}
-              transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfd6c3] overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-[#d6ded8] space-y-5"
             >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#f0ebd9]">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#b08a3e]">
-                    <CheckCircle2 size={14} />
-                    <span>APPOINTMENT CONFIRMATION DESK</span>
+              <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-[#0f2c1f] text-[#cba758] flex items-center justify-center font-bold">
+                    <Building2 size={18} />
                   </div>
-                  <h2 className="text-xl font-serif font-bold text-[#123526] mt-1">
-                    Confirm & Dispatch Notice
-                  </h2>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-[#0f2c1f]">
+                      Chamber Availability & Away Manager
+                    </h3>
+                    <p className="text-[11px] font-mono text-[#718277]">
+                      Configure real-time presence and customer-facing notice
+                    </p>
+                  </div>
                 </div>
-
                 <button
-                  onClick={closeConfirmModal}
-                  className="p-1.5 rounded-full text-[#7c847d] hover:text-[#1a1f1c] hover:bg-[#faf7f0] transition-colors"
+                  onClick={() => setShowStatusModal(false)}
+                  className="text-slate-400 hover:text-slate-700"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              {/* Client Summary Box */}
-              <div className="my-5 rounded-2xl bg-[#faf7f0] border border-[#e5decb] p-4 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#47504a]">Client Name:</span>
-                  <span className="font-bold text-[#123526] text-sm">{confirmModalBooking.name}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#47504a]">Client Phone (WhatsApp):</span>
-                  <span className="font-mono font-bold text-emerald-800 text-sm bg-emerald-100/60 px-2 py-0.5 rounded border border-emerald-200">
-                    +{formatWhatsAppNumber(confirmModalBooking.phone)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#47504a]">Consultation Type:</span>
-                  <span className="font-bold text-[#1a1f1c]">
-                    {confirmModalBooking.consultation_mode === "offline" ? "In-Person (Trisharan Square)" : "Online Video Call"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#47504a]">Date & Time Slot:</span>
-                  <span className="font-semibold text-[#b08a3e]">
-                    {formatDateLabel(confirmModalBooking.booking_date)} at {formatTime12(confirmModalBooking.booking_time)}
-                  </span>
+              {/* Quick One-Click Presets */}
+              <div>
+                <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#9f7d32] block mb-2">
+                  Quick Presets
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusModalOfficeOpen(true);
+                      setStatusModalOnlineOpen(true);
+                      setStatusModalReason("");
+                      setStatusModalEstimate("");
+                      saveChamberAvailability({
+                        isOfficeOpen: true,
+                        isOnlineOpen: true,
+                        awayReason: "",
+                        returnEstimate: "",
+                      });
+                    }}
+                    className="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 text-left text-xs font-bold hover:bg-emerald-100 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 shrink-0" />
+                    <span>🟢 Desk Open (Full Active)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusModalOfficeOpen(false);
+                      setStatusModalOnlineOpen(true);
+                      setStatusModalReason("High Court Hearing Session");
+                      setStatusModalEstimate("1–2 Hours");
+                      saveChamberAvailability({
+                        isOfficeOpen: false,
+                        isOnlineOpen: true,
+                        awayReason: "High Court Hearing Session",
+                        returnEstimate: "1–2 Hours",
+                      });
+                    }}
+                    className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-left text-xs font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+                    <span>⚖️ Away: Court (1–2 Hours)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusModalOfficeOpen(false);
+                      setStatusModalOnlineOpen(true);
+                      setStatusModalReason("District Court / Registrar Duty");
+                      setStatusModalEstimate("Back at 4:30 PM");
+                      saveChamberAvailability({
+                        isOfficeOpen: false,
+                        isOnlineOpen: true,
+                        awayReason: "District Court / Registrar Duty",
+                        returnEstimate: "Back at 4:30 PM",
+                      });
+                    }}
+                    className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-left text-xs font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+                    <span>🏛️ District Court (Back ~4:30 PM)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusModalOfficeOpen(false);
+                      setStatusModalOnlineOpen(false);
+                      setStatusModalReason("Chamber Closed for the Day");
+                      setStatusModalEstimate("Tomorrow 9:30 AM");
+                      saveChamberAvailability({
+                        isOfficeOpen: false,
+                        isOnlineOpen: false,
+                        awayReason: "Chamber Closed for the Day",
+                        returnEstimate: "Tomorrow 9:30 AM",
+                      });
+                    }}
+                    className="p-2.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 text-left text-xs font-bold hover:bg-rose-100 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-600 shrink-0" />
+                    <span>🔴 Closed for Rest of Day</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Custom Message Area */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#47504a]">
-                    WhatsApp Notice to Client:
+              {/* Custom Configuration Form */}
+              <div className="space-y-3 pt-1 border-t border-[#e1e8e3]">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#9f7d32] block">
+                  Or Custom Availability Settings
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={statusModalOfficeOpen}
+                      onChange={(e) => setStatusModalOfficeOpen(e.target.checked)}
+                      className="rounded text-[#0f2c1f]"
+                    />
+                    <span>Office Visits Open</span>
                   </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={statusModalOnlineOpen}
+                      onChange={(e) => setStatusModalOnlineOpen(e.target.checked)}
+                      className="rounded text-[#0f2c1f]"
+                    />
+                    <span>Google Meet Video Open</span>
+                  </label>
+                </div>
+
+                {!statusModalOfficeOpen && (
+                  <div className="space-y-3 p-3 rounded-2xl bg-[#fafbfb] border border-[#d6ded8]">
+                    <div>
+                      <label className="text-[11px] font-mono font-bold uppercase text-slate-600 block mb-1">
+                        Reason for Away Status
+                      </label>
+                      <input
+                        type="text"
+                        value={statusModalReason}
+                        onChange={(e) => setStatusModalReason(e.target.value)}
+                        placeholder="e.g. Attending High Court Hearing Session"
+                        className="w-full px-3 py-2 rounded-xl border border-[#d6ded8] text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono font-bold uppercase text-slate-600 block mb-1">
+                        Expected Return Time / Estimate
+                      </label>
+                      <div className="flex gap-1.5 flex-wrap mb-1.5">
+                        {["1 Hour", "1–2 Hours", "Back at 4:00 PM", "Back at 5:30 PM", "Tomorrow"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setStatusModalEstimate(preset)}
+                            className="px-2.5 py-0.5 rounded-lg bg-white border border-slate-300 text-[10.5px] font-semibold text-slate-700 hover:bg-slate-100"
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        value={statusModalEstimate}
+                        onChange={(e) => setStatusModalEstimate(e.target.value)}
+                        placeholder="e.g. 1–2 Hours (Returning at ~4:00 PM)"
+                        className="w-full px-3 py-2 rounded-xl border border-[#d6ded8] text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={statusSaving}
+                  onClick={() => saveChamberAvailability()}
+                  className="px-5 py-2 rounded-xl bg-[#0f2c1f] text-white text-xs font-bold hover:bg-[#1a4733] transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  {statusSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  <span>Save Chamber Status</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= Detail Slide-Over Drawer ================= */}
+      <AnimatePresence>
+        {selectedRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-full max-w-lg h-full bg-white shadow-2xl p-6 sm:p-8 flex flex-col justify-between overflow-y-auto"
+            >
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-4">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#9f7d32]">
+                      {selectedRecord.type === "booking" ? "APPOINTMENT MANDATE DETAILS" : "CONTACT INQUIRY DETAILS"}
+                    </span>
+                    <h3 className="text-xl font-serif font-bold text-[#0f2c1f] mt-0.5">
+                      {selectedRecord.data.name}
+                    </h3>
+                  </div>
                   <button
-                    onClick={() => copyText(customMessage)}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#b08a3e] hover:text-[#123526] transition-colors"
+                    onClick={() => setSelectedRecord(null)}
+                    className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 cursor-pointer"
                   >
-                    {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-                    <span>{copied ? "Copied" : "Copy Text"}</span>
+                    <X size={16} />
                   </button>
                 </div>
+
+                <div className="space-y-4 text-xs">
+                  <div className="p-3.5 rounded-2xl bg-[#fafbfb] border border-[#e1e8e3] space-y-2">
+                    <p><strong>Phone:</strong> {selectedRecord.data.phone}</p>
+                    {selectedRecord.data.email && <p><strong>Email:</strong> {selectedRecord.data.email}</p>}
+                    <p><strong>Service:</strong> {selectedRecord.data.service}</p>
+                    {selectedRecord.data.sub_service && (
+                      <p><strong>Matter:</strong> {selectedRecord.data.sub_service}</p>
+                    )}
+                    {selectedRecord.data.booking_date && (
+                      <p>
+                        <strong>Scheduled:</strong> {formatDateLabel(selectedRecord.data.booking_date)} at {formatTime12(selectedRecord.data.booking_time)}
+                      </p>
+                    )}
+                    {selectedRecord.data.consultation_mode && (
+                      <p>
+                        <strong>Mode:</strong> {selectedRecord.data.consultation_mode === "online" ? "Google Meet Video Call" : "In-Person Office Visit"}
+                      </p>
+                    )}
+                  </div>
+
+                  {selectedRecord.data.message && (
+                    <div>
+                      <label className="text-[11px] font-mono font-bold uppercase text-slate-500 block mb-1">
+                        Client Message / Case Brief
+                      </label>
+                      <div className="p-3.5 rounded-2xl bg-[#f4f7f5] border border-[#e1e8e3] text-[#344038] leading-relaxed">
+                        {selectedRecord.data.message}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Attendance Controls */}
+                  {selectedRecord.type === "booking" && (
+                    <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+                      <label className="text-[11px] font-mono font-bold uppercase text-emerald-900 block">
+                        Customer Attendance Tracking
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(selectedRecord.data.id, "attended")}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            selectedRecord.data.attendance === "attended"
+                              ? "bg-emerald-700 text-white shadow-xs"
+                              : "bg-white text-emerald-800 border border-emerald-300"
+                          }`}
+                        >
+                          <Check size={13} />
+                          <span>Came / Attended</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateAttendance(selectedRecord.data.id, "no_show")}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            selectedRecord.data.attendance === "no_show"
+                              ? "bg-rose-700 text-white shadow-xs"
+                              : "bg-white text-rose-800 border border-rose-300"
+                          }`}
+                        >
+                          <X size={13} />
+                          <span>No Show</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status Updaters */}
+                  <div>
+                    <label className="text-[11px] font-mono font-bold uppercase text-slate-500 block mb-1">
+                      Update Mandate Status
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedRecord.type === "booking" ? (
+                        <>
+                          {["pending", "confirmed", "completed", "cancelled"].map((st) => (
+                            <button
+                              key={st}
+                              onClick={() => updateBookingStatus(selectedRecord.data.id, st as any)}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                                selectedRecord.data.status === st
+                                  ? "bg-[#0f2c1f] text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              }`}
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {["new", "contacted", "converted", "closed"].map((st) => (
+                            <button
+                              key={st}
+                              onClick={() => updateContactStatus(selectedRecord.data.id, st as any)}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                                selectedRecord.data.status === st
+                                  ? "bg-[#0f2c1f] text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              }`}
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Quick Contact Bar */}
+              <div className="pt-6 border-t border-[#e1e8e3] flex gap-3">
+                <a
+                  href={`https://wa.me/${formatWhatsAppNumber(selectedRecord.data.phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 rounded-xl bg-[#25D366] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <MessageCircle size={15} />
+                  <span>WhatsApp Client</span>
+                </a>
+                <a
+                  href={`tel:${selectedRecord.data.phone}`}
+                  className="px-4 py-2.5 rounded-xl bg-[#0f2c1f] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Phone size={14} />
+                  <span>Call</span>
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= Confirmation & Direct WhatsApp Dispatch Modal ================= */}
+      <AnimatePresence>
+        {confirmModalBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-[#d6ded8] space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-[#e1e8e3] pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-[#0f2c1f]">
+                      Confirm Appointment & Dispatch WhatsApp
+                    </h3>
+                    <p className="text-[11px] font-mono text-[#718277]">
+                      Client: {confirmModalBooking.name} ({confirmModalBooking.phone})
+                    </p>
+                  </div>
+                </div>
+                <button onClick={closeConfirmModal} className="text-slate-400 hover:text-slate-700">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 block mb-1">
+                  WhatsApp Message Draft
+                </label>
                 <textarea
-                  rows={6}
+                  rows={8}
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
-                  className="w-full rounded-xl border border-[#e5decb] bg-slate-50/70 p-3 text-xs leading-relaxed text-[#1a1f1c] font-sans focus:bg-white focus:border-[#123526] focus:outline-none transition-all"
+                  className="w-full p-3 rounded-2xl border border-[#d6ded8] text-xs font-sans text-[#131f18] focus:border-[#0f2c1f] focus:outline-none"
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <button
-                  onClick={handleConfirmAndDispatchWhatsApp}
-                  disabled={updatingId === confirmModalBooking.id}
-                  className="w-full sm:flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-all shadow-md flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(customMessage);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
                 >
-                  <MessageCircle size={15} />
-                  <span>Confirm & Send to +{formatWhatsAppNumber(confirmModalBooking.phone)}</span>
+                  {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                  <span>{copied ? "Copied!" : "Copy Text"}</span>
                 </button>
 
-                <button
-                  onClick={handleConfirmSilently}
-                  disabled={updatingId === confirmModalBooking.id}
-                  className="w-full sm:w-auto py-3 px-4 rounded-xl text-xs font-semibold bg-white border border-[#e5decb] text-[#47504a] hover:bg-[#faf7f0] transition-all"
-                >
-                  Confirm Silently
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateBookingStatus(confirmModalBooking.id, "confirmed");
+                      closeConfirmModal();
+                    }}
+                    className="px-4 py-2 rounded-xl border border-[#0f2c1f] text-xs font-bold text-[#0f2c1f] hover:bg-[#f0f5f2]"
+                  >
+                    Confirm (No Dispatch)
+                  </button>
+
+                  <a
+                    href={`https://wa.me/${formatWhatsAppNumber(confirmModalBooking.phone)}?text=${encodeURIComponent(customMessage)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      updateBookingStatus(confirmModalBooking.id, "confirmed");
+                      closeConfirmModal();
+                    }}
+                    className="px-5 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold hover:bg-[#1ebe5d] transition-all flex items-center gap-1.5 shadow-md"
+                  >
+                    <MessageCircle size={15} />
+                    <span>Send on WhatsApp</span>
+                  </a>
+                </div>
               </div>
             </motion.div>
           </div>

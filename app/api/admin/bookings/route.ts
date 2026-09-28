@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionRole } from "@/lib/admin-session";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getLocalBookings, updateLocalBookingStatus, BookingRecord } from "@/lib/bookings-store";
+import { getLocalBookings, updateLocalBookingStatus, updateLocalBookingAttendance, BookingRecord } from "@/lib/bookings-store";
 
 const MEETING_DURATION_MINUTES = 60;
 
@@ -83,15 +83,28 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, status } = await req.json();
+    const { id, status, attendance } = await req.json();
 
-    if (!id || !status) {
-      return NextResponse.json({ error: "id and status are required." }, { status: 400 });
+    if (!id || (!status && !attendance)) {
+      return NextResponse.json({ error: "id and either status or attendance are required." }, { status: 400 });
     }
 
-    const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: "Invalid status value." }, { status: 400 });
+    const updates: Record<string, any> = {};
+
+    if (status) {
+      const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
+      if (!validStatuses.includes(status)) {
+        return NextResponse.json({ error: "Invalid status value." }, { status: 400 });
+      }
+      updates.status = status;
+    }
+
+    if (attendance) {
+      const validAttendances = ["attended", "no_show", "scheduled"];
+      if (!validAttendances.includes(attendance)) {
+        return NextResponse.json({ error: "Invalid attendance value." }, { status: 400 });
+      }
+      updates.attendance = attendance;
     }
 
     // Try updating Supabase
@@ -99,14 +112,19 @@ export async function PATCH(req: NextRequest) {
       const supabase = supabaseServer();
       await supabase
         .from("bookings")
-        .update({ status })
+        .update(updates)
         .eq("id", id);
     } catch {}
 
     // Update local store
-    updateLocalBookingStatus(id, status);
+    if (updates.status) {
+      updateLocalBookingStatus(id, updates.status);
+    }
+    if (updates.attendance) {
+      updateLocalBookingAttendance(id, updates.attendance);
+    }
 
-    return NextResponse.json({ success: true, booking: { id, status } });
+    return NextResponse.json({ success: true, booking: { id, ...updates } });
   } catch (err) {
     console.error("Admin bookings PATCH error:", err);
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });

@@ -219,7 +219,7 @@ export default function CourtMarriagePage() {
                 href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage in Nagpur.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-3.5 rounded-full text-sm font-bold bg-[#25D366] text-white hover:bg-[#1EBE5D] transition-colors flex items-center gap-2 shadow-lg"
+                className="btn-whatsapp !py-3.5 !px-8 text-sm"
               >
                 <Phone size={16} />
                 <span>WhatsApp Legal Desk</span>
@@ -280,11 +280,11 @@ export default function CourtMarriagePage() {
 
                 <div className="mt-8 pt-4 border-t border-[var(--border)]">
                   <Link
-                    href="/book"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold bg-[var(--green)] text-white hover:bg-[var(--green-light)] transition-colors"
+                    href={`/book?service=court-marriage&matter=${encodeURIComponent(p.title)}`}
+                    className="btn-pathway w-full !text-white"
                   >
-                    <span>Consult on this pathway</span>
-                    <ArrowRight size={13} />
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Consult on this pathway</span>
+                    <ArrowRight size={14} style={{ color: "#cba758" }} />
                   </Link>
                 </div>
               </div>
@@ -400,7 +400,7 @@ export default function CourtMarriagePage() {
             </div>
             <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-3">
               <Link
-                href="/book"
+                href={`/book?service=court-marriage&matter=${encodeURIComponent("Police Protection & Article 21 Advisory")}`}
                 className="btn-primary shimmer-badge !py-3 !px-6 text-center text-xs whitespace-nowrap"
               >
                 <span>Book Protection Advisory</span>
@@ -410,9 +410,14 @@ export default function CourtMarriagePage() {
                 href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need urgent legal protection guidance regarding our court marriage.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-6 py-3 rounded-full text-xs font-bold bg-white text-[#0a2217] hover:bg-[var(--gold-light)] transition-colors text-center"
+                className="btn-whatsapp !py-3 !px-6 text-xs text-center flex items-center justify-center gap-2"
+                style={{
+                  backgroundColor: "#25D366",
+                  color: "#ffffff",
+                }}
               >
-                Direct WhatsApp Helpline
+                <Phone size={14} style={{ color: "#ffffff", stroke: "#ffffff" }} />
+                <span style={{ color: "#ffffff", fontWeight: 700 }}>Direct WhatsApp Helpline</span>
               </a>
             </div>
           </div>

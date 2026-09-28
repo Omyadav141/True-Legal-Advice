@@ -107,20 +107,72 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Practice Tags */}
-      <section className="section">
-        <div className="container">
-          <span className="eyebrow">Full practice range</span>
-          <h2 className="mb-8 mt-3 text-2xl md:text-3xl">All service areas</h2>
-          <div className="flex flex-wrap gap-3">
-            {otherLegalServices.map(({ title: area }) => (
-              <span
-                key={area}
-                className="rounded-full border px-5 py-2.5 text-sm font-medium transition-all hover:border-[var(--gold)] hover:bg-[var(--gold-soft)]"
-                style={{ borderColor: "var(--line)", background: "var(--white)", color: "var(--green)" }}
+      {/* Practice Range Marquee (Left to Right with Hover Pause) */}
+      <section className="py-16 bg-[var(--paper-dark)]/60 border-y border-[var(--line)] overflow-hidden">
+        <div className="container mb-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <span className="eyebrow">Full Practice Range</span>
+              <h2 className="mt-2 text-2xl md:text-4xl font-serif">All Legal Service Areas</h2>
+              <p className="mt-2 text-xs md:text-sm text-[var(--ink-soft)]">
+                Continuous practice overview &bull; Hover any card to pause &bull; Click to book matter
+              </p>
+            </div>
+            <Link
+              href="/book"
+              className="btn-primary !py-2.5 !px-5 text-xs shrink-0 self-start md:self-auto"
+            >
+              <span>Consultation Desk</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        {/* Marquee Track Moving from Left to Right */}
+        <div className="relative overflow-hidden py-3 select-none">
+          {/* Edge gradient masks */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[var(--paper-dark)] to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[var(--paper-dark)] to-transparent" />
+
+          <div className="animate-marquee-reverse flex items-center gap-4">
+            {[...otherLegalServices, ...otherLegalServices, ...otherLegalServices].map((s, idx) => (
+              <Link
+                key={idx}
+                href={s.href || `/book?service=other&matter=${encodeURIComponent(s.title)}`}
+                className="group flex items-center gap-3 whitespace-nowrap rounded-2xl border border-[var(--line)] bg-white px-5 py-3.5 shadow-xs transition-all duration-300 hover:border-[var(--gold)] hover:shadow-lg hover:-translate-y-1 no-underline"
               >
-                {area}
-              </span>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--gold-soft)] text-[var(--gold)] group-hover:bg-[var(--gold)] group-hover:text-[#0a2217] transition-colors">
+                  <Scale size={16} />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-[var(--green)] group-hover:text-[var(--gold)] transition-colors">
+                    {s.title}
+                  </p>
+                  <p className="text-[11px] text-[var(--ink-muted)]">
+                    Nagpur District Court & High Court
+                  </p>
+                </div>
+                <ArrowRight size={12} className="text-[var(--gold)] opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Clickable Practice Badges Cloud */}
+        <div className="container mt-8 pt-6 border-t border-[var(--line)]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[var(--gold)] mb-3">
+            Quick Practice Navigation &bull; Click to Open or Book
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            {otherLegalServices.map((service) => (
+              <Link
+                key={service.title}
+                href={service.href || `/book?service=other&matter=${encodeURIComponent(service.title)}`}
+                className="rounded-full border border-[var(--line)] bg-white px-4 py-2 text-xs font-semibold text-[var(--green)] shadow-xs transition-all duration-200 hover:border-[var(--gold)] hover:bg-[var(--gold-soft)] hover:text-[#0a2217] hover:shadow-sm flex items-center gap-1.5"
+              >
+                <span>{service.title}</span>
+                <ArrowRight size={11} className="text-[var(--gold)]" />
+              </Link>
             ))}
           </div>
         </div>

@@ -12,7 +12,8 @@ __v0_jsx-dev-runtime.ts
 .env.local
 
 # Local data
-data/bookings.json
+data/*.json
+tsconfig.tsbuildinfo
 
 # Common ignores
 node_modules
