@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
 
       if (hasSupabase) {
         const supabase = supabaseServer();
-        await supabase.from("contact_inquiries").insert({
+        const { error: sbErr } = await supabase.from("contact_inquiries").insert({
+          id: record.id,
           name: record.name,
           phone: record.phone,
           email: record.email,
@@ -51,9 +52,12 @@ export async function POST(req: NextRequest) {
           status: record.status,
           created_at: record.created_at,
         });
+        if (sbErr) {
+          console.warn("Supabase contact inquiry insert notice:", sbErr.message);
+        }
       }
-    } catch {
-      // Supabase is optional; local file store guarantees persistence
+    } catch (err) {
+      console.warn("Supabase connection issue for contact inquiry:", err);
     }
 
     return NextResponse.json({ success: true, contact: record });

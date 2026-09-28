@@ -138,13 +138,13 @@ export async function POST(req: NextRequest) {
               { status: 409 }
             );
           }
-          console.warn("Supabase insert notification:", error.message);
+          console.error("Supabase insert error:", error.code, error.message, error.details || "");
         } else if (dbData) {
           bookingRecord = { ...bookingRecord, ...dbData, sub_service: finalSubService };
         }
       }
     } catch (sbErr) {
-      console.warn("Supabase connection issue:", sbErr);
+      console.error("Supabase connection exception:", sbErr);
     }
 
     // Always persist to local storage as rock-solid guarantee
