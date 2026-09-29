@@ -99,7 +99,7 @@ CORE PRINCIPLES & LEGAL INTELLIGENCE (INDIAN LAW):
 
 // Helper: Call xAI Grok API across supported models with automatic fallback
 async function callGrokAI(apiKey: string, messages: any[]): Promise<string | null> {
-  const models = ["grok-2-latest", "grok-2", "grok-beta", "grok-2-1212"];
+  const models = ["grok-4.7", "grok-2-latest", "grok-2", "grok-beta", "grok-2-1212"];
 
   for (const model of models) {
     try {
@@ -142,6 +142,66 @@ async function callGrokAI(apiKey: string, messages: any[]): Promise<string | nul
   return null;
 }
 
+// Helper: Call Google Gemini API (Free tier supported via Google AI Studio)
+async function callGeminiAI(apiKey: string, userMessage: string, history: any[], clientName: string): Promise<string | null> {
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+
+  const contents: any[] = [];
+  if (Array.isArray(history) && history.length > 0) {
+    history.slice(-6).forEach((h: any) => {
+      contents.push({
+        role: h.sender === "user" ? "user" : "model",
+        parts: [{ text: h.text }],
+      });
+    });
+  }
+
+  const promptText = clientName && !userMessage.toLowerCase().includes(clientName.toLowerCase())
+    ? `[Client Name: ${clientName}] ${userMessage}`
+    : userMessage;
+
+  contents.push({
+    role: "user",
+    parts: [{ text: promptText }],
+  });
+
+  for (const model of models) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: LEGAL_SYSTEM_PROMPT }] },
+          generationConfig: { maxOutputTokens: 600, temperature: 0.3 },
+        }),
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) {
+          console.log(`[AI Desk] Successfully generated response using Gemini model: ${model}`);
+          return text;
+        }
+      } else {
+        const errText = await res.text();
+        console.warn(`[AI Desk] Gemini model ${model} returned ${res.status}: ${errText}`);
+      }
+    } catch (err) {
+      console.warn(`[AI Desk] Error calling Gemini model ${model}:`, err);
+    }
+  }
+
+  return null;
+}
+
 export async function POST(req: Request) {
   try {
     const { message, history, userName } = await req.json();
@@ -153,14 +213,17 @@ export async function POST(req: Request) {
     const sanitizedPassedName = sanitizeName(userName);
     const activeUserName = extractedName || sanitizedPassedName || "";
 
-    // 2. CHECK GROK AI FIRST! (If API key is available in environment or request)
+    // 2. CHECK GROK AI & GEMINI AI FIRST!
     const grokApiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.NEXT_PUBLIC_GROK_API_KEY || "").trim();
+    const geminiApiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "").trim();
+
+    let aiReply: string | null = null;
+
     if (grokApiKey) {
       const grokMessages = [
         { role: "system", content: LEGAL_SYSTEM_PROMPT },
       ];
 
-      // Include recent conversation history
       if (Array.isArray(history) && history.length > 0) {
         history.slice(-6).forEach((h: any) => {
           if (h.sender === "user") {
@@ -171,41 +234,45 @@ export async function POST(req: Request) {
         });
       }
 
-      // Add user prompt with client name context
       const userPrompt = activeUserName && !rawText.toLowerCase().includes(activeUserName.toLowerCase())
         ? `[Client Name: ${activeUserName}] ${rawText}`
         : rawText;
 
       grokMessages.push({ role: "user", content: userPrompt });
+      aiReply = await callGrokAI(grokApiKey, grokMessages);
+    }
 
-      const grokReply = await callGrokAI(grokApiKey, grokMessages);
-      if (grokReply) {
-        const dynamicActions = [];
-        const combined = (rawText + " " + grokReply).toLowerCase();
-        if (combined.includes("marriage") || combined.includes("marry") || combined.includes("shaadi") || combined.includes("nikah") || combined.includes("pocso")) {
-          dynamicActions.push({ label: "Court Marriage Help", href: "/court-marriage" });
-        }
-        if (combined.includes("trademark") || combined.includes("brand") || combined.includes("startup") || combined.includes("company")) {
-          dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
-        }
-        dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
-        dynamicActions.push({
-          label: "WhatsApp Legal Desk",
-          href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
-          external: true,
-        });
+    // Fallback to Google Gemini AI if Grok is not configured or failed
+    if (!aiReply && geminiApiKey) {
+      aiReply = await callGeminiAI(geminiApiKey, rawText, history, activeUserName);
+    }
 
-        return NextResponse.json({
-          reply: grokReply,
-          userName: activeUserName,
-          suggestedActions: dynamicActions.slice(0, 3),
-        });
+    if (aiReply) {
+      const dynamicActions = [];
+      const combined = (rawText + " " + aiReply).toLowerCase();
+      if (combined.includes("marriage") || combined.includes("marry") || combined.includes("shaadi") || combined.includes("nikah") || combined.includes("pocso")) {
+        dynamicActions.push({ label: "Court Marriage Help", href: "/court-marriage" });
       }
+      if (combined.includes("trademark") || combined.includes("brand") || combined.includes("startup") || combined.includes("company")) {
+        dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
+      }
+      dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
+      dynamicActions.push({
+        label: "WhatsApp Legal Desk",
+        href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
+        external: true,
+      });
+
+      return NextResponse.json({
+        reply: aiReply,
+        userName: activeUserName,
+        suggestedActions: dynamicActions.slice(0, 3),
+      });
     }
 
     // =========================================================================
     // 3. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
-    // Only runs when Grok API key is not configured or network call failed
+    // Only runs when AI API keys are not configured or network calls failed
     // =========================================================================
 
     // 3A. POCSO Act & Age of Consent under Indian Law (Strict Criminal Protection)
@@ -424,7 +491,288 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 3J. Fallback: Concise legal overview covering all practices
+    // 3J. Indian Contract Act, 1872 & Commercial Agreements (e.g. "valid contract", "requirements for a contract")
+    if (
+      query.includes("contract") ||
+      query.includes("agreement") ||
+      query.includes("section 10") ||
+      query.includes("breach") ||
+      query.includes("consideration") ||
+      query.includes("consent") ||
+      query.includes("offer and acceptance") ||
+      query.includes("competency") ||
+      query.includes("nda") ||
+      query.includes("memorandum")
+    ) {
+      return NextResponse.json({
+        reply: `Under the Indian Contract Act, 1872 (specifically Section 10), all agreements are enforceable contracts if entered into with the following essential legal requirements:
+
+📜 Essential Elements of a Valid Contract in India:
+1. Offer & Acceptance (Sections 2(a) & 2(b)): Lawful proposal communicated by one party and absolute, unqualified acceptance by the other.
+2. Free Consent (Sections 13 & 14): Mutual consent (*consensus ad idem*) free from Coercion (Sec 15), Undue Influence (Sec 16), Fraud (Sec 17), Misrepresentation (Sec 18), or Bilateral Mistake (Sec 20).
+3. Competency / Capacity to Contract (Section 11): Both parties must have attained the age of majority (18+ years), be of sound mind, and not be disqualified by any law.
+4. Lawful Consideration & Object (Section 23): The exchange must have real legal value and cannot be unlawful, fraudulent, injurious to person/property, or opposed to public policy.
+5. Intention to Create Legal Relations: Express or implied mutual intention that breach will give rise to legal consequences.
+6. Not Expressly Declared Void: Agreements in restraint of marriage (Sec 26), trade (Sec 27), or legal proceedings (Sec 28) are void ab initio.
+7. Stamp Duty & Registration: Certain agreements (real estate transfer, lease >1 yr, arbitration clauses) must be executed on requisite non-judicial stamp paper under the Maharashtra Stamp Act and registered under the Registration Act, 1908.
+
+Adv. Shareen Hussain provides end-to-end legal drafting, contract vetting, non-disclosure agreements (NDAs), and breach of contract litigation at Nagpur District Courts & High Court.`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Contract Advisory", href: "/book" },
+          { label: "Draft Legal Agreements", href: "/legal-services" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Contract drafting / Agreement review.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3K. Criminal Law, Bail (438/439 CrPC), FIR Quashing (482), Cheque Bounce (138 NI Act)
+    if (
+      query.includes("bail") ||
+      query.includes("anticipatory") ||
+      query.includes("arrest") ||
+      query.includes("fir") ||
+      query.includes("police") ||
+      query.includes("criminal") ||
+      query.includes("quashing") ||
+      query.includes("cheque bounce") ||
+      query.includes("138") ||
+      query.includes("ni act") ||
+      query.includes("cyber") ||
+      query.includes("498a")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides experienced criminal defense representation across Sessions Courts and Bombay High Court (Nagpur Bench):
+• Anticipatory Bail (Sec 438 CrPC / Sec 482 BNSS) & Regular Bail (Sec 439 CrPC / Sec 483 BNSS)
+• FIR Quashing Petitions & Police Harassment Protection under Section 482 CrPC / Article 226
+• Cheque Bounce Cases (Section 138 NI Act) — Statutory legal notices & trial representation
+• Cyber Crime, Financial Fraud & Defamation defense
+• Criminal trial representation & witness cross-examination
+
+For urgent arrest or bail matters, immediate consultation is recommended.`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Urgent Bail Consultation", href: "/book" },
+          { label: "Emergency WhatsApp Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have an urgent Criminal / Bail legal matter.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3L. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
+    if (
+      query.includes("property") ||
+      query.includes("civil") ||
+      query.includes("suit") ||
+      query.includes("injunction") ||
+      query.includes("land") ||
+      query.includes("flat") ||
+      query.includes("sale deed") ||
+      query.includes("gift deed") ||
+      query.includes("will") ||
+      query.includes("succession") ||
+      query.includes("partition") ||
+      query.includes("tenant") ||
+      query.includes("landlord") ||
+      query.includes("title search")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain handles complete Civil & Real Estate Property matters in Nagpur District & Civil Courts:
+• Comprehensive 30-Year Property Title Search & Due Diligence Search Reports
+• Drafting & Government Registration of Sale Deeds, Gift Deeds, Release Deeds & Registered Wills
+• Partition Suits, Property Ownership Disputes & Declaration of Title
+• Permanent Injunctions, Tenant Eviction Suits & Commercial Leases
+• Succession Certificates, Legal Heir Certificates & Power of Attorney (PoA)
+
+Would you like Adv. Shareen to inspect your property documents?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Property Consultation", href: "/book" },
+          { label: "WhatsApp Document Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Property verification / Deed drafting.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3M. Court Marriage & Special Marriage Act
+    if (
+      query.includes("love") ||
+      query.includes("marriage") ||
+      query.includes("nikah") ||
+      query.includes("shaadi") ||
+      query.includes("inter-caste") ||
+      query.includes("inter-religion") ||
+      query.includes("special marriage") ||
+      query.includes("arya samaj")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act (1954) filings with 100% confidentiality.
+
+💍 Key Highlights:
+• Lawful procedure under Special Marriage Act, 1954 or personal marriage laws
+• Legal security & police protection under Article 21 for consenting adults
+• Age verification (Boy: 21+, Girl: 18+) & preparation of affidavits & notices
+• Guidance on 3 witnesses & registrar representation in Nagpur
+• Official Government Marriage Certificate issued directly by the Registrar`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Guide & Checklist", href: "/court-marriage" },
+          { label: "Book Private Marriage Advisory", href: "/book" },
+          { label: "Confidential WhatsApp Inquiry", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3N. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
+    if (
+      query.includes("divorce") ||
+      query.includes("maintenance") ||
+      query.includes("alimony") ||
+      query.includes("custody") ||
+      query.includes("domestic violence") ||
+      query.includes("dv act") ||
+      query.includes("family court") ||
+      query.includes("matrimonial")
+    ) {
+      return NextResponse.json({
+        reply: `We handle family and matrimonial disputes with utmost sensitivity, confidentiality, and firm legal representation in Nagpur Family Courts:
+• Mutual Consent Divorce (Fast-track cooling period waiver) & Contested Divorce
+• Maintenance & Interim Alimony under Section 125 CrPC & Personal Laws
+• Child Custody, Visitation Rights & Guardianship petitions
+• Domestic Violence Protection Orders & Residence Rights under DV Act
+• Formal Matrimonial Settlement Agreements & Mediation`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Confidential Consultation", href: "/book" },
+          { label: "WhatsApp Advocate Confidentially", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need private consultation regarding a Family / Matrimonial matter.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3O. Trademark, Copyright, Startup & Corporate Compliance
+    if (
+      query.includes("trademark") ||
+      query.includes("brand") ||
+      query.includes("copyright") ||
+      query.includes("gst") ||
+      query.includes("company") ||
+      query.includes("pvt ltd") ||
+      query.includes("llp") ||
+      query.includes("startup") ||
+      query.includes("gumasta") ||
+      query.includes("msme") ||
+      query.includes("fssai") ||
+      query.includes("patent")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain is an officially certified Trade Mark Attorney (B.Com, M.Com, LL.B) and founder of True Legal Advice (www.securemybrand.in).
+
+🚀 Brand & Corporate Solutions:
+• Trademark Search, Filing & Objection Hearings across all Classes (1–45)
+• Copyright Registration for logos, software & creative works
+• Company Incorporation (Pvt Ltd, LLP, One Person Company)
+• GUMASTA / Shop Act License & MSME Udyam Registration
+• GST Registration, Monthly Returns & FSSAI Food Licenses
+• Commercial Contracts, NDAs, Service Level Agreements & Vendor Contracts`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Explore Trademark Practice", href: "/trademark-registration" },
+          { label: "Book Trademark Advisory", href: "/book" },
+          { label: "WhatsApp for Brand Clearance", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I want to conduct a Trademark search & registration.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3P. Legal Documentation, Drafting, Notices, Affidavits
+    if (
+      query.includes("draft") ||
+      query.includes("notice") ||
+      query.includes("affidavit") ||
+      query.includes("power of attorney") ||
+      query.includes("poa") ||
+      query.includes("documentation")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides expert legal drafting and vetted documentation:
+• Formal Legal Notices (Recovery of money, breach of contract, defamation, 138 NI Act)
+• Affidavits for court, name change, passport, and government departments
+• General & Special Power of Attorney (PoA)
+• Commercial Contracts, Partnership Deeds, NDAs & Employment Agreements
+• Rent / Lease Agreements on official Stamp Paper with notary & registration`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Drafting Consultation", href: "/book" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need help drafting a Legal Notice / Agreement / Affidavit.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3Q. Fees, Consultation Charges & Booking Process
+    if (
+      query.includes("fee") ||
+      query.includes("charge") ||
+      query.includes("rate") ||
+      query.includes("cost") ||
+      query.includes("price") ||
+      query.includes("consultation") ||
+      query.includes("book") ||
+      query.includes("appointment") ||
+      query.includes("slot")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides dedicated, strategic legal consultations for both Online Video Call (Google Meet) and In-Office Walk-in sessions at Trisharan Square, Nagpur.
+
+📋 How to Book Your Slot:
+1. Tap "Book Consultation Slot" below to view live calendar availability
+2. Choose between Online Video Call or In-Person Office Visit
+3. Select your preferred date & time slot
+4. Provide your contact details & brief overview of your case
+5. Instant WhatsApp confirmation from our legal desk`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I would like to book a legal consultation session.")}`, external: true },
+          { label: "View Chamber Timings", href: "/contact" },
+        ],
+      });
+    }
+
+    // 3R. Office Location, Timings, Nagpur Chamber
+    if (
+      query.includes("where") ||
+      query.includes("address") ||
+      query.includes("location") ||
+      query.includes("nagpur") ||
+      query.includes("timing") ||
+      query.includes("time") ||
+      query.includes("walk in") ||
+      query.includes("office") ||
+      query.includes("chamber") ||
+      query.includes("reach") ||
+      query.includes("contact")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain Chamber Details:
+
+📍 Address:
+Trisharan Square, Nagpur - 440027, Maharashtra, India
+(Practice at Bombay High Court, Nagpur Bench & District Courts)
+
+⏰ Walk-in Chamber Desk Hours:
+• Morning Walk-in: 9:30 AM – 11:00 AM
+• Evening Walk-in: 5:30 PM – 8:30 PM
+• Online Video Consultations: Monday to Saturday by scheduled appointment
+
+📞 Direct Chamber Contact:
+• Phone & WhatsApp: +91 83296 31199`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "Get Chamber Directions", href: site.googleMapsUrl, external: true },
+          { label: "Contact Page", href: "/contact" },
+        ],
+      });
+    }
+
+    // 3S. Fallback: Concise legal overview covering all practices
     const namePrefix = activeUserName ? `${activeUserName}, ` : "";
     return NextResponse.json({
       reply: `${namePrefix}Adv. Shareen Hussain practices across Bombay High Court (Nagpur Bench) and District Courts, handling all legal matters including:

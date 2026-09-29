@@ -493,13 +493,42 @@ Would you like Adv. Shareen to inspect your property documents?`,
     };
   }
 
-  // 12. Legal Documentation, Drafting, Notices, Affidavits
+  // 12A. Indian Contract Act, 1872 & Enforceable Contracts
+  if (
+    query.includes("contract") ||
+    query.includes("section 10") ||
+    query.includes("valid contract") ||
+    query.includes("breach of contract") ||
+    query.includes("consideration") ||
+    query.includes("offer and acceptance")
+  ) {
+    return {
+      text: `Under the Indian Contract Act, 1872 (specifically Section 10), all agreements are enforceable contracts if entered into with the following essential legal requirements:
+
+📜 Essential Elements of a Valid Contract in India:
+1. Offer & Acceptance (Sections 2(a) & 2(b)): Lawful proposal communicated by one party and absolute, unqualified acceptance by the other.
+2. Free Consent (Sections 13 & 14): Mutual consent (*consensus ad idem*) free from Coercion (Sec 15), Undue Influence (Sec 16), Fraud (Sec 17), Misrepresentation (Sec 18), or Bilateral Mistake (Sec 20).
+3. Competency / Capacity to Contract (Section 11): Both parties must have attained the age of majority (18+ years), be of sound mind, and not be disqualified by any law.
+4. Lawful Consideration & Object (Section 23): The exchange must have real legal value and cannot be unlawful, fraudulent, injurious to person/property, or opposed to public policy.
+5. Intention to Create Legal Relations: Express or implied mutual intention that breach will give rise to legal consequences.
+6. Not Expressly Declared Void: Agreements in restraint of marriage (Sec 26), trade (Sec 27), or legal proceedings (Sec 28) are void ab initio.
+7. Stamp Duty & Registration: Certain agreements (real estate transfer, lease >1 yr, arbitration clauses) must be executed on requisite non-judicial stamp paper under the Maharashtra Stamp Act and registered under the Registration Act, 1908.
+
+Adv. Shareen Hussain provides end-to-end legal drafting, contract vetting, non-disclosure agreements (NDAs), and breach of contract litigation at Nagpur District Courts & High Court.`,
+      suggestedActions: [
+        { label: "Book Contract Advisory", href: "/book" },
+        { label: "Draft Legal Agreements", href: "/legal-services" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Contract drafting / Agreement review.")}`, external: true },
+      ],
+    };
+  }
+
+  // 12B. Legal Documentation, Drafting, Notices, Affidavits
   if (
     query.includes("draft") ||
     query.includes("notice") ||
     query.includes("affidavit") ||
     query.includes("agreement") ||
-    query.includes("contract") ||
     query.includes("power of attorney") ||
     query.includes("poa") ||
     query.includes("documentation")
