@@ -16,123 +16,292 @@ interface Message {
   suggestedActions?: { label: string; href?: string; external?: boolean; query?: string }[];
 }
 
-function getInstantLegalResponse(text: string) {
+// Helper: Extract user's name if introduced in the text
+function extractNameFromText(text: string): string | null {
+  const clean = text.trim();
+  const introMatch = clean.match(/(?:my name is|i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})/i);
+  if (introMatch && introMatch[1]) {
+    const raw = introMatch[1].trim();
+    const commonVerbs = ["looking", "facing", "having", "married", "seeking", "asking", "interested", "confused", "worried", "going", "trying", "calling", "writing", "a", "an", "the"];
+    if (!commonVerbs.includes(raw.toLowerCase())) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    }
+  }
+
+  const hereMatch = clean.match(/^([a-zA-Z]{2,20})\s+here$/i);
+  if (hereMatch && hereMatch[1]) {
+    const raw = hereMatch[1].trim();
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
+  return null;
+}
+
+function getInstantLegalResponse(text: string, currentUserName?: string) {
   const query = text.toLowerCase().trim();
+  const detectedName = extractNameFromText(text);
+  const activeName = detectedName || currentUserName || "";
+  const nameGreeting = activeName ? ` ${activeName}` : "";
 
-  // 1. Friendly Greetings & Salutations (e.g. "hi", "hello", "namaste", "good morning")
-  const greetingWords = [
-    "hi",
-    "hello",
-    "hey",
-    "hiya",
-    "namaste",
-    "namaskar",
-    "good morning",
-    "good afternoon",
-    "good evening",
-    "salam",
-    "assalam",
-    "salaam",
-    "adaab",
-    "pranam",
-    "hussain",
-    "advocate",
-    "lawyer",
-    "shareen",
+  // 1. Purely non-legal queries (cooking, coding, sports, entertainment, homework)
+  const nonLegalKeywords = [
+    "recipe", "cook", "biryani", "pizza", "burger", "cake",
+    "python", "javascript", "react", "html", "css", "coding", "software bug", "programming", "java", "c++",
+    "weather", "temperature", "rain",
+    "cricket", "ipl", "football", "fifa", "messi", "ronaldo",
+    "movie", "song", "lyrics", "singer", "actor", "actress", "bollywood", "hollywood", "netflix",
+    "homework", "solve equation", "tell me a joke", "sing a song",
   ];
-  const isDirectGreeting =
-    greetingWords.includes(query) ||
-    query.startsWith("hi ") ||
-    query.startsWith("hello ") ||
-    query.startsWith("hey ") ||
-    query.startsWith("good morning") ||
-    query.startsWith("good evening") ||
-    query === "help" ||
-    query === "can you help me";
-
-  if (isDirectGreeting) {
+  if (nonLegalKeywords.some((k) => query.includes(k))) {
     return {
-      text: `Hello and welcome to True Legal Advice — Chamber of Adv. Shareen Hussain (B.Com, M.Com, LL.B), practicing at the Bombay High Court (Nagpur Bench) and District Courts.
+      text: `I can only assist with legal matters of the court, legal advice, and legal documentation for Adv. Shareen Hussain's chambers.
 
-How can I assist you with your legal matter today? You can inquire about:
-• Court Marriage & Special Marriage Act registration (confidential)
-• Trademark Search, Filing & Startup IP protection (Class 1-45)
-• Property Title Search, Sale Deeds, Gift Deeds & Wills
-• Walk-in Chamber desk timings or booking a private consultation`,
+How can I help you with a legal question today?`,
       suggestedActions: [
-        { label: "Court Marriage Help", href: "/court-marriage" },
-        { label: "Trademark Services", href: "/trademark-registration" },
         { label: "Book Consultation Slot", href: "/book" },
-        { label: "Office Timings & Location", query: "What are your chamber office timings and address in Nagpur?" },
+        { label: "View Legal Services", href: "/legal-services" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have a legal query.")}`, external: true },
       ],
     };
   }
 
-  // 2. Consultation booking process & appointment inquiries (No "₹1,000" or "Time is Money" spam)
+  // 2. Overly deep / high-risk / win guarantee queries
+  const deepTriggers = [
+    "guarantee i will win", "can you guarantee a win", "guarantee my case", "promise win",
+    "how to bribe", "give money to judge", "forge", "fake certificate", "fake document",
+    "how to hide money from wife", "hide assets from court", "escape police without bail",
+    "exact settlement amount", "calculate my exact alimony", "how to beat the judge",
+  ];
+  if (deepTriggers.some((t) => query.includes(t))) {
+    return {
+      text: `${activeName ? activeName + ", " : ""}because this matter involves specific case facts, evidence examination, and critical court proceedings, Adv. Shareen Hussain needs to review your case documents directly in a private consultation.
+
+Indian courts decide cases strictly on evidence and statutory law. Adv. Shareen will review your documents and provide a direct legal evaluation.`,
+      suggestedActions: [
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need a consultation regarding a complex court litigation matter.")}`, external: true },
+        { label: "View Chamber Timings", href: "/contact" },
+      ],
+    };
+  }
+
+  // 3. User introduces their name (e.g. "My name is Faiez", "I am Faiez")
+  if (detectedName) {
+    return {
+      text: `Hi ${detectedName}! How are you doing today?
+
+How can Adv. Shareen Hussain's chamber assist you with your legal case or documentation?`,
+      suggestedActions: [
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Explore Legal Services", href: "/legal-services" },
+        { label: "Court Marriage Guidance", href: "/court-marriage" },
+        { label: "Trademark / Startup Help", href: "/trademark-registration" },
+      ],
+    };
+  }
+
+  // 4. Polite "How are you" / "I am good"
   if (
-    query.includes("fee") ||
-    query.includes("charge") ||
-    query.includes("rate") ||
-    query.includes("cost") ||
-    query.includes("price") ||
-    query.includes("1000") ||
-    query.includes("rupee") ||
-    query.includes("consultation") ||
-    query.includes("book") ||
-    query.includes("appointment") ||
-    query.includes("slot") ||
-    query.includes("process")
+    query.includes("how are you") ||
+    query.includes("how r u") ||
+    query === "i am good" ||
+    query === "i'm good" ||
+    query === "i am fine" ||
+    query === "i'm fine" ||
+    query === "all good"
   ) {
     return {
-      text: `Adv. Shareen Hussain provides dedicated, private legal consultations for both Video Consultation (Google Meet) and Office Visit sessions at Trisharan Square, Nagpur.
+      text: `I am doing well, thank you${nameGreeting}!
 
-📋 How to Book Your Slot:
-1. Tap "Book a Consultation Slot" below to view live calendar availability
-2. Choose between Online Video Call or In-Person Office Visit
-3. Select your preferred date & time slot
-4. Provide your contact details & brief overview of your case
-5. Instant WhatsApp confirmation from our legal desk`,
+How can I assist you with your legal case, court matter, or documentation today?`,
       suggestedActions: [
-        { label: "Book a Consultation Slot", href: "/book" },
-        { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I would like to book a legal consultation session.")}`, external: true },
-        { label: "View Chamber Timings", query: "What are your chamber office timings and address in Nagpur?" },
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Court Marriage Help", href: "/court-marriage" },
+        { label: "Trademark Registration", href: "/trademark-registration" },
+        { label: "Office Timings & Location", href: "/contact" },
       ],
     };
   }
 
-  // 3. Love Marriage / Court Marriage / Special Marriage Act
+  // 5. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
+  const isDirectGreeting =
+    query === "hi" ||
+    query === "hello" ||
+    query === "hey" ||
+    query === "namaste" ||
+    query === "namaskar" ||
+    query === "good morning" ||
+    query === "good afternoon" ||
+    query === "good evening" ||
+    query === "salam" ||
+    query === "assalam" ||
+    query === "salaam" ||
+    query === "adaab" ||
+    query === "pranam" ||
+    query.startsWith("hi ") ||
+    query.startsWith("hello ") ||
+    query.startsWith("hey ");
+
+  if (isDirectGreeting) {
+    const greeting = activeName
+      ? `Hello ${activeName}! Welcome back to True Legal Advice.`
+      : `Hello! Welcome to True Legal Advice. I am the AI assistant of Adv. Shareen Hussain.`;
+
+    return {
+      text: `${greeting} How can I help you today?`,
+      suggestedActions: [
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Explore Legal Services", href: "/legal-services" },
+        { label: "Chamber Timings & Location", href: "/contact" },
+      ],
+    };
+  }
+
+  // 6. High Court Practice (Bombay High Court Nagpur Bench, Writ Petitions, Appeals)
+  if (
+    query.includes("high court") ||
+    query.includes("writ") ||
+    query.includes("bombay high court") ||
+    query.includes("appeal") ||
+    query.includes("revision") ||
+    query.includes("stay order") ||
+    query.includes("article 226") ||
+    query.includes("article 227")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain actively practices at the Bombay High Court (Nagpur Bench), handling:
+• Writ Petitions under Article 226 & 227 of the Constitution
+• Criminal & Civil Appeals, Revisions & Stay Applications
+• Section 482 CrPC FIR Quashing & High Court Bail Petitions
+• Challenging arbitrary government orders, tender disputes & tribunal appeals
+
+Would you like to schedule a consultation to review your court case records?`,
+      suggestedActions: [
+        { label: "Book High Court Consultation", href: "/book" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal representation at the Bombay High Court (Nagpur Bench).")}`, external: true },
+        { label: "Chamber Address & Timings", href: "/contact" },
+      ],
+    };
+  }
+
+  // 7. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
+  if (
+    query.includes("bail") ||
+    query.includes("anticipatory") ||
+    query.includes("arrest") ||
+    query.includes("police") ||
+    query.includes("fir") ||
+    query.includes("complaint") ||
+    query.includes("criminal") ||
+    query.includes("cheque bounce") ||
+    query.includes("138") ||
+    query.includes("ni act") ||
+    query.includes("cyber") ||
+    query.includes("498a")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain provides experienced criminal defense representation across Sessions Courts and High Court:
+• Anticipatory Bail (Sec 438) & Regular Bail (Sec 439)
+• FIR Quashing & Police Harassment Protection
+• Cheque Bounce Cases (Section 138 NI Act) — Legal notice drafting & court trial
+• Cyber Crime, Financial Fraud & Defamation cases
+• Criminal trial defense & witness examination
+
+For urgent arrest or bail matters, immediate consultation is recommended.`,
+      suggestedActions: [
+        { label: "Book Urgent Bail Consultation", href: "/book" },
+        { label: "Emergency WhatsApp Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have an urgent Criminal / Bail legal matter.")}`, external: true },
+      ],
+    };
+  }
+
+  // 8. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
+  if (
+    query.includes("property") ||
+    query.includes("civil") ||
+    query.includes("suit") ||
+    query.includes("injunction") ||
+    query.includes("land") ||
+    query.includes("flat") ||
+    query.includes("sale deed") ||
+    query.includes("gift deed") ||
+    query.includes("will") ||
+    query.includes("succession") ||
+    query.includes("partition") ||
+    query.includes("tenant") ||
+    query.includes("landlord") ||
+    query.includes("title search")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain handles complete Civil & Real Estate Property matters in Nagpur District & Civil Courts:
+• Comprehensive 30-Year Property Title Search & Due Diligence Reports
+• Drafting & Government Registration of Sale Deeds, Gift Deeds, Release Deeds & Wills
+• Partition Suits, Property Ownership Disputes & Declaration of Title
+• Permanent Injunctions, Tenant Eviction Suits & Lease Agreements
+• Succession Certificates, Legal Heir Certificates & Power of Attorney (PoA)
+
+Would you like Adv. Shareen to inspect your property documents?`,
+      suggestedActions: [
+        { label: "Book Property Consultation", href: "/book" },
+        { label: "WhatsApp Document Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Property verification / Deed drafting.")}`, external: true },
+      ],
+    };
+  }
+
+  // 9. Court Marriage & Special Marriage Act
   if (
     query.includes("love") ||
     query.includes("marriage") ||
-    query.includes("court marriage") ||
     query.includes("nikah") ||
     query.includes("shaadi") ||
     query.includes("inter-caste") ||
     query.includes("inter-religion") ||
     query.includes("special marriage") ||
-    query.includes("arya samaj") ||
-    query.includes("protection")
+    query.includes("arya samaj")
   ) {
     return {
-      text: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act (1954) advisory with 100% confidentiality.
+      text: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act (1954) filings with 100% confidentiality.
 
 💍 Key Highlights:
-• Complete lawful procedure under Special Marriage Act, 1954 or Hindu Marriage Act, 1955
-• Protection of consenting adult rights (Article 21 legal security & police protection)
-• Age verification (Boy: 21+, Girl: 18+) & preparation of all legal affidavits
-• Mandatory 3 witness arrangement guidance & registrar representation
-• Official Government Marriage Certificate issued directly by the Registrar
-
-Would you like to review the step-by-step document checklist or schedule a private consultation?`,
+• Lawful procedure under Special Marriage Act, 1954 or personal marriage laws
+• Legal security & police protection under Article 21 for consenting adults
+• Age verification (Boy: 21+, Girl: 18+) & preparation of affidavits & notices
+• Guidance on 3 witnesses & registrar representation in Nagpur
+• Official Government Marriage Certificate issued directly by the Registrar`,
       suggestedActions: [
-        { label: "Court Marriage Guide & Docs", href: "/court-marriage" },
+        { label: "Court Marriage Guide & Checklist", href: "/court-marriage" },
         { label: "Book Private Marriage Advisory", href: "/book" },
         { label: "Confidential WhatsApp Inquiry", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage.")}`, external: true },
       ],
     };
   }
 
-  // 4. Trademark / Startup / Corporate / Intellectual Property
+  // 10. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
+  if (
+    query.includes("divorce") ||
+    query.includes("maintenance") ||
+    query.includes("alimony") ||
+    query.includes("custody") ||
+    query.includes("domestic violence") ||
+    query.includes("dv act") ||
+    query.includes("family court") ||
+    query.includes("matrimonial")
+  ) {
+    return {
+      text: `We handle family and matrimonial disputes with utmost sensitivity, confidentiality, and firm legal representation in Nagpur Family Courts:
+• Mutual Consent Divorce (Fast-track cooling period waiver) & Contested Divorce
+• Maintenance & Interim Alimony under Section 125 CrPC & Personal Laws
+• Child Custody, Visitation Rights & Guardianship petitions
+• Domestic Violence Protection Orders & Residence Rights under DV Act
+• Formal Matrimonial Settlement Agreements & Mediation`,
+      suggestedActions: [
+        { label: "Book Confidential Consultation", href: "/book" },
+        { label: "WhatsApp Advocate Confidentially", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need private consultation regarding a Family / Matrimonial matter.")}`, external: true },
+      ],
+    };
+  }
+
+  // 11. Trademark, Copyright, Startup & Corporate Compliance
   if (
     query.includes("trademark") ||
     query.includes("brand") ||
@@ -145,29 +314,81 @@ Would you like to review the step-by-step document checklist or schedule a priva
     query.includes("gumasta") ||
     query.includes("msme") ||
     query.includes("fssai") ||
-    query.includes("patent") ||
-    query.includes("logo") ||
-    query.includes("ip")
+    query.includes("patent")
   ) {
     return {
       text: `Adv. Shareen Hussain is an officially certified Trade Mark Attorney (B.Com, M.Com, LL.B) and founder of True Legal Advice (www.securemybrand.in).
 
-🚀 Brand & Business Solutions:
-• Trademark & Brand Name Comprehensive Search, Filing & Objection handling
-• Copyright Registration for logos, software & artistic works
-• Company Registration (Pvt Ltd, LLP, One Person Company)
-• GUMASTA / Shop Act License & MSME (Udyam) Registration
-• GST Registration, Return Filing & FSSAI Food Licenses
-• Legal Notices, Licensing Contracts, NDAs & Partnership Deeds`,
+🚀 Brand & Corporate Solutions:
+• Trademark Search, Filing & Objection Hearings across all Classes (1–45)
+• Copyright Registration for logos, software & creative works
+• Company Incorporation (Pvt Ltd, LLP, One Person Company)
+• GUMASTA / Shop Act License & MSME Udyam Registration
+• GST Registration, Monthly Returns & FSSAI Food Licenses
+• Commercial Contracts, NDAs, Service Level Agreements & Vendor Contracts`,
       suggestedActions: [
         { label: "Explore Trademark Practice", href: "/trademark-registration" },
         { label: "Book Trademark Advisory", href: "/book" },
-        { label: "WhatsApp for Brand Clearance", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Trademark Search and Brand Registration.")}`, external: true },
+        { label: "WhatsApp for Brand Clearance", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I want to conduct a Trademark search & registration.")}`, external: true },
       ],
     };
   }
 
-  // 5. Office location / Walk-in hours / Nagpur chambers
+  // 12. Legal Documentation, Drafting, Notices, Affidavits
+  if (
+    query.includes("draft") ||
+    query.includes("notice") ||
+    query.includes("affidavit") ||
+    query.includes("agreement") ||
+    query.includes("contract") ||
+    query.includes("power of attorney") ||
+    query.includes("poa") ||
+    query.includes("documentation")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain provides expert legal drafting and vetted documentation:
+• Formal Legal Notices (Recovery of money, breach of contract, defamation, 138 NI Act)
+• Affidavits for court, name change, passport, and government departments
+• General & Special Power of Attorney (PoA)
+• Commercial Contracts, Partnership Deeds, NDAs & Employment Agreements
+• Rent / Lease Agreements on official Stamp Paper with notary & registration`,
+      suggestedActions: [
+        { label: "Book Drafting Consultation", href: "/book" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need help drafting a Legal Notice / Agreement / Affidavit.")}`, external: true },
+      ],
+    };
+  }
+
+  // 13. Fees, Consultation Charges & Booking Process
+  if (
+    query.includes("fee") ||
+    query.includes("charge") ||
+    query.includes("rate") ||
+    query.includes("cost") ||
+    query.includes("price") ||
+    query.includes("consultation") ||
+    query.includes("book") ||
+    query.includes("appointment") ||
+    query.includes("slot")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain provides dedicated, strategic legal consultations for both Online Video Call (Google Meet) and In-Office Walk-in sessions at Trisharan Square, Nagpur.
+
+📋 How to Book Your Slot:
+1. Tap "Book Consultation Slot" below to view live calendar availability
+2. Choose between Online Video Call or In-Person Office Visit
+3. Select your preferred date & time slot
+4. Provide your contact details & brief overview of your case
+5. Instant WhatsApp confirmation from our legal desk`,
+      suggestedActions: [
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I would like to book a legal consultation session.")}`, external: true },
+        { label: "View Chamber Timings", href: "/contact" },
+      ],
+    };
+  }
+
+  // 14. Office Location, Timings, Nagpur Chamber
   if (
     query.includes("where") ||
     query.includes("address") ||
@@ -177,7 +398,6 @@ Would you like to review the step-by-step document checklist or schedule a priva
     query.includes("time") ||
     query.includes("walk in") ||
     query.includes("office") ||
-    query.includes("phone") ||
     query.includes("chamber") ||
     query.includes("reach") ||
     query.includes("contact")
@@ -189,7 +409,7 @@ Would you like to review the step-by-step document checklist or schedule a priva
 Trisharan Square, Nagpur - 440027, Maharashtra, India
 (Practice at Bombay High Court, Nagpur Bench & District Courts)
 
-⏰ Walk-in Desk Hours:
+⏰ Walk-in Chamber Desk Hours:
 • Morning Walk-in: 9:30 AM – 11:00 AM
 • Evening Walk-in: 5:30 PM – 8:30 PM
 • Online Video Consultations: Monday to Saturday by scheduled appointment
@@ -204,86 +424,44 @@ Trisharan Square, Nagpur - 440027, Maharashtra, India
     };
   }
 
-  // 6. Property / Agreements / Divorce / Civil / Criminal / Court Litigation
-  if (
-    query.includes("property") ||
-    query.includes("deed") ||
-    query.includes("will") ||
-    query.includes("divorce") ||
-    query.includes("family") ||
-    query.includes("agreement") ||
-    query.includes("mact") ||
-    query.includes("accident") ||
-    query.includes("criminal") ||
-    query.includes("civil") ||
-    query.includes("bail") ||
-    query.includes("court") ||
-    query.includes("litigation") ||
-    query.includes("notice") ||
-    query.includes("case") ||
-    query.includes("police")
-  ) {
-    return {
-      text: `Adv. Shareen Hussain provides dedicated representation across High Court & District Courts Nagpur for:
-
-📄 Documentation & Deeds:
-• Sale Deeds, Gift Deeds, Wills & Lease Agreements
-• Property Title Search & Legal Due Diligence Reports
-
-⚖️ Litigation & Advisory:
-• Mutual & Contested Divorce, Maintenance & Child Custody
-• Matrimonial Settlement & Mediation Advisory
-• Motor Accident Claims (MACT) & Consumer Disputes
-• Bail, Criminal Revision, Writs & Legal Notices`,
-      suggestedActions: [
-        { label: "View All Legal Services", href: "/legal-services" },
-        { label: "Book Private Consultation", href: "/book" },
-        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with legal documentation / court representation.")}`, external: true },
-      ],
-    };
-  }
-
-  // 7. Off-Topic / Unrelated Queries Fallback
+  // 15. Default Legal Overview covering all practices
   return {
-    text: `I am specialized exclusively as Adv. Shareen Hussain's AI Legal Desk Assistant at True Legal Advice, Nagpur.
+    text: `${activeName ? activeName + ", " : ""}Adv. Shareen Hussain practices across Bombay High Court (Nagpur Bench) and District Courts, handling all legal matters including:
 
-I can only assist with legal matters, court documentation, and chamber consultations under Indian law. Your question appears to be outside our chamber practice domain.
+• High Court Litigation & Writ Petitions
+• Criminal Defense, Bail & 138 NI Act Cheque Bounce
+• Civil Suits, Property Title Search & Deeds/Wills
+• Court Marriage & Special Marriage Act (Confidential)
+• Family Law, Divorce, Child Custody & Maintenance
+• Trademark, Copyright & Business Startup Compliance
 
-Please feel free to ask about any of our legal practice areas:
-• Court Marriage & Special Marriage Act registration
-• Trademark, Copyright & Business Registration
-• Property Title Verification, Sale Deeds & Wills
-• Matrimonial, Divorce & Family Court litigation
-• Office Visit & Online Consultation appointments`,
+How can we assist you with your specific legal matter today?`,
     suggestedActions: [
-      { label: "Court Marriage Information", href: "/court-marriage" },
-      { label: "Trademark Practice", href: "/trademark-registration" },
       { label: "Book Consultation Slot", href: "/book" },
-      { label: "WhatsApp Chamber Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have a legal query.")}`, external: true },
+      { label: "Court Marriage Help", href: "/court-marriage" },
+      { label: "Trademark Services", href: "/trademark-registration" },
+      { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have a legal inquiry.")}`, external: true },
     ],
   };
 }
 
 const INITIAL_MESSAGES: Message[] = [
   {
-    id: "m-1",
+    id: "init-welcome",
     sender: "bot",
-    text: `Hello! I am Adv. Shareen Hussain's AI Legal Desk Assistant at True Legal Advice.
+    text: `Hello and welcome to True Legal Advice! I am the AI assistant for Adv. Shareen Hussain (Bombay High Court & District Courts).
 
-How can I help you today? You can ask about:
-• Court Marriage & Love Marriage procedure
-• Trademark & Business Startup compliance
-• Property verification, Sale Deeds & Wills
-• Booking a private consultation`,
+How can I assist you with your legal matter today?`,
     time: "Just now",
     suggestedActions: [
-      { label: "Love / Court Marriage Help", query: "Can you help with love marriage and court marriage in Nagpur?" },
-      { label: "Book a Consultation", href: "/book" },
-      { label: "Trademark & Startup Help", query: "How do I register a trademark and business with Adv. Shareen?" },
-      { label: "Office Timings & Location", query: "What are your chamber office timings and address in Nagpur?" },
+      { label: "Book Consultation Slot", href: "/book" },
+      { label: "Court Marriage Procedure", query: "Can you explain the Court Marriage and Special Marriage Act procedure?" },
+      { label: "Trademark & Startup IP", query: "How can I register my trademark and business?" },
+      { label: "Property & Civil Law", query: "What property verification and civil services do you provide?" },
     ],
   },
 ];
+
 
 const CHAT_STORAGE_KEY = "advocate_ai_chat_history";
 const CHAT_OPEN_KEY = "advocate_ai_chat_open";
@@ -293,13 +471,14 @@ export default function AiLegalAssistantBot() {
   const isBookingPage = pathname?.startsWith("/book");
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [userName, setUserName] = useState<string>("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(1);
   const [isHydrated, setIsHydrated] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Restore chat messages and open state from localStorage across page navigation
+  // Restore chat messages, open state, and user name from localStorage across page navigation
   useEffect(() => {
     try {
       const savedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
@@ -309,6 +488,10 @@ export default function AiLegalAssistantBot() {
           setMessages(parsed);
           setUnreadCount(0);
         }
+      }
+      const savedName = localStorage.getItem("advocate_ai_user_name");
+      if (savedName) {
+        setUserName(savedName);
       }
       const savedOpen = localStorage.getItem(CHAT_OPEN_KEY);
       if (savedOpen === "true") {
@@ -353,13 +536,25 @@ export default function AiLegalAssistantBot() {
 
   const handleResetChat = () => {
     setMessages(INITIAL_MESSAGES);
+    setUserName("");
     try {
       localStorage.removeItem(CHAT_STORAGE_KEY);
+      localStorage.removeItem("advocate_ai_user_name");
     } catch (e) {}
   };
 
   const sendMessage = async (userText: string) => {
     if (!userText.trim() || loading) return;
+
+    // Detect if user introduced their name
+    const detectedName = extractNameFromText(userText);
+    const activeName = detectedName || userName;
+    if (detectedName && detectedName !== userName) {
+      setUserName(detectedName);
+      try {
+        localStorage.setItem("advocate_ai_user_name", detectedName);
+      } catch (e) {}
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -372,9 +567,46 @@ export default function AiLegalAssistantBot() {
     setInput("");
     setLoading(true);
 
-    // Instant local triage engine with short realistic thinking delay for natural feel
+    try {
+      // Call trained server AI backend (supports Grok AI when GROK_API_KEY is configured in .env)
+      const res = await fetch("/api/ai-assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: userText.trim(),
+          history: [...messages, userMsg].slice(-8),
+          userName: activeName,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.userName && data.userName !== userName) {
+          setUserName(data.userName);
+          try {
+            localStorage.setItem("advocate_ai_user_name", data.userName);
+          } catch (e) {}
+        }
+
+        const botMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: data.reply || "How can I assist you with your legal matter?",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          suggestedActions: data.suggestedActions,
+        };
+
+        setMessages((prev) => [...prev, botMsg]);
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.warn("AI backend fetch failed, using high-performance local engine:", err);
+    }
+
+    // Instant local fallback with identical trained legal rules
     setTimeout(() => {
-      const instantAnswer = getInstantLegalResponse(userText);
+      const instantAnswer = getInstantLegalResponse(userText, activeName);
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "bot",
@@ -385,7 +617,7 @@ export default function AiLegalAssistantBot() {
 
       setMessages((prev) => [...prev, botMsg]);
       setLoading(false);
-    }, 450);
+    }, 350);
   };
 
   return (
@@ -640,13 +872,13 @@ export default function AiLegalAssistantBot() {
             {/* Quick Prompt Carousel */}
             <div className="p-2 bg-slate-100 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               <button
-                onClick={() => sendMessage("What are the consultation charges and booking process?")}
+                onClick={() => sendMessage("What are all the legal practice areas and services handled by Adv. Shareen Hussain?")}
                 className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
-                Consultation details
+                All Legal Services
               </button>
               <button
-                onClick={() => sendMessage("Can you help with Love Marriage and Court Marriage?")}
+                onClick={() => sendMessage("Can you help with Court Marriage and Special Marriage Act procedure?")}
                 className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
                 Court Marriage Help
@@ -658,10 +890,22 @@ export default function AiLegalAssistantBot() {
                 Trademark / Startup
               </button>
               <button
-                onClick={() => sendMessage("What are the walk-in chamber timings at Trisharan Square Nagpur?")}
+                onClick={() => sendMessage("How do I apply for Anticipatory Bail or Regular Bail in Nagpur?")}
                 className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
               >
-                Nagpur Office Timings
+                Criminal & Bail
+              </button>
+              <button
+                onClick={() => sendMessage("What property verification, title search, and sale deed services do you provide?")}
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
+              >
+                Property & Civil Suits
+              </button>
+              <button
+                onClick={() => sendMessage("What are the walk-in chamber desk timings at Trisharan Square Nagpur?")}
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:border-black hover:text-black transition-all shadow-xs"
+              >
+                Chamber Timings
               </button>
             </div>
 
