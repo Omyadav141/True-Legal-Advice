@@ -589,3 +589,37 @@ label {
     padding: 56px 0;
   }
 }
+
+/* Running Liquid Gold Animation for Floating AI Button */
+@keyframes goldLiquidFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes goldSheenRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.gold-liquid-bg {
+  background: linear-gradient(135deg, #fae8a6 0%, #d4af37 20%, #8e6822 42%, #fcecb0 65%, #cba758 82%, #9e782f 100%);
+  background-size: 280% 280%;
+  animation: goldLiquidFlow 5s ease-in-out infinite;
+}
+
+.gold-liquid-sheen {
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(255, 255, 255, 0.42) 45deg, transparent 90deg, transparent 180deg, rgba(255, 255, 255, 0.32) 225deg, transparent 270deg);
+  animation: goldSheenRotate 7s linear infinite;
+}
+

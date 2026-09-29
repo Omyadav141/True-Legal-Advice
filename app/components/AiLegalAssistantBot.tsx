@@ -396,57 +396,84 @@ export default function AiLegalAssistantBot() {
           isBookingPage ? "bottom-4 right-4" : "bottom-5 right-5 sm:bottom-6 sm:right-6"
         }`}
       >
-        {/* Primary AI Bot Trigger Button */}
+        {/* Primary AI Bot Trigger Button - Inspired by Dr. Sheth's Running Gold AI widget */}
         <motion.button
           onClick={handleOpen}
           aria-label={isOpen ? "Close AI Legal Assistant" : "Open AI Legal Assistant"}
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 350, damping: 25 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`relative flex items-center shadow-xl transition-all duration-300 cursor-pointer ${
-            isBookingPage && !isOpen
-              ? "h-11 w-11 p-0 justify-center rounded-full border border-[var(--gold)]/80 bg-gradient-to-br from-[#09090b] to-[#18181b] hover:border-[var(--gold)]"
-              : "gap-2 px-3 py-2 rounded-full border border-[var(--gold)]/70 hover:border-[var(--gold)] bg-gradient-to-r from-[#09090b] via-[#121214] to-[#18181b]"
-          }`}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          className="relative w-14 h-14 sm:w-[58px] sm:h-[58px] rounded-full p-0 flex items-center justify-center cursor-pointer overflow-hidden border-[1.5px] border-[#eed593] shadow-xl group transition-transform"
           style={{
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(203, 167, 88, 0.2)",
+            boxShadow:
+              "0 8px 25px rgba(203, 167, 88, 0.45), 0 3px 12px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.6)",
           }}
           title="Ask AI Legal Desk"
         >
-          {/* Avatar Thumbnail */}
-          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-[var(--gold)] flex-shrink-0">
-            <Image
-              src={site.advocateDeskPhoto}
-              alt="Adv. Shareen Hussain"
-              fill
-              className="object-cover"
-            />
-            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[#cba758] border border-black" />
-          </div>
+          {/* Running Liquid Gold Animated Background */}
+          <div className="absolute inset-0 gold-liquid-bg pointer-events-none" />
 
-          {/* Label: Hidden on booking page when closed to stay compact and unobtrusive */}
-          {(!isBookingPage || isOpen) && (
-            <div className="flex flex-col text-left">
-              <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--gold-light)] flex items-center gap-1 leading-none">
-                <Sparkles size={9} /> AI Legal Desk
-              </span>
-              <span className="text-[12px] font-bold text-white leading-tight mt-0.5 whitespace-nowrap">
-                Ask Legal AI
-              </span>
-            </div>
-          )}
+          {/* Running Dynamic Sheen Overlay */}
+          <div className="absolute inset-0 gold-liquid-sheen opacity-40 pointer-events-none" />
 
+          {/* 3D Vignette & Surface Specular Reflection */}
+          <div
+            className="absolute inset-0 pointer-events-none rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 240, 180, 0.15) 50%, rgba(142, 104, 34, 0.35) 100%)",
+            }}
+          />
+
+          {/* Center Badge: Close icon when open, ASK AI speech bubble when closed */}
+          <AnimatePresence mode="wait">
+            {isOpen ? (
+              <motion.div
+                key="close-badge"
+                initial={{ rotate: -90, opacity: 0, scale: 0.8 }}
+                animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                exit={{ rotate: 90, opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 w-7 h-7 rounded-full bg-neutral-950/85 text-white flex items-center justify-center shadow-md border border-[#cba758]/50"
+              >
+                <X size={15} strokeWidth={2.8} className="text-[#fcecb0]" />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="ask-ai-bubble"
+                initial={{ scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.85, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 px-2.5 py-1 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.22)] flex items-center justify-center"
+              >
+                <span className="text-[10.5px] font-semibold text-neutral-900 tracking-normal leading-none select-none flex items-center gap-0.5">
+                  <span>ASK</span>
+                  <span className="font-black text-black text-[11px] ml-0.5">AI</span>
+                </span>
+
+                {/* Speech bubble tail pointing downwards-left */}
+                <span
+                  className="absolute -bottom-[3.5px] left-2.5 w-0 h-0 pointer-events-none"
+                  style={{
+                    borderTop: "5px solid #ffffff",
+                    borderRight: "4px solid transparent",
+                    borderLeft: "2px solid transparent",
+                    filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.08))",
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Unread Counter Badge */}
           {unreadCount > 0 && !isOpen && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-md animate-bounce">
+            <span className="absolute -top-0.5 -right-0.5 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white shadow-md animate-bounce">
               {unreadCount}
             </span>
           )}
-
-          <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[var(--gold-light)] shrink-0">
-            {isOpen ? <X size={12} /> : <MessageSquare size={12} />}
-          </div>
         </motion.button>
       </div>
 
