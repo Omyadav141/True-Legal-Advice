@@ -1,48 +1,39 @@
 import { NextResponse } from "next/server";
 import { site } from "@/lib/site-config";
 
-// Helper: Extract user's name ONLY when explicitly introducing their name, NEVER on sentences or questions
+// Helper: Extract user's name ONLY when explicitly introduced, e.g. "My name is Faiez"
 function extractNameFromMessage(text: string): string | null {
   const clean = text.trim();
 
-  // If the message contains a question mark, numbers, or question/legal keywords, it is NEVER a name introduction!
+  // If message contains numbers, questions, or legal/religious words, never extract name
   if (
     clean.includes("?") ||
     /\d/.test(clean) ||
-    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|ready|now|today|tomorrow)\b/i.test(clean)
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|now|today|tomorrow)\b/i.test(clean)
   ) {
     return null;
   }
 
-  // Non-name common English words blacklist
-  const nonNameWords = new Set([
-    "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
-    "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
-    "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
-    "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
-    "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
-    "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother"
-  ]);
+  // Strictly ONLY match explicit "my name is <Name>" or "call me <Name>"
+  const match =
+    clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i) ||
+    clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*call me\s+([a-zA-Z]{2,20})\.?$/i);
 
-  // Pattern 1: "^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$"
-  const p1 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i);
-  if (p1 && p1[1] && !nonNameWords.has(p1[1].toLowerCase())) {
-    const raw = p1[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-  }
+  if (match && match[1]) {
+    const raw = match[1].toLowerCase();
+    const blacklist = new Set([
+      "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+      "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+      "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+      "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+      "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+      "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
+      "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi"
+    ]);
 
-  // Pattern 2: "^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$" (strictly only 2-3 words, entire message must be the intro)
-  const p2 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$/i);
-  if (p2 && p2[1] && !nonNameWords.has(p2[1].toLowerCase())) {
-    const raw = p2[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-  }
-
-  // Pattern 3: "^([a-zA-Z]{2,20})\s+here\.?$"
-  const p3 = clean.match(/^([a-zA-Z]{2,20})\s+here\.?$/i);
-  if (p3 && p3[1] && !nonNameWords.has(p3[1].toLowerCase())) {
-    const raw = p3[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    if (!blacklist.has(raw)) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
   }
 
   return null;
@@ -88,36 +79,26 @@ CHAMBER INFORMATION:
 - Walk-in Chamber Hours: Morning: 9:30 AM – 11:00 AM | Evening: 5:30 PM – 8:30 PM (Monday to Saturday)
 - Consultations: Online Video Call (Google Meet) & In-Person Chamber Visit (Booking at /book)
 
-CONTEXT UNDERSTANDING & CORE INSTRUCTIONS:
-1. NEVER confuse a user's statement or age with their name!
-   For example, if a user says "I am now 21 can I marry" or "I am facing divorce", they are NOT introducing their name as "Now" or "Facing". They are asking a legal question.
-2. MARRIAGE AGE & SPECIAL MARRIAGE ACT:
-   If a user asks about marriage eligibility at age 21 (e.g. "I am now 21 can I marry"):
-   - Clearly explain that under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955), the legal marriage age is 21 for males and 18 for females.
-   - Confirm that at 21, they have attained the age of majority and have the constitutional right under Article 21 to marry with free consent without requiring parental consent.
-   - Explain the requirements (valid age/ID proof, address proof, 3 witnesses, affidavits) and that Adv. Shareen Hussain provides 100% confidential legal guidance from notice filing to Government Marriage Certificate issuance in Nagpur.
-3. GREETINGS & INTRODUCTIONS:
-   - When the user says "hi", "hello", "hey", KEEP IT BRIEF AND WARM. Do NOT dump long lists of services.
-     Example: "Hello! Welcome to True Legal Advice. I am the AI assistant of Adv. Shareen Hussain. How can I help you today?"
-   - When the user introduces their actual name (e.g., "My name is Faiez"):
-     Example: "Hi Faiez! How are you doing today? How can Adv. Shareen Hussain's chamber assist you with your legal matter?"
-4. WE DO ALL LEGAL SERVICES:
-   Adv. Shareen Hussain provides representation and drafting across ALL legal areas:
-   - High Court Practice: Writ Petitions (Art 226/227), Criminal & Civil Appeals, Revisions, Stay Orders at Bombay High Court (Nagpur Bench).
-   - Criminal Defense & Bail: Anticipatory Bail (Sec 438), Regular Bail (Sec 439), FIR Quashing (Sec 482 CrPC), Cheque Bounce (Sec 138 NI Act), Cyber Crime, Police Complaints, 498A defense.
-   - Civil & Property Law: Property Title Search (30-year report), Sale Deed, Gift Deed, Will & Testament, Partition Suits, Injunctions, Possession, Eviction, RERA, Land Mutation.
-   - Court Marriage & Family Law: Special Marriage Act 1954 (confidential adult love marriage registration, Article 21 police protection), Mutual Consent Divorce, Contested Divorce, Child Custody, Maintenance (Sec 125 CrPC), Domestic Violence (DV Act).
-   - Corporate, Trademark & Startup Compliance: Trademark Search, Filing & Objection Hearings (Class 1-45), Copyright, Company Registration (Pvt Ltd, LLP, OPC), GST, Gumasta / Shop Act, MSME Udyam, FSSAI Food Licenses, NDAs & Commercial Contracts.
-   - Legal Drafting: Affidavits, Legal Notices, Agreements, Power of Attorney (PoA), Deeds.
-5. STRICT PROFESSIONAL GUARDRAILS:
-   - If the user asks non-legal questions (cooking, programming, entertainment, sports, homework):
-     Politely decline: "I can only assist with legal matters of the court, legal advice, and legal documentation for Adv. Shareen Hussain's chambers. How can I help you with a legal question?"
-   - DEEP / HIGH-RISK CASE STRATEGY:
-     If the user asks for guarantees of winning, deep litigation tactics, or complex disputed facts:
-     Stop there and guide them to book a consultation: "Because this matter involves specific case facts, evidence, and critical court proceedings, Adv. Shareen Hussain needs to review your case documents in a private consultation. We recommend booking an in-person or video consultation so Adv. Shareen can examine your case details directly."
+CRITICAL CONTEXT AWARENESS & INDIAN STATUTORY LAW:
+1. NAMES VS STATEMENTS / RELIGION:
+   - "I am Hindu", "I am Muslim", "I am 21", "I am facing a problem" are statements of religion, age, or circumstances, NEVER a person's name!
+   - NEVER address the user as "Hi Hindu!" or "Hi Now!".
+   - ONLY extract a name if the user explicitly writes "My name is [Name]" or "Call me [Name]".
+2. AGE OF CONSENT & POCSO ACT, 2012:
+   - If anyone asks about sexual relationships, intimacy, or marriage with someone who is 17, 16, or any age below 18:
+   - State UNEQUIVOCALLY and IMMEDIATELY that this is strictly illegal and a serious, non-bailable criminal offense under Indian law.
+   - Statutory Law: Under the Protection of Children from Sexual Offences (POCSO) Act, 2012 and Section 63 of Bharatiya Nyaya Sanhita (BNS) / Section 375 IPC, the legal age of consent in India is STRICTLY 18 YEARS.
+   - Consent Void: Any sexual relationship with a person below 18—even with mutual consent—is classified as statutory rape / aggravated penetrative sexual assault. A minor's consent is completely null and void in the eyes of law.
+   - Consequences: Non-bailable, cognizable offense punishable with rigorous imprisonment (10 to 20 years or life imprisonment).
+3. HINDU PERSONAL LAW & SPECIAL MARRIAGE ACT:
+   - When a user mentions being Hindu, explain the legal options under the Hindu Marriage Act, 1955 (marriage registration, 13B mutual consent divorce, restitution of conjugal rights) or Special Marriage Act, 1954 (inter-faith court marriage without religious conversion). Mention Hindu Succession Act, 1956 for property inheritance.
+4. MARRIAGE AGE (COURT MARRIAGE):
+   - Legal age of marriage in India: Groom (Male) must be 21+ years old, Bride (Female) must be 18+ years old.
+   - At 21, two consenting adults have the constitutional right under Article 21 to marry without parental consent under the Special Marriage Act, 1954.
+5. WE DO ALL LEGAL SERVICES:
+   Adv. Shareen Hussain handles High Court Litigation, Criminal Defense & Bail, Civil Property Title & Deeds, Family Law & Divorce, Trademark & Corporate Startup compliance, and Drafting.
 6. TONE & STYLE:
-   - Direct, context-aware, reassuring, professional, and legally precise.
-   - Keep answers clear and easy to read.`;
+   - Direct, context-aware, legally accurate, and protective of statutory law. Never give generic boilerplate when a specific legal question is asked.`;
 
 export async function POST(req: Request) {
   try {
@@ -129,7 +110,91 @@ export async function POST(req: Request) {
     const extractedName = extractNameFromMessage(rawText);
     const activeUserName = extractedName || userName || "";
 
-    // 2. Guardrail: Purely non-legal queries (cooking, coding, sports, movies, etc.)
+    // 2. CRITICAL CRIMINAL LAW SAFETY: POCSO Act & Age of Consent (18 Years in India)
+    if (
+      (query.includes("sex") || query.includes("sexual") || query.includes("physical") || query.includes("intimate") || query.includes("sleep with") || query.includes("intercourse") || query.includes("relation")) &&
+      (query.includes("17") || query.includes("16") || query.includes("15") || query.includes("14") || query.includes("13") || query.includes("under 18") || query.includes("below 18") || query.includes("minor") || query.includes("underage"))
+    ) {
+      return NextResponse.json({
+        reply: `⚠️ NO. Under Indian criminal law, this is strictly illegal and a serious, non-bailable criminal offense.
+
+🚨 Legal Age of Consent in India is 18 Years:
+• Protection of Children from Sexual Offences (POCSO) Act, 2012: The legal age of consent in India is strictly 18 years. Anyone below 18 is legally defined as a child/minor.
+• Statutory Rape / Sexual Assault: Under the POCSO Act, 2012 and Section 63 of Bharatiya Nyaya Sanhita (BNS) / Section 375 IPC, any sexual act with a person under 18 years of age is classified as statutory rape / penetrative sexual assault.
+• Minor Consent Has Zero Legal Validity: Under Indian law, mutual consent of a 17-year-old has NO legal defense. Even if consensual, it is prosecuted as a heinous criminal offense.
+• Severe Penal Consequences: These are non-bailable, cognizable offenses carrying mandatory rigorous imprisonment of 10 to 20 years or life imprisonment.
+
+Adv. Shareen Hussain represents clients in Criminal Defense and POCSO matters across Sessions Courts and the Bombay High Court (Nagpur Bench). If you are facing an FIR, police inquiry, or legal notice, immediate legal counsel is essential.`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Book Urgent Legal Consultation", href: "/book" },
+          { label: "Emergency Criminal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need urgent legal guidance regarding a criminal / POCSO matter.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3. RELIGION / HINDU PERSONAL LAW / SPECIAL MARRIAGE ACT (e.g. "I am hindu", "hindu law")
+    if (
+      query.includes("hindu") ||
+      query.includes("muslim") ||
+      query.includes("christian") ||
+      query.includes("sikh") ||
+      query.includes("inter-caste") ||
+      query.includes("inter-religion")
+    ) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides experienced counsel under Indian personal and statutory laws:
+
+🕉️ Under Hindu Personal Law & Special Marriage Act:
+• Hindu Marriage Act, 1955: Traditional ceremony registration, restitution of conjugal rights, and fast-track mutual consent divorce (Sec 13B).
+• Special Marriage Act, 1954: Secular court marriage between two consenting adults of different religions or castes without requiring religious conversion.
+• Hindu Succession Act, 1956 (Amended 2005): Ancestral property inheritance, equal coparcenary rights for daughters, partition suits, and legal heir certificates.
+• Hindu Adoption and Maintenance Act, 1956: Lawful adoption procedures and spousal/child maintenance rights.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Help", href: "/court-marriage" },
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "Property & Succession", href: "/legal-services" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Hindu law / Special Marriage Act.")}`, external: true },
+        ],
+      });
+    }
+
+    // 4. MARRIAGE AGE & COURT MARRIAGE ELIGIBILITY (e.g. "I am now 21 can I marry", "can I marry at 21")
+    if (
+      (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
+      (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
+    ) {
+      return NextResponse.json({
+        reply: `Yes, absolutely! Under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955):
+
+✅ Legal Age of Marriage in India:
+• Groom (Male): Minimum 21 years of age completed.
+• Bride (Female): Minimum 18 years of age completed.
+
+Since you are 21, you have legally reached the age of majority and are fully entitled to marry. Under Article 21 of the Constitution of India, two consenting adults have the fundamental legal right to marry of their own free will without requiring parental consent.
+
+📋 Essential Requirements for Court Marriage in Nagpur:
+1. Valid Age & Identity Proof (Aadhaar Card, PAN Card, Birth Certificate or 10th School Leaving Certificate)
+2. Address Proof & Passport-size photographs of both bride and groom
+3. 3 adult witnesses (any friends, colleagues, or relatives) with their Aadhaar/voter ID
+4. Affidavits regarding age, marital status, and free consent
+
+Adv. Shareen Hussain provides complete, 100% confidential legal guidance from drafting notice & affidavits to direct registrar appearance and government marriage certificate issuance.
+
+Would you like to review the step-by-step document checklist or book a private consultation?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Checklist", href: "/court-marriage" },
+          { label: "Book Marriage Consultation", href: "/book" },
+          { label: "Confidential WhatsApp (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I am 21 years old and need guidance regarding Court Marriage registration.")}`, external: true },
+        ],
+      });
+    }
+
+    // 5. Guardrail: Purely non-legal queries (cooking, coding, sports, movies, etc.)
     if (isNonLegalQuery(rawText)) {
       return NextResponse.json({
         reply: `I can only assist with legal matters of the court, legal advice, and legal documentation for Adv. Shareen Hussain's chambers.
@@ -144,7 +209,7 @@ How can I assist you with a legal question today?`,
       });
     }
 
-    // 3. Guardrail: Overly deep / high-risk / guarantee litigation questions
+    // 6. Guardrail: Overly deep / high-risk / guarantee litigation questions
     if (isOverlyDeepOrComplex(rawText)) {
       const greeting = activeUserName ? `${activeUserName}, ` : "";
       return NextResponse.json({
@@ -162,7 +227,7 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
       });
     }
 
-    // 4. If Grok AI (xAI) API Key is configured in environment, call Grok AI!
+    // 7. If Grok AI (xAI) API Key is configured in environment, call Grok AI!
     const grokApiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.NEXT_PUBLIC_GROK_API_KEY || "").trim();
     if (grokApiKey) {
       try {
@@ -189,7 +254,7 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
         grokMessages.push({ role: "user", content: userPrompt });
 
         // Try supported xAI Grok model endpoints with fallback
-        const candidateModels = ["grok-2-latest", "grok-2", "grok-beta"];
+        const candidateModels = ["grok-2", "grok-2-latest", "grok-beta", "grok-2-1212"];
         let grokReply: string | null = null;
 
         for (const model of candidateModels) {
@@ -222,7 +287,6 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
         }
 
         if (grokReply) {
-          // Attach intelligent suggested actions based on context
           const dynamicActions = [];
           const combined = (rawText + " " + grokReply).toLowerCase();
           if (combined.includes("marriage") || combined.includes("marry") || combined.includes("21") || combined.includes("nikah") || combined.includes("shaadi")) {
@@ -249,41 +313,9 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
       }
     }
 
-    // 5. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
+    // 8. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
 
-    // 5A. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
-    if (
-      (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
-      (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
-    ) {
-      return NextResponse.json({
-        reply: `Yes, absolutely! Under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955):
-
-✅ Legal Age of Marriage in India:
-• Groom (Male): Minimum 21 years of age completed.
-• Bride (Female): Minimum 18 years of age completed.
-
-Since you are 21, you have legally reached the age of majority and are fully entitled to marry. Under Article 21 of the Constitution of India, two consenting adults have the fundamental legal right to marry of their own free will without requiring parental consent.
-
-📋 Essential Requirements for Court Marriage in Nagpur:
-1. Valid Age & Identity Proof (Aadhaar Card, PAN Card, Birth Certificate or 10th School Leaving Certificate)
-2. Address Proof & Passport-size photographs of both bride and groom
-3. 3 adult witnesses (any friends, colleagues, or relatives) with their Aadhaar/voter ID
-4. Affidavits regarding age, marital status, and free consent
-
-Adv. Shareen Hussain provides complete, 100% confidential legal guidance from drafting notice & affidavits to direct registrar appearance and government marriage certificate issuance.
-
-Would you like to review the step-by-step document checklist or book a private consultation?`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Court Marriage Checklist", href: "/court-marriage" },
-          { label: "Book Marriage Consultation", href: "/book" },
-          { label: "Confidential WhatsApp (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I am 21 years old and need guidance regarding Court Marriage registration.")}`, external: true },
-        ],
-      });
-    }
-
-    // 5B. Actual Name Introduction Handling (e.g. "My name is Faiez", "I am Faiez")
+    // 8A. Actual Name Introduction Handling (e.g. "My name is Faiez")
     if (extractedName) {
       return NextResponse.json({
         reply: `Hi ${extractedName}! How are you doing today?
@@ -299,7 +331,7 @@ How can Adv. Shareen Hussain's chamber assist you with your legal case or docume
       });
     }
 
-    // 5C. Polite "How are you" / "I am good"
+    // 8B. Polite "How are you" / "I am good"
     if (
       query.includes("how are you") ||
       query.includes("how r u") ||
@@ -324,7 +356,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 5D. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
+    // 8C. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
     const isDirectGreeting =
       query === "hi" ||
       query === "hello" ||
@@ -359,7 +391,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 5E. High Court Practice (Bombay High Court Nagpur Bench, Writ, Appeals, Revisions)
+    // 8D. High Court Practice (Bombay High Court Nagpur Bench, Writ, Appeals, Revisions)
     if (
       query.includes("high court") ||
       query.includes("writ") ||
@@ -388,7 +420,7 @@ Would you like to schedule an urgent consultation to review your court case reco
       });
     }
 
-    // 5F. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
+    // 8E. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
     if (
       query.includes("bail") ||
       query.includes("anticipatory") ||
@@ -420,7 +452,7 @@ For urgent arrest or bail matters, immediate consultation is recommended.`,
       });
     }
 
-    // 5G. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
+    // 8F. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
     if (
       query.includes("property") ||
       query.includes("civil") ||
@@ -454,7 +486,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5H. Court Marriage & Special Marriage Act
+    // 8G. Court Marriage & Special Marriage Act
     if (
       query.includes("love") ||
       query.includes("marriage") ||
@@ -483,7 +515,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5I. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
+    // 8H. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
     if (
       query.includes("divorce") ||
       query.includes("maintenance") ||
@@ -509,7 +541,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5J. Trademark, Copyright, Startup & Corporate Compliance
+    // 8I. Trademark, Copyright, Startup & Corporate Compliance
     if (
       query.includes("trademark") ||
       query.includes("brand") ||
@@ -543,7 +575,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5K. Legal Documentation, Drafting, Notices, Affidavits
+    // 8J. Legal Documentation, Drafting, Notices, Affidavits
     if (
       query.includes("draft") ||
       query.includes("notice") ||
@@ -569,7 +601,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5L. Fees, Consultation Charges & Booking Process
+    // 8K. Fees, Consultation Charges & Booking Process
     if (
       query.includes("fee") ||
       query.includes("charge") ||
@@ -599,7 +631,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5M. Office Location, Timings, Nagpur Chamber
+    // 8L. Office Location, Timings, Nagpur Chamber
     if (
       query.includes("where") ||
       query.includes("address") ||
@@ -636,7 +668,7 @@ Trisharan Square, Nagpur - 440027, Maharashtra, India
       });
     }
 
-    // 5N. Fallback: Concise legal overview covering all practices
+    // 8M. Fallback: Concise legal overview covering all practices
     const namePrefix = activeUserName ? `${activeUserName}, ` : "";
     return NextResponse.json({
       reply: `${namePrefix}Adv. Shareen Hussain practices across Bombay High Court (Nagpur Bench) and District Courts, handling all legal matters including:

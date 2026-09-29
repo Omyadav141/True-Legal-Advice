@@ -17,48 +17,39 @@ interface Message {
 }
 
 // Helper: Extract user's name if introduced in the text
-// Helper: Extract user's name ONLY when explicitly introducing their name, NEVER on sentences or questions
+// Helper: Extract user's name ONLY when explicitly introduced, e.g. "My name is Faiez"
 function extractNameFromText(text: string): string | null {
   const clean = text.trim();
 
-  // If the message contains a question mark, numbers, or question/legal keywords, it is NEVER a name introduction!
+  // If message contains numbers, questions, or legal/religious words, never extract name
   if (
     clean.includes("?") ||
     /\d/.test(clean) ||
-    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|ready|now|today|tomorrow)\b/i.test(clean)
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|now|today|tomorrow)\b/i.test(clean)
   ) {
     return null;
   }
 
-  // Non-name common English words blacklist
-  const nonNameWords = new Set([
-    "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
-    "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
-    "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
-    "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
-    "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
-    "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother"
-  ]);
+  // Strictly ONLY match explicit "my name is <Name>" or "call me <Name>"
+  const match =
+    clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i) ||
+    clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*call me\s+([a-zA-Z]{2,20})\.?$/i);
 
-  // Pattern 1: "^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$"
-  const p1 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i);
-  if (p1 && p1[1] && !nonNameWords.has(p1[1].toLowerCase())) {
-    const raw = p1[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-  }
+  if (match && match[1]) {
+    const raw = match[1].toLowerCase();
+    const blacklist = new Set([
+      "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+      "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+      "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+      "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+      "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+      "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
+      "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi"
+    ]);
 
-  // Pattern 2: "^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$" (strictly only 2-3 words, entire message must be the intro)
-  const p2 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$/i);
-  if (p2 && p2[1] && !nonNameWords.has(p2[1].toLowerCase())) {
-    const raw = p2[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-  }
-
-  // Pattern 3: "^([a-zA-Z]{2,20})\s+here\.?$"
-  const p3 = clean.match(/^([a-zA-Z]{2,20})\s+here\.?$/i);
-  if (p3 && p3[1] && !nonNameWords.has(p3[1].toLowerCase())) {
-    const raw = p3[1];
-    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    if (!blacklist.has(raw)) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
   }
 
   return null;
@@ -70,7 +61,57 @@ function getInstantLegalResponse(text: string, currentUserName?: string) {
   const activeName = detectedName || currentUserName || "";
   const nameGreeting = activeName ? ` ${activeName}` : "";
 
-  // 1. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
+  // 1. POCSO Act & Age of Consent under Indian Law (Strict Criminal Protection)
+  if (
+    (query.includes("sex") || query.includes("sexual") || query.includes("physical") || query.includes("intimate") || query.includes("sleep with") || query.includes("intercourse") || query.includes("relation")) &&
+    (query.includes("17") || query.includes("16") || query.includes("15") || query.includes("14") || query.includes("13") || query.includes("under 18") || query.includes("below 18") || query.includes("minor") || query.includes("underage"))
+  ) {
+    return {
+      text: `⚠️ NO. Under Indian criminal law, this is strictly illegal and a serious, non-bailable criminal offense.
+
+🚨 Legal Age of Consent in India is 18 Years:
+• Protection of Children from Sexual Offences (POCSO) Act, 2012: The legal age of consent in India is strictly 18 years. Anyone below 18 is legally defined as a child/minor.
+• Statutory Rape / Sexual Assault: Under the POCSO Act, 2012 and Section 63 of Bharatiya Nyaya Sanhita (BNS) / Section 375 IPC, any sexual act with a person under 18 years of age is classified as statutory rape / penetrative sexual assault.
+• Minor Consent Has Zero Legal Validity: Under Indian law, mutual consent of a 17-year-old has NO legal defense. Even if consensual, it is prosecuted as a heinous criminal offense.
+• Severe Penal Consequences: These are non-bailable, cognizable offenses carrying mandatory rigorous imprisonment of 10 to 20 years or life imprisonment.
+
+Adv. Shareen Hussain represents clients in Criminal Defense and POCSO matters across Sessions Courts and the Bombay High Court (Nagpur Bench). If you are facing an FIR, police inquiry, or legal notice, immediate legal counsel is essential.`,
+      suggestedActions: [
+        { label: "Book Urgent Legal Consultation", href: "/book" },
+        { label: "Emergency Criminal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need urgent legal guidance regarding a criminal / POCSO matter.")}`, external: true },
+      ],
+    };
+  }
+
+  // 2. Religion / Hindu Personal Law / Special Marriage Act (e.g. "I am hindu", "hindu law")
+  if (
+    query.includes("hindu") ||
+    query.includes("muslim") ||
+    query.includes("christian") ||
+    query.includes("sikh") ||
+    query.includes("inter-caste") ||
+    query.includes("inter-religion")
+  ) {
+    return {
+      text: `Adv. Shareen Hussain provides experienced counsel under Indian personal and statutory laws:
+
+🕉️ Under Hindu Personal Law & Special Marriage Act:
+• Hindu Marriage Act, 1955: Traditional ceremony registration, restitution of conjugal rights, and fast-track mutual consent divorce (Sec 13B).
+• Special Marriage Act, 1954: Secular court marriage between two consenting adults of different religions or castes without requiring religious conversion.
+• Hindu Succession Act, 1956 (Amended 2005): Ancestral property inheritance, equal coparcenary rights for daughters, partition suits, and legal heir certificates.
+• Hindu Adoption and Maintenance Act, 1956: Lawful adoption procedures and spousal/child maintenance rights.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+      suggestedActions: [
+        { label: "Court Marriage Help", href: "/court-marriage" },
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Property & Succession", href: "/legal-services" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Hindu law / Special Marriage Act.")}`, external: true },
+      ],
+    };
+  }
+
+  // 3. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
   if (
     (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
     (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
