@@ -17,20 +17,47 @@ interface Message {
 }
 
 // Helper: Extract user's name if introduced in the text
+// Helper: Extract user's name ONLY when explicitly introducing their name, NEVER on sentences or questions
 function extractNameFromText(text: string): string | null {
   const clean = text.trim();
-  const introMatch = clean.match(/(?:my name is|i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})/i);
-  if (introMatch && introMatch[1]) {
-    const raw = introMatch[1].trim();
-    const commonVerbs = ["looking", "facing", "having", "married", "seeking", "asking", "interested", "confused", "worried", "going", "trying", "calling", "writing", "a", "an", "the"];
-    if (!commonVerbs.includes(raw.toLowerCase())) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-    }
+
+  // If the message contains a question mark, numbers, or question/legal keywords, it is NEVER a name introduction!
+  if (
+    clean.includes("?") ||
+    /\d/.test(clean) ||
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|ready|now|today|tomorrow)\b/i.test(clean)
+  ) {
+    return null;
   }
 
-  const hereMatch = clean.match(/^([a-zA-Z]{2,20})\s+here$/i);
-  if (hereMatch && hereMatch[1]) {
-    const raw = hereMatch[1].trim();
+  // Non-name common English words blacklist
+  const nonNameWords = new Set([
+    "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+    "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+    "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+    "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+    "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+    "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother"
+  ]);
+
+  // Pattern 1: "^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$"
+  const p1 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i);
+  if (p1 && p1[1] && !nonNameWords.has(p1[1].toLowerCase())) {
+    const raw = p1[1];
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
+  // Pattern 2: "^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$" (strictly only 2-3 words, entire message must be the intro)
+  const p2 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$/i);
+  if (p2 && p2[1] && !nonNameWords.has(p2[1].toLowerCase())) {
+    const raw = p2[1];
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
+  // Pattern 3: "^([a-zA-Z]{2,20})\s+here\.?$"
+  const p3 = clean.match(/^([a-zA-Z]{2,20})\s+here\.?$/i);
+  if (p3 && p3[1] && !nonNameWords.has(p3[1].toLowerCase())) {
+    const raw = p3[1];
     return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   }
 
@@ -43,7 +70,38 @@ function getInstantLegalResponse(text: string, currentUserName?: string) {
   const activeName = detectedName || currentUserName || "";
   const nameGreeting = activeName ? ` ${activeName}` : "";
 
-  // 1. Purely non-legal queries (cooking, coding, sports, entertainment, homework)
+  // 1. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
+  if (
+    (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
+    (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
+  ) {
+    return {
+      text: `Yes, absolutely! Under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955):
+
+✅ Legal Age of Marriage in India:
+• Groom (Male): Minimum 21 years of age completed.
+• Bride (Female): Minimum 18 years of age completed.
+
+Since you are 21, you have legally reached the age of majority and are fully entitled to marry. Under Article 21 of the Constitution of India, two consenting adults have the fundamental legal right to marry of their own free will without requiring parental consent.
+
+📋 Essential Requirements for Court Marriage in Nagpur:
+1. Valid Age & Identity Proof (Aadhaar Card, PAN Card, Birth Certificate or 10th School Leaving Certificate)
+2. Address Proof & Passport-size photographs of both bride and groom
+3. 3 adult witnesses (any friends, colleagues, or relatives) with their Aadhaar/voter ID
+4. Affidavits regarding age, marital status, and free consent
+
+Adv. Shareen Hussain provides complete, 100% confidential legal guidance from drafting notice & affidavits to direct registrar appearance and government marriage certificate issuance.
+
+Would you like to review the step-by-step document checklist or book a private consultation?`,
+      suggestedActions: [
+        { label: "Court Marriage Checklist", href: "/court-marriage" },
+        { label: "Book Marriage Consultation", href: "/book" },
+        { label: "Confidential WhatsApp (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I am 21 years old and need guidance regarding Court Marriage registration.")}`, external: true },
+      ],
+    };
+  }
+
+  // 2. Purely non-legal queries (cooking, coding, sports, entertainment, homework)
   const nonLegalKeywords = [
     "recipe", "cook", "biryani", "pizza", "burger", "cake",
     "python", "javascript", "react", "html", "css", "coding", "software bug", "programming", "java", "c++",
@@ -65,7 +123,7 @@ How can I help you with a legal question today?`,
     };
   }
 
-  // 2. Overly deep / high-risk / win guarantee queries
+  // 3. Overly deep / high-risk / win guarantee queries
   const deepTriggers = [
     "guarantee i will win", "can you guarantee a win", "guarantee my case", "promise win",
     "how to bribe", "give money to judge", "forge", "fake certificate", "fake document",
@@ -85,7 +143,7 @@ Indian courts decide cases strictly on evidence and statutory law. Adv. Shareen 
     };
   }
 
-  // 3. User introduces their name (e.g. "My name is Faiez", "I am Faiez")
+  // 4. User introduces their actual name (e.g. "My name is Faiez", "I am Faiez")
   if (detectedName) {
     return {
       text: `Hi ${detectedName}! How are you doing today?

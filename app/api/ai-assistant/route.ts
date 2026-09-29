@@ -1,25 +1,47 @@
 import { NextResponse } from "next/server";
 import { site } from "@/lib/site-config";
 
-// Helper: Extract user's name if introduced in the message
+// Helper: Extract user's name ONLY when explicitly introducing their name, NEVER on sentences or questions
 function extractNameFromMessage(text: string): string | null {
   const clean = text.trim();
 
-  // Pattern 1: "my name is Faiez", "i am Faiez", "i'm Faiez", "this is Faiez", "myself Faiez", "call me Faiez"
-  const introMatch = clean.match(/(?:my name is|i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})/i);
-  if (introMatch && introMatch[1]) {
-    const raw = introMatch[1].trim();
-    // Ignore false positives like "i am looking", "i am facing", "i am married", "i am having"
-    const commonVerbs = ["looking", "facing", "having", "married", "seeking", "asking", "interested", "confused", "worried", "going", "trying", "calling", "writing", "a", "an", "the"];
-    if (!commonVerbs.includes(raw.toLowerCase())) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
-    }
+  // If the message contains a question mark, numbers, or question/legal keywords, it is NEVER a name introduction!
+  if (
+    clean.includes("?") ||
+    /\d/.test(clean) ||
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|ready|now|today|tomorrow)\b/i.test(clean)
+  ) {
+    return null;
   }
 
-  // Pattern 2: "Faiez here"
-  const hereMatch = clean.match(/^([a-zA-Z]{2,20})\s+here$/i);
-  if (hereMatch && hereMatch[1]) {
-    const raw = hereMatch[1].trim();
+  // Non-name common English words blacklist
+  const nonNameWords = new Set([
+    "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+    "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+    "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+    "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+    "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+    "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother"
+  ]);
+
+  // Pattern 1: "^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$"
+  const p1 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*my name is\s+([a-zA-Z]{2,20})\.?$/i);
+  if (p1 && p1[1] && !nonNameWords.has(p1[1].toLowerCase())) {
+    const raw = p1[1];
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
+  // Pattern 2: "^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$" (strictly only 2-3 words, entire message must be the intro)
+  const p2 = clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*(?:i am|i'm|this is|myself|call me)\s+([a-zA-Z]{2,20})\.?$/i);
+  if (p2 && p2[1] && !nonNameWords.has(p2[1].toLowerCase())) {
+    const raw = p2[1];
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
+  // Pattern 3: "^([a-zA-Z]{2,20})\s+here\.?$"
+  const p3 = clean.match(/^([a-zA-Z]{2,20})\s+here\.?$/i);
+  if (p3 && p3[1] && !nonNameWords.has(p3[1].toLowerCase())) {
+    const raw = p3[1];
     return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   }
 
@@ -59,41 +81,43 @@ const LEGAL_SYSTEM_PROMPT = `You are the official AI Legal Desk Assistant for Ad
 
 CHAMBER INFORMATION:
 - Advocate: Adv. Shareen Hussain (B.Com, M.Com, LL.B)
-- Chamber: Trisharan Square, Nagpur - 440027, Maharashtra, India
+- Chamber Location: Trisharan Square, Nagpur - 440027, Maharashtra, India
 - Practice: Bombay High Court (Nagpur Bench), District & Sessions Courts, Family Courts, Consumer Forums, Revenue Courts, NCLT
 - Phone / WhatsApp: +91 83296 31199
 - Website: True Legal Advice (www.securemybrand.in)
 - Walk-in Chamber Hours: Morning: 9:30 AM – 11:00 AM | Evening: 5:30 PM – 8:30 PM (Monday to Saturday)
-- Consultations: Video Consultation (Google Meet) & In-Person Office Visit (Booking at /book)
+- Consultations: Online Video Call (Google Meet) & In-Person Chamber Visit (Booking at /book)
 
-CORE BEHAVIORAL RULES:
-1. GREETINGS & INTRODUCTIONS:
-   - When the user says "hi", "hello", "hey", or simple salutations, KEEP IT BRIEF AND WARM. Do NOT dump long lists of services or walls of text.
+CONTEXT UNDERSTANDING & CORE INSTRUCTIONS:
+1. NEVER confuse a user's statement or age with their name!
+   For example, if a user says "I am now 21 can I marry" or "I am facing divorce", they are NOT introducing their name as "Now" or "Facing". They are asking a legal question.
+2. MARRIAGE AGE & SPECIAL MARRIAGE ACT:
+   If a user asks about marriage eligibility at age 21 (e.g. "I am now 21 can I marry"):
+   - Clearly explain that under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955), the legal marriage age is 21 for males and 18 for females.
+   - Confirm that at 21, they have attained the age of majority and have the constitutional right under Article 21 to marry with free consent without requiring parental consent.
+   - Explain the requirements (valid age/ID proof, address proof, 3 witnesses, affidavits) and that Adv. Shareen Hussain provides 100% confidential legal guidance from notice filing to Government Marriage Certificate issuance in Nagpur.
+3. GREETINGS & INTRODUCTIONS:
+   - When the user says "hi", "hello", "hey", KEEP IT BRIEF AND WARM. Do NOT dump long lists of services.
      Example: "Hello! Welcome to True Legal Advice. I am the AI assistant of Adv. Shareen Hussain. How can I help you today?"
-   - When the user introduces their name (e.g., "My name is Faiez", "I am Rahul"):
+   - When the user introduces their actual name (e.g., "My name is Faiez"):
      Example: "Hi Faiez! How are you doing today? How can Adv. Shareen Hussain's chamber assist you with your legal matter?"
-   - When the user asks "How are you?":
-     Example: "I am doing well, thank you! How can I assist you with your legal case or documentation today?"
-
-2. WE DO ALL LEGAL SERVICES:
-   Adv. Shareen Hussain provides counsel, litigation, and documentation for ALL legal areas:
+4. WE DO ALL LEGAL SERVICES:
+   Adv. Shareen Hussain provides representation and drafting across ALL legal areas:
    - High Court Practice: Writ Petitions (Art 226/227), Criminal & Civil Appeals, Revisions, Stay Orders at Bombay High Court (Nagpur Bench).
    - Criminal Defense & Bail: Anticipatory Bail (Sec 438), Regular Bail (Sec 439), FIR Quashing (Sec 482 CrPC), Cheque Bounce (Sec 138 NI Act), Cyber Crime, Police Complaints, 498A defense.
    - Civil & Property Law: Property Title Search (30-year report), Sale Deed, Gift Deed, Will & Testament, Partition Suits, Injunctions, Possession, Eviction, RERA, Land Mutation.
    - Court Marriage & Family Law: Special Marriage Act 1954 (confidential adult love marriage registration, Article 21 police protection), Mutual Consent Divorce, Contested Divorce, Child Custody, Maintenance (Sec 125 CrPC), Domestic Violence (DV Act).
    - Corporate, Trademark & Startup Compliance: Trademark Search, Filing & Objection Hearings (Class 1-45), Copyright, Company Registration (Pvt Ltd, LLP, OPC), GST, Gumasta / Shop Act, MSME Udyam, FSSAI Food Licenses, NDAs & Commercial Contracts.
    - Legal Drafting: Affidavits, Legal Notices, Agreements, Power of Attorney (PoA), Deeds.
-
-3. STRICT PROFESSIONAL GUARDRAILS:
+5. STRICT PROFESSIONAL GUARDRAILS:
    - If the user asks non-legal questions (cooking, programming, entertainment, sports, homework):
      Politely decline: "I can only assist with legal matters of the court, legal advice, and legal documentation for Adv. Shareen Hussain's chambers. How can I help you with a legal question?"
    - DEEP / HIGH-RISK CASE STRATEGY:
      If the user asks for guarantees of winning, deep litigation tactics, or complex disputed facts:
      Stop there and guide them to book a consultation: "Because this matter involves specific case facts, evidence, and critical court proceedings, Adv. Shareen Hussain needs to review your case documents in a private consultation. We recommend booking an in-person or video consultation so Adv. Shareen can examine your case details directly."
-
-4. TONE & STYLE:
-   - Clear, reassuring, professional, and distinctly legal.
-   - Avoid long walls of text. Be concise and conversational.`;
+6. TONE & STYLE:
+   - Direct, context-aware, reassuring, professional, and legally precise.
+   - Keep answers clear and easy to read.`;
 
 export async function POST(req: Request) {
   try {
@@ -101,7 +125,7 @@ export async function POST(req: Request) {
     const rawText = (message || "").trim();
     const query = rawText.toLowerCase();
 
-    // 1. Detect if the user introduced their name in this message
+    // 1. Detect if the user introduced their name in this message (strict, never false positives)
     const extractedName = extractNameFromMessage(rawText);
     const activeUserName = extractedName || userName || "";
 
@@ -139,7 +163,7 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
     }
 
     // 4. If Grok AI (xAI) API Key is configured in environment, call Grok AI!
-    const grokApiKey = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+    const grokApiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.NEXT_PUBLIC_GROK_API_KEY || "").trim();
     if (grokApiKey) {
       try {
         const grokMessages = [
@@ -164,46 +188,61 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
 
         grokMessages.push({ role: "user", content: userPrompt });
 
-        const grokRes = await fetch("https://api.x.ai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${grokApiKey}`,
-          },
-          body: JSON.stringify({
-            model: "grok-2-latest",
-            messages: grokMessages,
-            temperature: 0.3,
-            max_tokens: 450,
-          }),
-        });
+        // Try supported xAI Grok model endpoints with fallback
+        const candidateModels = ["grok-2-latest", "grok-2", "grok-beta"];
+        let grokReply: string | null = null;
 
-        if (grokRes.ok) {
-          const grokData = await grokRes.json();
-          const grokReply = grokData.choices?.[0]?.message?.content?.trim();
-          if (grokReply) {
-            // Attach intelligent suggested actions based on context
-            const dynamicActions = [];
-            const rLower = grokReply.toLowerCase() + " " + query;
-            if (rLower.includes("marriage") || rLower.includes("nikah") || rLower.includes("shaadi")) {
-              dynamicActions.push({ label: "Court Marriage Guide", href: "/court-marriage" });
-            }
-            if (rLower.includes("trademark") || rLower.includes("brand") || rLower.includes("startup") || rLower.includes("company")) {
-              dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
-            }
-            dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
-            dynamicActions.push({
-              label: "WhatsApp Legal Desk",
-              href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
-              external: true,
+        for (const model of candidateModels) {
+          try {
+            const grokRes = await fetch("https://api.x.ai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${grokApiKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: grokMessages,
+                temperature: 0.3,
+                max_tokens: 500,
+              }),
             });
 
-            return NextResponse.json({
-              reply: grokReply,
-              userName: activeUserName,
-              suggestedActions: dynamicActions.slice(0, 3),
-            });
+            if (grokRes.ok) {
+              const grokData = await grokRes.json();
+              grokReply = grokData.choices?.[0]?.message?.content?.trim();
+              if (grokReply) break;
+            } else {
+              const errBody = await grokRes.text();
+              console.warn(`Grok API (${model}) responded with status ${grokRes.status}:`, errBody);
+            }
+          } catch (modelErr) {
+            console.warn(`Grok API fetch error on ${model}:`, modelErr);
           }
+        }
+
+        if (grokReply) {
+          // Attach intelligent suggested actions based on context
+          const dynamicActions = [];
+          const combined = (rawText + " " + grokReply).toLowerCase();
+          if (combined.includes("marriage") || combined.includes("marry") || combined.includes("21") || combined.includes("nikah") || combined.includes("shaadi")) {
+            dynamicActions.push({ label: "Court Marriage Checklist", href: "/court-marriage" });
+          }
+          if (combined.includes("trademark") || combined.includes("brand") || combined.includes("startup") || combined.includes("company")) {
+            dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
+          }
+          dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
+          dynamicActions.push({
+            label: "WhatsApp Legal Desk",
+            href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
+            external: true,
+          });
+
+          return NextResponse.json({
+            reply: grokReply,
+            userName: activeUserName,
+            suggestedActions: dynamicActions.slice(0, 3),
+          });
         }
       } catch (e) {
         console.error("Grok AI API call failed, falling back to trained rule engine:", e);
@@ -211,7 +250,40 @@ Would you like to schedule an in-person chamber consultation at Trisharan Square
     }
 
     // 5. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
-    // 5A. Name Introduction Handling (e.g. "My name is Faiez", "I am Faiez")
+
+    // 5A. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
+    if (
+      (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
+      (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
+    ) {
+      return NextResponse.json({
+        reply: `Yes, absolutely! Under Indian law (Special Marriage Act, 1954 and Hindu Marriage Act, 1955):
+
+✅ Legal Age of Marriage in India:
+• Groom (Male): Minimum 21 years of age completed.
+• Bride (Female): Minimum 18 years of age completed.
+
+Since you are 21, you have legally reached the age of majority and are fully entitled to marry. Under Article 21 of the Constitution of India, two consenting adults have the fundamental legal right to marry of their own free will without requiring parental consent.
+
+📋 Essential Requirements for Court Marriage in Nagpur:
+1. Valid Age & Identity Proof (Aadhaar Card, PAN Card, Birth Certificate or 10th School Leaving Certificate)
+2. Address Proof & Passport-size photographs of both bride and groom
+3. 3 adult witnesses (any friends, colleagues, or relatives) with their Aadhaar/voter ID
+4. Affidavits regarding age, marital status, and free consent
+
+Adv. Shareen Hussain provides complete, 100% confidential legal guidance from drafting notice & affidavits to direct registrar appearance and government marriage certificate issuance.
+
+Would you like to review the step-by-step document checklist or book a private consultation?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Checklist", href: "/court-marriage" },
+          { label: "Book Marriage Consultation", href: "/book" },
+          { label: "Confidential WhatsApp (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I am 21 years old and need guidance regarding Court Marriage registration.")}`, external: true },
+        ],
+      });
+    }
+
+    // 5B. Actual Name Introduction Handling (e.g. "My name is Faiez", "I am Faiez")
     if (extractedName) {
       return NextResponse.json({
         reply: `Hi ${extractedName}! How are you doing today?
@@ -227,7 +299,7 @@ How can Adv. Shareen Hussain's chamber assist you with your legal case or docume
       });
     }
 
-    // 5B. Polite "How are you" / "I am good"
+    // 5C. Polite "How are you" / "I am good"
     if (
       query.includes("how are you") ||
       query.includes("how r u") ||
@@ -252,7 +324,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 5C. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
+    // 5D. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
     const isDirectGreeting =
       query === "hi" ||
       query === "hello" ||
@@ -287,7 +359,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 5D. High Court Practice (Bombay High Court Nagpur Bench, Writ, Appeals, Revisions)
+    // 5E. High Court Practice (Bombay High Court Nagpur Bench, Writ, Appeals, Revisions)
     if (
       query.includes("high court") ||
       query.includes("writ") ||
@@ -316,7 +388,7 @@ Would you like to schedule an urgent consultation to review your court case reco
       });
     }
 
-    // 5E. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
+    // 5F. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
     if (
       query.includes("bail") ||
       query.includes("anticipatory") ||
@@ -348,7 +420,7 @@ For urgent arrest or bail matters, immediate consultation is recommended.`,
       });
     }
 
-    // 5F. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
+    // 5G. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
     if (
       query.includes("property") ||
       query.includes("civil") ||
@@ -382,7 +454,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5G. Court Marriage & Special Marriage Act
+    // 5H. Court Marriage & Special Marriage Act
     if (
       query.includes("love") ||
       query.includes("marriage") ||
@@ -411,7 +483,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5H. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
+    // 5I. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
     if (
       query.includes("divorce") ||
       query.includes("maintenance") ||
@@ -437,7 +509,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5I. Trademark, Copyright, Startup & Corporate Compliance
+    // 5J. Trademark, Copyright, Startup & Corporate Compliance
     if (
       query.includes("trademark") ||
       query.includes("brand") ||
@@ -471,7 +543,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5J. Legal Documentation, Drafting, Notices, Affidavits
+    // 5K. Legal Documentation, Drafting, Notices, Affidavits
     if (
       query.includes("draft") ||
       query.includes("notice") ||
@@ -497,7 +569,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5K. Fees, Consultation Charges & Booking Process
+    // 5L. Fees, Consultation Charges & Booking Process
     if (
       query.includes("fee") ||
       query.includes("charge") ||
@@ -527,7 +599,7 @@ Would you like Adv. Shareen to inspect your property documents?`,
       });
     }
 
-    // 5L. Office Location, Timings, Nagpur Chamber
+    // 5M. Office Location, Timings, Nagpur Chamber
     if (
       query.includes("where") ||
       query.includes("address") ||
@@ -564,7 +636,7 @@ Trisharan Square, Nagpur - 440027, Maharashtra, India
       });
     }
 
-    // 5M. Fallback: Concise legal overview covering all practices
+    // 5N. Fallback: Concise legal overview covering all practices
     const namePrefix = activeUserName ? `${activeUserName}, ` : "";
     return NextResponse.json({
       reply: `${namePrefix}Adv. Shareen Hussain practices across Bombay High Court (Nagpur Bench) and District Courts, handling all legal matters including:
