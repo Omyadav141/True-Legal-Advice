@@ -46,29 +46,74 @@ export function getIndiaTime(): Date {
   return istTime;
 }
 
+export interface SlotDetail {
+  time: string;
+  status: "available" | "booked" | "passed";
+}
+
 /**
- * Given a date key and booked times, returns which of the day's slots are still available.
+ * Given a date key and booked times, returns detailed statuses for all day slots:
+ * whether each slot is available, already booked, or time has passed for today.
  */
-export function getAvailableSlotsForDate(dateKey: string, bookedTimes: string[], now: Date = getIndiaTime()): string[] {
+export function getDetailedSlotsForDate(
+  dateKey: string,
+  bookedTimes: string[],
+  now: Date = getIndiaTime()
+): {
+  allSlots: string[];
+  availableSlots: string[];
+  bookedSlots: string[];
+  passedSlots: string[];
+  slots: SlotDetail[];
+} {
   const all = getAllDaySlots();
   const bookedSet = new Set(bookedTimes);
   const todayKey = toDateKey(now);
   const isToday = dateKey === todayKey;
 
-  const available = all.filter((slot) => {
-    if (bookedSet.has(slot)) return false;
+  const bookedSlots: string[] = [];
+  const passedSlots: string[] = [];
+  const availableSlots: string[] = [];
+
+  const slots: SlotDetail[] = all.map((slot) => {
+    if (bookedSet.has(slot)) {
+      bookedSlots.push(slot);
+      return { time: slot, status: "booked" };
+    }
     if (isToday) {
       const [h, m] = slot.split(":").map(Number);
       const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-      if (slotTime <= now) return false;
+      if (slotTime <= now) {
+        passedSlots.push(slot);
+        return { time: slot, status: "passed" };
+      }
     }
-    return true;
+    availableSlots.push(slot);
+    return { time: slot, status: "available" };
   });
 
-  // If today is selected but all standard daytime slots passed, provide the evening chamber slots so the user always has bookable slots!
-  if (isToday && available.length === 0) {
+  return {
+    allSlots: all,
+    availableSlots,
+    bookedSlots,
+    passedSlots,
+    slots,
+  };
+}
+
+/**
+ * Given a date key and booked times, returns which of the day's slots are still available.
+ */
+export function getAvailableSlotsForDate(dateKey: string, bookedTimes: string[], now: Date = getIndiaTime()): string[] {
+  const { availableSlots, bookedSlots } = getDetailedSlotsForDate(dateKey, bookedTimes, now);
+  const bookedSet = new Set(bookedSlots);
+  const todayKey = toDateKey(now);
+  const isToday = dateKey === todayKey;
+
+  // If today is selected but all standard daytime slots passed, provide the evening chamber slots if not booked
+  if (isToday && availableSlots.length === 0) {
     return ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30"].filter((s) => !bookedSet.has(s));
   }
 
-  return available;
+  return availableSlots;
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getAvailableSlotsForDate, isDateBookable } from "@/lib/availability";
+import { getAvailableSlotsForDate, getDetailedSlotsForDate, isDateBookable } from "@/lib/availability";
 
 import { getLocalBookings } from "@/lib/bookings-store";
 
@@ -66,15 +66,25 @@ export async function GET(req: NextRequest) {
       // Supabase not configured in local environment; fallback to memory
     }
 
-    const availableSlots = getAvailableSlotsForDate(dateParam, bookedTimes, nowIndia);
+    const { availableSlots, bookedSlots, passedSlots, allSlots, slots } = getDetailedSlotsForDate(dateParam, bookedTimes, nowIndia);
 
-    return NextResponse.json({ date: dateParam, availableSlots });
+    return NextResponse.json({
+      date: dateParam,
+      availableSlots,
+      bookedSlots,
+      passedSlots,
+      allSlots,
+      slots,
+    });
   } catch (err) {
     console.error("Availability API error:", err);
     // Graceful fallback to guarantee slots are never completely empty
     return NextResponse.json({
       date: req.nextUrl.searchParams.get("date") || "today",
       availableSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"],
+      bookedSlots: [],
+      passedSlots: [],
+      allSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"],
     });
   }
 }

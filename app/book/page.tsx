@@ -153,6 +153,8 @@ function BookClient() {
   const [targetDate, setTargetDate] = useState<Date>(today);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[] | null>(null);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [passedSlots, setPassedSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
   const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
@@ -239,13 +241,15 @@ function BookClient() {
     }
   }, [isTodayDisabledForMode, targetDate, today]);
 
-  // Fetch available slots when on Step 2
+  // Fetch available and booked slots when on Step 2
   useEffect(() => {
     if (!showModal || step !== "slots") return;
 
     // If today is disabled for this mode, do not allow slots for today
     if (toDateKey(targetDate) === toDateKey(today) && isTodayDisabledForMode) {
       setAvailableSlots([]);
+      setBookedSlots(allSlots);
+      setPassedSlots([]);
       return;
     }
 
@@ -255,13 +259,21 @@ function BookClient() {
     fetch(`/api/availability?date=${dateKey}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data && Array.isArray(data.availableSlots) && data.availableSlots.length > 0) {
-          setAvailableSlots(data.availableSlots);
+        if (data) {
+          setAvailableSlots(Array.isArray(data.availableSlots) ? data.availableSlots : allSlots);
+          setBookedSlots(Array.isArray(data.bookedSlots) ? data.bookedSlots : []);
+          setPassedSlots(Array.isArray(data.passedSlots) ? data.passedSlots : []);
         } else {
           setAvailableSlots(allSlots);
+          setBookedSlots([]);
+          setPassedSlots([]);
         }
       })
-      .catch(() => setAvailableSlots(allSlots))
+      .catch(() => {
+        setAvailableSlots(allSlots);
+        setBookedSlots([]);
+        setPassedSlots([]);
+      })
       .finally(() => setSlotsLoading(false));
   }, [showModal, step, targetDate, allSlots, today, isTodayDisabledForMode]);
 
@@ -297,7 +309,14 @@ function BookClient() {
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "phone") {
+      // Strictly 10 digits only
+      const digits = value.replace(/\D/g, "").slice(0, 10);
+      setForm((prev) => ({ ...prev, phone: digits }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   const effectiveMatter =
@@ -307,6 +326,23 @@ function BookClient() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedSlot || !consultationMode || !selectedService) return;
+
+    const cleanPhone = form.phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMsg("Please enter a valid 10-digit Indian mobile number (e.g. 9823012345).");
+      setSubmitStatus("idle");
+      return;
+    }
+
+    if (form.email && form.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(form.email.trim())) {
+        setErrorMsg("Please enter a valid email address with @ and domain extension (e.g. name@gmail.com).");
+        setSubmitStatus("idle");
+        return;
+      }
+    }
+
     setSubmitStatus("loading");
     setErrorMsg("");
 
@@ -316,6 +352,7 @@ function BookClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          phone: cleanPhone,
           service: selectedService,
           sub_service: effectiveMatter,
           bookingDate: toDateKey(targetDate),
@@ -937,21 +974,57 @@ function BookClient() {
                             </p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-2">
-                            {(availableSlots || allSlots).map((slot) => {
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {allSlots.map((slot) => {
                               const isSelected = selectedSlot === slot;
+                              const isBooked = bookedSlots.includes(slot);
+                              const isPassed = passedSlots.includes(slot);
+
+                              if (isBooked) {
+                                return (
+                                  <div
+                                    key={slot}
+                                    className="py-2.5 px-3 rounded-xl border border-rose-500/30 bg-rose-950/20 text-rose-300 text-xs font-semibold flex items-center justify-between cursor-not-allowed select-none opacity-75"
+                                    title="This time slot is already booked by another client"
+                                  >
+                                    <span className="line-through">{formatSlotLabel(slot)}</span>
+                                    <span className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-rose-300 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-500/30">
+                                      Booked ✕
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              if (isPassed) {
+                                return (
+                                  <div
+                                    key={slot}
+                                    className="py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 text-slate-400 text-xs font-semibold flex items-center justify-between cursor-not-allowed select-none opacity-45"
+                                    title="Consultation time has passed for today"
+                                  >
+                                    <span className="line-through">{formatSlotLabel(slot)}</span>
+                                    <span className="text-[9.5px] font-mono text-slate-400 bg-black/40 px-1.5 py-0.5 rounded border border-white/10">
+                                      Passed
+                                    </span>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <button
                                   key={slot}
                                   type="button"
                                   onClick={() => setSelectedSlot(slot)}
-                                  className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                                  className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${
                                     isSelected
                                       ? "border-[#cba758] bg-[#cba758] text-black font-bold shadow-md ring-2 ring-[#cba758]/40"
-                                      : "border-white/15 bg-white/5 text-slate-200 hover:border-[#cba758]/50"
+                                      : "border-white/15 bg-white/5 text-slate-200 hover:border-[#cba758]/50 hover:bg-white/10"
                                   }`}
                                 >
-                                  {formatSlotLabel(slot)}
+                                  <span>{formatSlotLabel(slot)}</span>
+                                  <span className={`text-[9.5px] font-mono ${isSelected ? "text-black/80 font-bold" : "text-[#cba758]"}`}>
+                                    Available
+                                  </span>
                                 </button>
                               );
                             })}

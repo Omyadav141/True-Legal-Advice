@@ -39,8 +39,11 @@ import {
   Building2,
   Briefcase,
   HelpCircle,
+  Plus,
+  CreditCard,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
+import { getAllDaySlots } from "@/lib/availability";
 import type { BookingRecord } from "@/lib/bookings-store";
 import type { ContactInquiry } from "@/lib/contacts-store";
 import type { ChamberStatus } from "@/lib/chamber-status";
@@ -166,11 +169,30 @@ export default function DashboardClient() {
   // Tab: All Clients / Mandates vs Bookings vs Contact Forms
   const [viewTab, setViewTab] = useState<"all" | "bookings" | "contacts">("all");
 
-  // Sub-filter: All, Today, Pending, Confirmed, Attended, Completed, Cancelled
-  const [statusFilter, setStatusFilter] = useState<"all" | "today" | "pending" | "confirmed" | "attended" | "completed" | "cancelled">("all");
+  // Date Filter: All Dates, Today, Tomorrow, Upcoming, Past
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "past">("all");
+
+  // Status Filter: All Active, Pending Review, Confirmed, Attended, Completed, Declined, Everything
+  const [statusFilter, setStatusFilter] = useState<"all" | "everything" | "pending" | "confirmed" | "attended" | "completed" | "cancelled">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Manual Booking Modal States
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    service: "legal-services",
+    sub_service: "",
+    bookingDate: todayInIndia(),
+    bookingTime: "18:00",
+    consultationMode: "offline" as "offline" | "online",
+    message: "",
+  });
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState("");
 
   // Chamber Availability & Away Manager Modal
   const [chamberStatus, setChamberStatus] = useState<ChamberStatus>({
@@ -196,10 +218,19 @@ export default function DashboardClient() {
 
   // Custom Confirmation & WhatsApp Modal
   const [confirmModalBooking, setConfirmModalBooking] = useState<Booking | null>(null);
+  const [meetLinkInput, setMeetLinkInput] = useState("");
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
 
   const todayStr = useMemo(() => todayInIndia(), []);
+  const tomorrowStr = useMemo(() => {
+    const tm = new Date();
+    tm.setDate(tm.getDate() + 1);
+    const y = tm.getFullYear();
+    const m = String(tm.getMonth() + 1).padStart(2, "0");
+    const d = String(tm.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
 
   // Fetch Bookings & Contacts
   const loadData = useCallback(async () => {
@@ -372,7 +403,7 @@ export default function DashboardClient() {
   }
 
   // Generate customized WhatsApp confirmation text
-  const buildConfirmationMessage = useCallback((b: Booking) => {
+  const buildConfirmationMessage = useCallback((b: Booking, customMeet?: string) => {
     const dateStr = formatDateLabel(b.booking_date);
     const timeStr = formatTime12(b.booking_time);
     const serviceTitle = b.sub_service
@@ -382,18 +413,18 @@ export default function DashboardClient() {
     if (b.consultation_mode === "offline") {
       return `Hello ${b.name},
 
-Your Office Visit Legal Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
+Your In-Person Chamber Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
 
 🏛️ Office: True Legal Advice
 ⚖️ Matter: ${serviceTitle}
 📅 Date: ${dateStr}
 ⏰ Scheduled Slot: ${timeStr}
 📍 Address: Near Trisharan Square, Nagpur - 440027, Maharashtra
-📞 Helpline: +91 83296 31199
+📞 Chamber Desk: +91 83296 31199
 
 Please arrive 5 to 10 minutes prior with all relevant case documents, notices, or identity proofs. Adv. Shareen Hussain looks forward to meeting you at our Nagpur office.`;
     } else {
-      const meetLink = b.meet_link || site.googleMeetRoom;
+      const meetLink = customMeet || b.meet_link || site.googleMeetRoom;
       return `Hello ${b.name},
 
 Your Online Video Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
@@ -401,23 +432,142 @@ Your Online Video Consultation with Adv. Shareen Hussain has been officially CON
 ⚖️ Matter: ${serviceTitle}
 📅 Date: ${dateStr}
 ⏰ Scheduled Slot: ${timeStr}
-💻 Google Meet Link: ${meetLink}
-📞 Helpline: +91 83296 31199
+💻 Google Meet Video Link: ${meetLink}
+📞 Chamber Desk: +91 83296 31199
 
 Please click the Google Meet link above at your scheduled appointment time.`;
     }
   }, []);
 
+  // Generate Payment Verification WhatsApp message
+  const buildPaymentCheckMessage = useCallback(
+    (r: { name: string; phone: string; service: string; date: string; time?: string; mode?: string }) => {
+      const serviceText = r.service || "Legal Consultation";
+      const dateText = formatDateLabel(r.date);
+      const timeText = r.time ? formatTime12(r.time) : "Chamber Slot";
+      const modeText = r.mode === "online" ? "Google Meet Video Call" : "In-Person Chamber Visit";
+
+      return `Namaste ${r.name},
+
+This is from the Chambers of Adv. Shareen Hussain (True Legal Advice), Nagpur.
+
+We have received your consultation appointment request for:
+⚖️ Matter: ${serviceText}
+📅 Date: ${dateText} at ${timeText}
+📍 Mode: ${modeText}
+
+To confirm and block your consultation slot, kindly share your ₹1,000 consultation payment receipt / screenshot via UPI.
+
+🏦 UPI ID: 9371509246@okbizaxis (or Google Pay / PhonePe / Paytm to +91 9371509246)
+Amount: ₹1,000 (Chamber Consultation Fee)
+
+Once your payment receipt is verified, Advocate Shareen Hussain will officially confirm your appointment and provide your calendar confirmation${
+        r.mode === "online" ? " and Google Meet link" : ""
+      }.
+
+Chambers of Adv. Shareen Hussain
+Advocate High Court & District Court
+Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
+    },
+    []
+  );
+
   const openConfirmModal = (b: Booking) => {
     setConfirmModalBooking(b);
-    setCustomMessage(buildConfirmationMessage(b));
+    let initialMeet = b.meet_link || "";
+    if (b.consultation_mode === "online" && (!initialMeet || initialMeet === site.googleMeetRoom)) {
+      const p1 = Math.random().toString(36).substring(2, 5);
+      const p2 = Math.random().toString(36).substring(2, 6);
+      const p3 = Math.random().toString(36).substring(2, 5);
+      initialMeet = `https://meet.google.com/tla-${p1}-${p2}-${p3}`;
+    }
+    setMeetLinkInput(initialMeet);
+    setCustomMessage(buildConfirmationMessage(b, initialMeet));
     setCopied(false);
+  };
+
+  const regenerateMeetLink = () => {
+    const p1 = Math.random().toString(36).substring(2, 5);
+    const p2 = Math.random().toString(36).substring(2, 6);
+    const p3 = Math.random().toString(36).substring(2, 5);
+    const newMeet = `https://meet.google.com/tla-${p1}-${p2}-${p3}`;
+    setMeetLinkInput(newMeet);
+    if (confirmModalBooking) {
+      setCustomMessage(buildConfirmationMessage(confirmModalBooking, newMeet));
+    }
   };
 
   const closeConfirmModal = () => {
     setConfirmModalBooking(null);
+    setMeetLinkInput("");
     setCustomMessage("");
     setCopied(false);
+  };
+
+  // Handler: Manual Booking / Block Slot Submission
+  const handleCreateManualBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualForm.name.trim()) {
+      setManualError("Please enter a client name or purpose (e.g. Walk-in / High Court Matter).");
+      return;
+    }
+    const cleanPhone = manualForm.phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setManualError("Please enter a valid 10-digit Indian mobile number (e.g. 9823012345).");
+      return;
+    }
+    if (manualForm.email && manualForm.email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(manualForm.email.trim())) {
+        setManualError("Please enter a valid email address.");
+        return;
+      }
+    }
+
+    setManualLoading(true);
+    setManualError("");
+
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: manualForm.name.trim(),
+          phone: cleanPhone,
+          email: manualForm.email.trim() || null,
+          service: manualForm.service,
+          sub_service: manualForm.sub_service.trim() || null,
+          bookingDate: manualForm.bookingDate,
+          bookingTime: manualForm.bookingTime,
+          consultationMode: manualForm.consultationMode,
+          message: manualForm.message.trim() || "Manual Appointment booked via Admin Desk",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setManualError(data.error || "Failed to create booking.");
+        setManualLoading(false);
+        return;
+      }
+
+      setShowManualModal(false);
+      setManualForm({
+        name: "",
+        phone: "",
+        email: "",
+        service: "legal-services",
+        sub_service: "",
+        bookingDate: todayStr,
+        bookingTime: "18:00",
+        consultationMode: "offline",
+        message: "",
+      });
+      await loadData();
+    } catch (err: any) {
+      setManualError(err.message || "Network error. Please try again.");
+    } finally {
+      setManualLoading(false);
+    }
   };
 
   // Metrics Calculations (Trend / Summary stats like Image 3)
@@ -505,10 +655,19 @@ Please click the Google Meet link above at your scheduled appointment time.`;
       );
     }
 
-    // Apply Sub-filter
-    if (statusFilter === "today") {
+    // Apply Date Filter
+    if (dateFilter === "today") {
       rows = rows.filter((r) => r.date === todayStr);
-    } else if (statusFilter === "pending") {
+    } else if (dateFilter === "tomorrow") {
+      rows = rows.filter((r) => r.date === tomorrowStr);
+    } else if (dateFilter === "upcoming") {
+      rows = rows.filter((r) => r.date >= todayStr);
+    } else if (dateFilter === "past") {
+      rows = rows.filter((r) => r.date < todayStr);
+    }
+
+    // Apply Status Filter
+    if (statusFilter === "pending") {
       rows = rows.filter((r) => r.status === "pending" || r.status === "new");
     } else if (statusFilter === "confirmed") {
       rows = rows.filter((r) => r.status === "confirmed");
@@ -518,7 +677,11 @@ Please click the Google Meet link above at your scheduled appointment time.`;
       rows = rows.filter((r) => r.status === "completed" || r.status === "converted" || r.status === "closed");
     } else if (statusFilter === "cancelled") {
       rows = rows.filter((r) => r.status === "cancelled");
+    } else if (statusFilter === "all") {
+      // Active Mandates View: Hide completed and declined so they don't clutter the active view!
+      rows = rows.filter((r) => r.status !== "completed" && r.status !== "converted" && r.status !== "closed" && r.status !== "cancelled");
     }
+    // "everything" tab shows all records without status filtering
 
     // Apply Search Query across Name, Phone, Email, Service, Date
     if (searchQuery.trim()) {
@@ -543,7 +706,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
       if (bIsPending && !aIsPending) return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [bookings, contacts, viewTab, statusFilter, searchQuery, todayStr]);
+  }, [bookings, contacts, viewTab, statusFilter, dateFilter, searchQuery, todayStr, tomorrowStr]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-[#09090b]">
@@ -571,6 +734,30 @@ Please click the Google Meet link above at your scheduled appointment time.`;
 
           {/* Header Action Controls */}
           <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center">
+            {/* Manual Booking / Block Slot Button */}
+            <button
+              onClick={() => {
+                setManualForm({
+                  name: "",
+                  phone: "",
+                  email: "",
+                  service: "legal-services",
+                  sub_service: "",
+                  bookingDate: todayStr,
+                  bookingTime: "18:00",
+                  consultationMode: "offline",
+                  message: "",
+                });
+                setManualError("");
+                setShowManualModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#cba758] text-black hover:bg-[#b89547] transition-all shadow-2xs cursor-pointer"
+              title="Add Walk-in Client or Block Slot"
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              <span>+ Manual Booking / Block Slot</span>
+            </button>
+
             {/* Live Availability Status Quick Pill */}
             <button
               onClick={() => setShowStatusModal(true)}
@@ -638,23 +825,44 @@ Please click the Google Meet link above at your scheduled appointment time.`;
           <div
             onClick={() => {
               setViewTab("bookings");
-              setStatusFilter("today");
+              setDateFilter("today");
             }}
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
-              statusFilter === "today"
-                ? "bg-white border-[#cba758] ring-2 ring-[#cba758]/20"
+              dateFilter === "today"
+                ? "bg-amber-950 text-white border-[#cba758] ring-2 ring-[#cba758]/30 shadow-md"
                 : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
-            <div className="flex items-center justify-between text-[#9f7d32]">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Today&apos;s Slots</span>
-              <CalendarDays size={16} />
+            <div className="flex items-center justify-between">
+              <span
+                className={`text-[11px] font-mono font-bold uppercase tracking-wider ${
+                  dateFilter === "today" ? "text-[#cba758]" : "text-[#9f7d32]"
+                }`}
+              >
+                Today&apos;s Slots
+              </span>
+              <CalendarDays
+                size={16}
+                className={dateFilter === "today" ? "text-[#cba758]" : "text-[#9f7d32]"}
+              />
             </div>
-            <p className="text-2xl font-serif font-bold text-[#09090b] mt-2">{stats.todayBookings}</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">Scheduled today</p>
+            <p
+              className={`text-2xl font-serif font-bold mt-2 ${
+                dateFilter === "today" ? "text-white" : "text-[#09090b]"
+              }`}
+            >
+              {stats.todayBookings}
+            </p>
+            <p
+              className={`text-[11px] mt-0.5 ${
+                dateFilter === "today" ? "text-amber-200/80" : "text-zinc-500"
+              }`}
+            >
+              Scheduled today
+            </p>
           </div>
 
-          {/* Stat 3: Attended / Came (The "see he has came here or not") */}
+          {/* Stat 3: Attended / Came (Fixed coloring for crystal clarity) */}
           <div
             onClick={() => {
               setViewTab("bookings");
@@ -662,16 +870,37 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             }}
             className={`p-4 rounded-2xl border transition-all cursor-pointer shadow-2xs ${
               statusFilter === "attended"
-                ? "bg-black text-[#cba758] border-[#cba758] ring-2 ring-[#cba758]/20"
+                ? "bg-emerald-950 text-white border-emerald-500 ring-2 ring-emerald-500/30 shadow-md"
                 : "bg-white border-zinc-200 hover:border-zinc-300"
             }`}
           >
-            <div className="flex items-center justify-between text-zinc-900">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Attended / Came</span>
-              <CheckCheck size={16} className="text-[#cba758]" />
+            <div className="flex items-center justify-between">
+              <span
+                className={`text-[11px] font-mono font-bold uppercase tracking-wider ${
+                  statusFilter === "attended" ? "text-emerald-400" : "text-zinc-700"
+                }`}
+              >
+                Attended / Came
+              </span>
+              <CheckCheck
+                size={16}
+                className={statusFilter === "attended" ? "text-emerald-400" : "text-[#9f7d32]"}
+              />
             </div>
-            <p className="text-2xl font-serif font-bold text-[#09090b] mt-2">{stats.attendedCount}</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">Visited chamber</p>
+            <p
+              className={`text-2xl font-serif font-bold mt-2 ${
+                statusFilter === "attended" ? "text-white" : "text-[#09090b]"
+              }`}
+            >
+              {stats.attendedCount}
+            </p>
+            <p
+              className={`text-[11px] mt-0.5 ${
+                statusFilter === "attended" ? "text-emerald-300/80" : "text-zinc-500"
+              }`}
+            >
+              Visited chamber
+            </p>
           </div>
 
           {/* Stat 4: Website Contact Inquiries */}
@@ -773,36 +1002,69 @@ Please click the Google Meet link above at your scheduled appointment time.`;
             </div>
           </div>
 
-          {/* Secondary Quick Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-100">
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-2 flex items-center gap-1">
-              <Filter size={12} />
-              <span>Status:</span>
-            </span>
-            {[
-              { id: "all", label: "All Statuses" },
-              { id: "today", label: "Today's Mandates" },
-              { id: "pending", label: "Pending Review" },
-              { id: "confirmed", label: "Confirmed" },
-              { id: "attended", label: "Attended / Came" },
-              { id: "completed", label: "Completed" },
-              { id: "cancelled", label: "Declined" },
-            ].map((f) => {
-              const isSelected = statusFilter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setStatusFilter(f.id as any)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    isSelected
-                      ? "bg-black text-white shadow-2xs font-bold"
-                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              );
-            })}
+          {/* Secondary Quick Filter Pills: Date Filter Row + Status Filter Row */}
+          <div className="space-y-2.5 pt-2 border-t border-zinc-100">
+            {/* Row 1: Date Filters */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-2 flex items-center gap-1">
+                <CalendarDays size={12} className="text-[#9f7d32]" />
+                <span>Date:</span>
+              </span>
+              {[
+                { id: "all", label: "All Dates" },
+                { id: "today", label: "Today's Mandates" },
+                { id: "tomorrow", label: "Tomorrow" },
+                { id: "upcoming", label: "Upcoming (Future)" },
+                { id: "past", label: "Past Dates" },
+              ].map((df) => {
+                const isSelected = dateFilter === df.id;
+                return (
+                  <button
+                    key={df.id}
+                    onClick={() => setDateFilter(df.id as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#cba758] text-black shadow-2xs font-bold"
+                        : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    }`}
+                  >
+                    {df.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Row 2: Status Filters */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-500 mr-2 flex items-center gap-1">
+                <Filter size={12} />
+                <span>Status:</span>
+              </span>
+              {[
+                { id: "all", label: "Active Mandates" },
+                { id: "pending", label: "Pending Review" },
+                { id: "confirmed", label: "Confirmed" },
+                { id: "attended", label: "Attended / Came" },
+                { id: "completed", label: "Completed" },
+                { id: "cancelled", label: "Declined" },
+                { id: "everything", label: "All Records (Unfiltered)" },
+              ].map((f) => {
+                const isSelected = statusFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setStatusFilter(f.id as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-black text-white shadow-2xs font-bold"
+                        : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -848,8 +1110,8 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     <th className="py-3 px-4 font-semibold">Legal Matter</th>
                     <th className="py-3 px-4 font-semibold">Mode</th>
                     <th className="py-3 px-4 font-semibold">Date & Slot</th>
+                    <th className="py-3 px-4 font-semibold">Status / Confirmation</th>
                     <th className="py-3 px-4 font-semibold text-center">Attendance (Came?)</th>
-                    <th className="py-3 px-4 font-semibold">Status</th>
                     <th className="py-3 px-4 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
@@ -952,10 +1214,31 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                           )}
                         </td>
 
-                        {/* Column 6: Attendance ("Did they come?") */}
+                        {/* Column 6: Status & Quick Confirmation (First before attendance!) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex flex-col items-start gap-1">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} border`}
+                            >
+                              {statusMeta.label}
+                            </span>
+                            {r.type === "booking" && r.status === "pending" && (
+                              <button
+                                onClick={() => openConfirmModal(r.raw as Booking)}
+                                className="px-2.5 py-1 rounded-lg bg-black text-[#cba758] text-[10.5px] font-bold hover:bg-zinc-900 border border-[#cba758]/30 transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                                title="Confirm Appointment & Dispatch"
+                              >
+                                <CheckCircle2 size={12} />
+                                <span>Confirm Slot</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Column 7: Attendance ("Did they come?") */}
                         <td className="py-3.5 px-4 text-center whitespace-nowrap">
                           {r.type === "booking" ? (
-                            <div className="inline-flex items-center gap-1">
+                            <div className="inline-flex items-center gap-1 justify-center">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -967,13 +1250,13 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                                 disabled={updatingId === r.id}
                                 className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                                   r.attendance === "attended"
-                                    ? "bg-black text-[#cba758] border-[#cba758] shadow-2xs"
-                                    : "bg-white text-zinc-600 border-zinc-300 hover:border-black hover:text-black"
+                                    ? "bg-emerald-700 text-white border-emerald-600 shadow-2xs"
+                                    : "bg-white text-zinc-700 border-zinc-300 hover:border-black hover:text-black"
                                 }`}
-                                title="Toggle customer attendance: Click to mark Attended / Visited"
+                                title="Toggle customer attendance: Click to mark Came / Attended"
                               >
                                 <Check size={11} strokeWidth={3} />
-                                <span>{r.attendance === "attended" ? "Came" : "Mark Came"}</span>
+                                <span>{r.attendance === "attended" ? "Came ✓" : "Mark Came"}</span>
                               </button>
 
                               {r.attendance !== "attended" && (
@@ -986,10 +1269,10 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                                     )
                                   }
                                   disabled={updatingId === r.id}
-                                  className={`p-1 rounded-md text-[10px] transition-all cursor-pointer border ${
+                                  className={`px-2 py-1 rounded-lg text-[10px] transition-all cursor-pointer border ${
                                     r.attendance === "no_show"
                                       ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
-                                      : "bg-white text-slate-400 border-transparent hover:text-rose-600"
+                                      : "bg-white text-slate-400 border-zinc-200 hover:text-rose-600"
                                   }`}
                                   title="Mark No Show"
                                 >
@@ -1002,18 +1285,23 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                           )}
                         </td>
 
-                        {/* Column 7: Status Pill */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} border`}
-                          >
-                            {statusMeta.label}
-                          </span>
-                        </td>
-
-                        {/* Column 8: Direct Actions (WhatsApp, Call, View) */}
+                        {/* Column 8: Direct Actions (Payment Check, WhatsApp, Call, View) */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
+                            {/* Check Payment WhatsApp Button (₹1,000 UPI request) */}
+                            {cleanPhone && r.type === "booking" && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(buildPaymentCheckMessage(r))}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10.5px] font-semibold transition-all shadow-2xs"
+                                title="Send ₹1,000 UPI Payment Verification request on WhatsApp before confirming"
+                              >
+                                <CreditCard size={12} />
+                                <span className="hidden sm:inline">Check Payment</span>
+                              </a>
+                            )}
+
                             {/* WhatsApp Button */}
                             {cleanPhone && (
                               <a
@@ -1036,16 +1324,6 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                               >
                                 <Phone size={13} />
                               </a>
-                            )}
-
-                            {/* Quick Confirm / Status Trigger */}
-                            {r.type === "booking" && r.status === "pending" && (
-                              <button
-                                onClick={() => openConfirmModal(r.raw as Booking)}
-                                className="px-2.5 py-1 rounded-lg bg-black text-[#cba758] text-[11px] font-bold hover:bg-zinc-900 border border-[#cba758]/30 transition-all shadow-2xs cursor-pointer"
-                              >
-                                Confirm
-                              </button>
                             )}
 
                             {/* Detail Drawer Trigger */}
@@ -1486,15 +1764,15 @@ Please click the Google Meet link above at your scheduled appointment time.`;
         )}
       </AnimatePresence>
 
-      {/* ================= Confirmation & Direct WhatsApp Dispatch Modal ================= */}
+      {/* ================= Confirmation, Google Meet & Multi-Channel Dispatch Modal ================= */}
       <AnimatePresence>
         {confirmModalBooking && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
             >
               <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -1503,7 +1781,7 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                   </div>
                   <div>
                     <h3 className="text-base font-serif font-bold text-[#09090b]">
-                      Confirm Appointment & Dispatch WhatsApp
+                      Confirm Appointment & Dispatch
                     </h3>
                     <p className="text-[11px] font-mono text-zinc-500">
                       Client: {confirmModalBooking.name} ({confirmModalBooking.phone})
@@ -1515,19 +1793,79 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                 </button>
               </div>
 
+              {/* Google Meet Link Control */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                    <Video size={13} className="text-purple-600" />
+                    <span>Google Meet Video Link</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={regenerateMeetLink}
+                    className="text-[11px] font-mono text-[#9f7d32] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw size={11} />
+                    <span>Regenerate Code</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={meetLinkInput}
+                  onChange={(e) => {
+                    setMeetLinkInput(e.target.value);
+                    if (confirmModalBooking) {
+                      setCustomMessage(buildConfirmationMessage(confirmModalBooking, e.target.value));
+                    }
+                  }}
+                  placeholder="https://meet.google.com/..."
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-xs font-mono text-[#09090b] focus:border-black focus:outline-none"
+                />
+              </div>
+
+              {/* Channel Availability Notice */}
+              <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-zinc-800">
+                  <span>Client Notification Channels:</span>
+                  <div className="flex items-center gap-1.5">
+                    {confirmModalBooking.phone && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <MessageCircle size={10} />
+                        <span>WhatsApp</span>
+                      </span>
+                    )}
+                    {confirmModalBooking.email && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-100 text-blue-800 border border-blue-300">
+                        <Mail size={10} />
+                        <span>Email</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-500">
+                  {confirmModalBooking.phone && confirmModalBooking.email
+                    ? "Both WhatsApp and Email are present for this client. You can dispatch confirmation to both channels."
+                    : confirmModalBooking.phone
+                    ? "Client provided WhatsApp number only."
+                    : "Client provided Email address only."}
+                </p>
+              </div>
+
+              {/* Message Draft */}
               <div>
                 <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                  WhatsApp Message Draft
+                  Confirmation Message Draft
                 </label>
                 <textarea
-                  rows={8}
+                  rows={7}
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   className="w-full p-3 rounded-2xl border border-zinc-300 text-xs font-sans text-[#09090b] focus:border-black focus:outline-none"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              {/* Dispatch Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-zinc-100">
                 <button
                   type="button"
                   onClick={() => {
@@ -1535,39 +1873,278 @@ Please click the Google Meet link above at your scheduled appointment time.`;
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {copied ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
                   <span>{copied ? "Copied!" : "Copy Text"}</span>
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       updateBookingStatus(confirmModalBooking.id, "confirmed");
                       closeConfirmModal();
                     }}
-                    className="px-4 py-2 rounded-xl border border-black text-xs font-bold text-black hover:bg-zinc-100"
+                    className="px-3 py-2 rounded-xl border border-black text-xs font-bold text-black hover:bg-zinc-100 cursor-pointer"
                   >
-                    Confirm (No Dispatch)
+                    Confirm Only
                   </button>
 
-                  <a
-                    href={`https://wa.me/${formatWhatsAppNumber(confirmModalBooking.phone)}?text=${encodeURIComponent(customMessage)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => {
-                      updateBookingStatus(confirmModalBooking.id, "confirmed");
-                      closeConfirmModal();
-                    }}
-                    className="px-5 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold hover:bg-[#1ebe5d] transition-all flex items-center gap-1.5 shadow-md"
-                  >
-                    <MessageCircle size={15} />
-                    <span>Send on WhatsApp</span>
-                  </a>
+                  {/* Send Email if email exists */}
+                  {confirmModalBooking.email && (
+                    <a
+                      href={`mailto:${confirmModalBooking.email}?subject=${encodeURIComponent(
+                        `Appointment Confirmed: Chambers of Adv. Shareen Hussain (${formatDateLabel(confirmModalBooking.booking_date)})`
+                      )}&body=${encodeURIComponent(customMessage)}`}
+                      onClick={() => {
+                        updateBookingStatus(confirmModalBooking.id, "confirmed");
+                      }}
+                      className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      title="Send confirmation via Email client"
+                    >
+                      <Mail size={13} />
+                      <span>Email</span>
+                    </a>
+                  )}
+
+                  {/* Send WhatsApp if phone exists */}
+                  {confirmModalBooking.phone && (
+                    <a
+                      href={`https://wa.me/${formatWhatsAppNumber(confirmModalBooking.phone)}?text=${encodeURIComponent(customMessage)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        updateBookingStatus(confirmModalBooking.id, "confirmed");
+                        closeConfirmModal();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold hover:bg-[#1ebe5d] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      <MessageCircle size={14} />
+                      <span>WhatsApp</span>
+                    </a>
+                  )}
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= Manual Booking / Block Slot Modal ================= */}
+      <AnimatePresence>
+        {showManualModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
+                    <Plus size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-[#09090b]">
+                      Manual Booking / Block Slot
+                    </h3>
+                    <p className="text-[11px] font-mono text-zinc-500">
+                      Book walk-in client or reserve slot on chamber calendar
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowManualModal(false)}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {manualError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>{manualError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateManualBooking} className="space-y-3 text-xs">
+                {/* Client Name or Block Purpose */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">
+                    Client Name or Purpose <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualForm.name}
+                    onChange={(e) => setManualForm({ ...manualForm, name: e.target.value })}
+                    placeholder="e.g. Rahul Sharma (or 'Blocked - High Court Hearing')"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                  />
+                </div>
+
+                {/* Phone & Email Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      10-Digit Mobile <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={manualForm.phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setManualForm({ ...manualForm, phone: digits });
+                      }}
+                      placeholder="e.g. 9823012345"
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      Email Address <span className="text-zinc-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={manualForm.email}
+                      onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })}
+                      placeholder="client@gmail.com"
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Service and Matter */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      Service Category
+                    </label>
+                    <select
+                      value={manualForm.service}
+                      onChange={(e) => setManualForm({ ...manualForm, service: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                    >
+                      <option value="legal-services">Chamber Litigation & Deeds</option>
+                      <option value="court-marriage">Court Marriage & Family</option>
+                      <option value="trademark-registration">Trademark & IP</option>
+                      <option value="general-consultation">General Consultation</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      Specific Matter
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.sub_service}
+                      onChange={(e) => setManualForm({ ...manualForm, sub_service: e.target.value })}
+                      placeholder="e.g. Bail Hearing / Title Search"
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Date & Slot Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      Date <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={manualForm.bookingDate}
+                      onChange={(e) => setManualForm({ ...manualForm, bookingDate: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-zinc-800 block mb-1">
+                      Time Slot <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      value={manualForm.bookingTime}
+                      onChange={(e) => setManualForm({ ...manualForm, bookingTime: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                    >
+                      {getAllDaySlots().map((s) => (
+                        <option key={s} value={s}>
+                          {formatTime12(s)} ({s})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Mode */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">
+                    Consultation Mode
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setManualForm({ ...manualForm, consultationMode: "offline" })}
+                      className={`p-2 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                        manualForm.consultationMode === "offline"
+                          ? "bg-black text-[#cba758] border-[#cba758]"
+                          : "bg-zinc-50 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      In-Person Chamber Visit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManualForm({ ...manualForm, consultationMode: "online" })}
+                      className={`p-2 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                        manualForm.consultationMode === "online"
+                          ? "bg-purple-900 text-white border-purple-500"
+                          : "bg-zinc-50 text-zinc-700 border-zinc-200"
+                      }`}
+                    >
+                      Google Meet Online
+                    </button>
+                  </div>
+                </div>
+
+                {/* Message / Brief */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">
+                    Internal Notes / Case Brief
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={manualForm.message}
+                    onChange={(e) => setManualForm({ ...manualForm, message: e.target.value })}
+                    placeholder="Walk-in client or slot blocked for court hearings..."
+                    className="w-full p-2.5 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualModal(false)}
+                    className="px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={manualLoading}
+                    className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    {manualLoading && <Loader2 size={13} className="animate-spin" />}
+                    <span>Confirm & Block Slot</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
