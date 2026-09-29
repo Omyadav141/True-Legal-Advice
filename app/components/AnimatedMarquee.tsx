@@ -5,7 +5,7 @@ const items = [
   { label: "District & Sessions Court, Nagpur", icon: Building2 },
   { label: "Trademark & IP Brand Protection", icon: Stamp },
   { label: "Court Marriage & Registration", icon: Heart },
-  { label: "Muslim Law & Family Advisory", icon: Shield },
+  { label: "Family Law & Matrimonial Advisory", icon: Shield },
   { label: "Property Due Diligence & Deeds", icon: FileText },
   { label: "Consumer & Motor Accident Matters", icon: CheckCircle2 },
   { label: "Startup & Business Compliance", icon: Sparkles },

@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       query.includes("special marriage")
     ) {
       return NextResponse.json({
-        reply: `Yes! Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, Special Marriage Act filings, and Muslim Law/Nikah advisory. 
+        reply: `Yes! Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act filings. 
 
 We ensure confidential, 100% legal procedure with complete protection, documentation, and government marriage certificate issuance in Nagpur courts.
 
@@ -121,14 +121,14 @@ We provide end-to-end corporate and brand protection services:
       query.includes("maintenance") ||
       query.includes("family") ||
       query.includes("custody") ||
-      query.includes("muslim law")
+      query.includes("matrimonial")
     ) {
       return NextResponse.json({
         reply: `We handle family and matrimonial disputes with utmost discretion, empathy, and firm legal representation in Nagpur Family Courts:
 • Mutual & Contested Divorce
 • Maintenance, Alimony & Child Custody
 • Domestic Violence (DV Act) protection
-• Muslim Law & Family Settlement matters`,
+• Matrimonial Settlement & Mediation matters`,
         suggestedActions: [
           { label: "Book Private Consultation", href: "/book" },
           { label: "WhatsApp Confidentially", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need private consultation regarding a family/matrimonial matter.")}`, external: true },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, X, Send, Bot, Sparkles, Scale, Phone, ArrowUpRight, CheckCircle2, RotateCcw } from "lucide-react";
 import Image from "next/image";
@@ -113,7 +114,7 @@ How can I assist you with your legal matter today? You can inquire about:
     query.includes("protection")
   ) {
     return {
-      text: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, Special Marriage Act (1954), and Muslim Law (Nikahnama) advisory with 100% confidentiality.
+      text: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act (1954) advisory with 100% confidentiality.
 
 💍 Key Highlights:
 • Complete lawful procedure under Special Marriage Act, 1954 or Hindu Marriage Act, 1955
@@ -231,7 +232,7 @@ Trisharan Square, Nagpur - 440027, Maharashtra, India
 
 ⚖️ Litigation & Advisory:
 • Mutual & Contested Divorce, Maintenance & Child Custody
-• Muslim Law & Family Settlement Advisory
+• Matrimonial Settlement & Mediation Advisory
 • Motor Accident Claims (MACT) & Consumer Disputes
 • Bail, Criminal Revision, Writs & Legal Notices`,
       suggestedActions: [
@@ -288,6 +289,8 @@ const CHAT_STORAGE_KEY = "advocate_ai_chat_history";
 const CHAT_OPEN_KEY = "advocate_ai_chat_open";
 
 export default function AiLegalAssistantBot() {
+  const pathname = usePathname();
+  const isBookingPage = pathname?.startsWith("/book");
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
@@ -388,7 +391,11 @@ export default function AiLegalAssistantBot() {
   return (
     <>
       {/* Floating Launcher Widget (AI Legal Desk Assistant) */}
-      <div className="fixed bottom-6 right-6 z-50 pointer-events-auto select-none">
+      <div
+        className={`fixed z-40 pointer-events-auto select-none transition-all duration-300 ${
+          isBookingPage ? "bottom-4 right-4" : "bottom-5 right-5 sm:bottom-6 sm:right-6"
+        }`}
+      >
         {/* Primary AI Bot Trigger Button */}
         <motion.button
           onClick={handleOpen}
@@ -398,41 +405,47 @@ export default function AiLegalAssistantBot() {
           transition={{ type: "spring", stiffness: 350, damping: 25 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="relative flex items-center gap-2.5 px-4 py-3.5 rounded-full shadow-2xl transition-all duration-300 cursor-pointer"
+          className={`relative flex items-center shadow-xl transition-all duration-300 cursor-pointer ${
+            isBookingPage && !isOpen
+              ? "h-11 w-11 p-0 justify-center rounded-full border border-[var(--gold)]/80 bg-gradient-to-br from-[#09090b] to-[#18181b] hover:border-[var(--gold)]"
+              : "gap-2 px-3 py-2 rounded-full border border-[var(--gold)]/70 hover:border-[var(--gold)] bg-gradient-to-r from-[#09090b] via-[#121214] to-[#18181b]"
+          }`}
           style={{
-            background: "linear-gradient(135deg, #09090b 0%, #18181b 100%)",
-            border: "2px solid #cba758",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(203, 167, 88, 0.3)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(203, 167, 88, 0.2)",
           }}
+          title="Ask AI Legal Desk"
         >
-          {/* Avatar Thumbnail with Pulse */}
-          <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[var(--gold)] flex-shrink-0">
+          {/* Avatar Thumbnail */}
+          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-[var(--gold)] flex-shrink-0">
             <Image
               src={site.advocateDeskPhoto}
               alt="Adv. Shareen Hussain"
               fill
               className="object-cover"
             />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#cba758] border border-white" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-[#cba758] border border-black" />
           </div>
 
-          <div className="flex flex-col text-left">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--gold-light)] flex items-center gap-1">
-              <Sparkles size={10} /> AI Legal Desk
-            </span>
-            <span className="text-[13px] font-bold text-[var(--paper)] leading-tight">
-              Ask AI Legal Desk
-            </span>
-          </div>
+          {/* Label: Hidden on booking page when closed to stay compact and unobtrusive */}
+          {(!isBookingPage || isOpen) && (
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--gold-light)] flex items-center gap-1 leading-none">
+                <Sparkles size={9} /> AI Legal Desk
+              </span>
+              <span className="text-[12px] font-bold text-white leading-tight mt-0.5 whitespace-nowrap">
+                Ask Legal AI
+              </span>
+            </div>
+          )}
 
           {unreadCount > 0 && !isOpen && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-md animate-bounce">
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-md animate-bounce">
               {unreadCount}
             </span>
           )}
 
-          <div className="ml-1 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[var(--gold-light)]">
-            {isOpen ? <X size={14} /> : <MessageSquare size={14} />}
+          <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[var(--gold-light)] shrink-0">
+            {isOpen ? <X size={12} /> : <MessageSquare size={12} />}
           </div>
         </motion.button>
       </div>

@@ -173,7 +173,7 @@ export default function RoleModelAdvocateShowcase() {
                   <span>Court Marriage & Love Marriage</span>
                 </div>
                 <p className="text-xs text-[var(--ink-soft)] leading-relaxed">
-                  Confidential legal procedures under Special Marriage Act, Hindu Marriage Act & Muslim Law. Protection and certified registration.
+                  Confidential legal procedures under Special Marriage Act and Hindu Marriage Act. Protection and certified registration.
                 </p>
               </div>
 

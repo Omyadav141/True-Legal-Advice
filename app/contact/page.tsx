@@ -167,7 +167,7 @@ I submitted an inquiry through your True Legal Advice website:
                           <option value="Court Marriage & Registration">Court Marriage & Legal Registration</option>
                           <option value="Trademark & IP Protection">Trademark & Brand Protection</option>
                           <option value="Property Title Verification & Deeds">Property Title & Deed Drafting</option>
-                          <option value="Muslim Law & Family Advisory">Muslim Law & Family Settlement</option>
+                          <option value="Family Law & Matrimonial Advisory">Family Law & Matrimonial Settlement</option>
                           <option value="Startup & Business Compliance">Company Setup & GST / Gumasta</option>
                           <option value="Civil, Criminal & MACT Claims">Civil, Criminal & MACT Claims</option>
                           <option value="General Legal Advisory">General Legal Consultation</option>

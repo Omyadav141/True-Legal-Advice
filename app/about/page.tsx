@@ -223,7 +223,7 @@ export default function AboutPage() {
             {[
               { icon: Stamp, title: "Trademark & IP Prosecution", desc: "Classes 1-45 brand clearance, filing, Section 9 & 11 objection replies, and Registrar hearings." },
               { icon: Building2, title: "Property Due Diligence & Deeds", desc: "30-year title verification, search reports, Sale Deeds, Gift Deeds, and Sub-Registrar registration." },
-              { icon: HeartHandshake, title: "Family & Muslim Law", desc: "Special Marriage Act court marriages, mutual consent divorce, maintenance, and Nikahnama matters." },
+              { icon: HeartHandshake, title: "Family & Matrimonial Law", desc: "Special Marriage Act court marriages, mutual consent divorce, maintenance, and child custody matters." },
               { icon: Scale, title: "Consumer Disputes & MACT Claims", desc: "Notice drafting, District Consumer Forum filings, and Motor Accident Claims Tribunal representation." },
               { icon: FileCheck, title: "Commercial Drafting & Agreements", desc: "Power of Attorney, Employment contracts, Commercial Leases, NDAs, and Will registration." },
               { icon: ShieldCheck, title: "Business Setup & Compliance", desc: "Pvt Ltd, LLP, Udyam MSME (50% TM fee discount), GST filing, Gumasta, and FSSAI licenses." },

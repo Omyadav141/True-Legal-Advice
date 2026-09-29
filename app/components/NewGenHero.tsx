@@ -168,7 +168,7 @@ export default function NewGenHero() {
                     { label: "Court Marriage & Registration", badge: "Same-Day Advice" },
                     { label: "Trademark & Brand IP Filing", badge: "All India" },
                     { label: "Property Title Verification & Deeds", badge: "Nagpur & Suburbs" },
-                    { label: "Family & Muslim Law Consultation", badge: "Confidential" },
+                    { label: "Family & Matrimonial Consultation", badge: "Confidential" },
                   ].map((item, idx) => (
                     <div
                       key={idx}

@@ -54,16 +54,16 @@ const SERVICE_MATTERS: Record<
   { label: string; icon: any; desc: string; matters: string[] }
 > = {
   "court-marriage": {
-    label: "Court Marriage & Personal Law",
+    label: "Court Marriage & Family Law",
     icon: HeartHandshake,
     desc: "Special Marriage Act, Hindu Marriage, Police Protection, Inter-Faith Marriage",
     matters: [
       "Special Marriage Act, 1954 (Civil / Inter-Faith / Inter-Caste)",
       "Hindu Marriage Act, 1955 (Customary / Arya Samaj / Registration)",
-      "Muslim Personal Law & Nikahnama Registration",
+      "Certified Marriage Registration (SRO Nagpur)",
       "Article 21 Protection & Urgent Police Security Advisory",
       "Fast-Track 24–48h Marriage Legal Procedures",
-      "Other Court Marriage & Personal Law Matter",
+      "Other Court Marriage & Matrimonial Matter",
     ],
   },
   "trademark-registration": {
@@ -85,7 +85,7 @@ const SERVICE_MATTERS: Record<
     desc: "High Court & District Court, Property Title Search, Deeds, Bail, Civil / Criminal",
     matters: [
       "Property Title Search, Sale Deeds, Gift Deeds & Wills",
-      "Family & Muslim Personal Law (Divorce, Maintenance, Custody)",
+      "Family & Matrimonial Law (Divorce, Maintenance, Custody)",
       "Litigation & Court Representation (High Court & District Court)",
       "Regular & Anticipatory Bail Advisory (Criminal Law)",
       "Commercial Contracts, NDAs & Legal Notices",

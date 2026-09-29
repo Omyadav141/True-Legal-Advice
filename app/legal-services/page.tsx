@@ -20,7 +20,7 @@ import { site, otherLegalServices } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: `Legal Services in Nagpur | High Court & District Court Advocate ${site.lawyerName}`,
-  description: `Comprehensive legal consultation, litigation, property documentation, Family & Muslim Law, MACT accident claims, consumer disputes, and corporate contracts with Adv. ${site.lawyerName} in Nagpur.`,
+  description: `Comprehensive legal consultation, litigation, property documentation, Family Law & Matrimonial matters, MACT accident claims, consumer disputes, and corporate contracts with Adv. ${site.lawyerName} in Nagpur.`,
 };
 
 const practiceHighlights = [
@@ -40,18 +40,18 @@ const practiceHighlights = [
     ],
   },
   {
-    title: "Family & Muslim Personal Law",
-    subtitle: "Nikahnama, Divorce, Maintenance & Custody",
+    title: "Family Law & Matrimonial Advisory",
+    subtitle: "Divorce, Maintenance, Custody & Settlement",
     timeline: "Strictly Confidential",
     icon: HeartHandshake,
     badge: "Confidential",
     badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
-    desc: "Compassionate and confidential advisory for Family Court matters, Muslim Personal Law (Nikahnama, Talaq, Khula, Mehr recovery), mutual consent divorce, and child custody.",
+    desc: "Compassionate and confidential advisory for Family Court matters, mutual consent divorce (Section 13B), child custody, alimony & maintenance, and matrimonial dispute settlements.",
     deliverables: [
-      "Muslim Personal Law & Certified Nikahnama Drafting",
       "Mutual Consent Divorce & Section 13B Petitions",
       "Maintenance (125 CrPC & D.V. Act) Defence & Filing",
       "Child Custody, Guardianship & Settlement Agreements",
+      "Mediation & Restitution of Conjugal Rights (RCR)",
     ],
   },
   {

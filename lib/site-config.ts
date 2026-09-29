@@ -64,7 +64,7 @@ export const services = [
 export const otherLegalServices = [
   {
     title: "Court Marriage & Registration",
-    description: "Confidential procedures under Special Marriage Act, Hindu Marriage Act & Muslim Law. Protection and certified registration.",
+    description: "Confidential procedures under Special Marriage Act and Hindu Marriage Act. Protection and certified registration.",
     href: "/court-marriage",
   },
   {
@@ -83,8 +83,8 @@ export const otherLegalServices = [
     href: "/legal-services",
   },
   {
-    title: "Family & Muslim Law",
-    description: "Personalised legal consultation and assistance with family and Muslim Law matters.",
+    title: "Family & Matrimonial Law",
+    description: "Personalised legal consultation and assistance with family, divorce, custody, and matrimonial matters.",
     href: "/legal-services",
   },
   {
