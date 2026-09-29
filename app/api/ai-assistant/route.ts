@@ -1,17 +1,40 @@
 import { NextResponse } from "next/server";
 import { site } from "@/lib/site-config";
 
+// Comprehensive blacklist of words that must NEVER be treated as a person's name
+const NAME_BLACKLIST = new Set([
+  "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+  "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+  "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+  "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+  "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+  "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
+  "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi", "islam", "jainism",
+  "hinduism", "christianity", "sikhism", "buddhism", "true", "false", "null", "undefined",
+  "advocate", "lawyer", "judge", "court", "police", "fir", "bail", "pocso", "case", "help"
+]);
+
+// Helper: strictly sanitize and validate a name string
+export function sanitizeName(name: unknown): string {
+  if (typeof name !== "string") return "";
+  const trimmed = name.trim();
+  if (!/^[a-zA-Z]{2,20}$/.test(trimmed)) return "";
+  const lower = trimmed.toLowerCase();
+  if (NAME_BLACKLIST.has(lower)) return "";
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 // Helper: Extract user's name ONLY when explicitly introduced, e.g. "My name is Faiez"
-function extractNameFromMessage(text: string): string | null {
+function extractNameFromMessage(text: string): string {
   const clean = text.trim();
 
   // If message contains numbers, questions, or legal/religious words, never extract name
   if (
     clean.includes("?") ||
     /\d/.test(clean) ||
-    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|now|today|tomorrow)\b/i.test(clean)
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|jain|buddhist|now|today|tomorrow)\b/i.test(clean)
   ) {
-    return null;
+    return "";
   }
 
   // Strictly ONLY match explicit "my name is <Name>" or "call me <Name>"
@@ -20,55 +43,14 @@ function extractNameFromMessage(text: string): string | null {
     clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*call me\s+([a-zA-Z]{2,20})\.?$/i);
 
   if (match && match[1]) {
-    const raw = match[1].toLowerCase();
-    const blacklist = new Set([
-      "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
-      "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
-      "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
-      "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
-      "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
-      "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
-      "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi"
-    ]);
-
-    if (!blacklist.has(raw)) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
+    return sanitizeName(match[1]);
   }
 
-  return null;
+  return "";
 }
 
-// Helper: Detect purely non-legal conversational topics (entertainment, coding, cooking, homework, sports, etc.)
-function isNonLegalQuery(text: string): boolean {
-  const q = text.toLowerCase();
-  const nonLegalKeywords = [
-    "recipe", "cook", "biryani", "pizza", "burger", "cake", "food menu",
-    "python", "javascript", "react", "html", "css", "coding", "software bug", "programming", "java", "c++",
-    "weather today", "temperature today", "rain today",
-    "cricket score", "ipl", "football match", "fifa", "messi", "ronaldo",
-    "movie", "song", "lyrics", "singer", "actor", "actress", "bollywood", "hollywood", "netflix",
-    "math homework", "solve equation", "physics problem", "chemistry problem",
-    "tell me a joke", "tell me a funny story", "sing a song",
-  ];
-  return nonLegalKeywords.some((k) => q.includes(k));
-}
-
-// Helper: Detect overly deep / high-risk / contested litigation strategy or illegal attempts
-function isOverlyDeepOrComplex(text: string): boolean {
-  const q = text.toLowerCase();
-  const deepTriggers = [
-    "guarantee i will win", "can you guarantee a win", "guarantee my case", "promise win",
-    "how to bribe", "give money to judge", "forge", "fake certificate", "fake document",
-    "how to hide money from wife", "hide assets from court", "escape police without bail",
-    "exact settlement amount", "calculate my exact alimony", "how to beat the judge",
-    "hack", "illegal bypass",
-  ];
-  return deepTriggers.some((t) => q.includes(t));
-}
-
-// Master System Prompt for LLM (Grok AI)
-const LEGAL_SYSTEM_PROMPT = `You are the official AI Legal Desk Assistant for Advocate Shareen Hussain (B.Com, M.Com, LL.B), practicing at the Bombay High Court (Nagpur Bench) and District & Sessions Courts, under the chamber True Legal Advice (Nagpur, Maharashtra).
+// Master System Prompt for Grok AI (xAI)
+const LEGAL_SYSTEM_PROMPT = `You are the official, elite AI Legal Desk Counsel for Advocate Shareen Hussain (B.Com, M.Com, LL.B), practicing at the Bombay High Court (Nagpur Bench), District & Sessions Courts, and Family Courts, under the chamber True Legal Advice (Nagpur, Maharashtra, India).
 
 CHAMBER INFORMATION:
 - Advocate: Adv. Shareen Hussain (B.Com, M.Com, LL.B)
@@ -77,28 +59,88 @@ CHAMBER INFORMATION:
 - Phone / WhatsApp: +91 83296 31199
 - Website: True Legal Advice (www.securemybrand.in)
 - Walk-in Chamber Hours: Morning: 9:30 AM – 11:00 AM | Evening: 5:30 PM – 8:30 PM (Monday to Saturday)
-- Consultations: Online Video Call (Google Meet) & In-Person Chamber Visit (Booking at /book)
+- Consultations: Online Video Call (Google Meet) & In-Person Chamber Visit (Booking available at /book)
 
-CRITICAL CONTEXT AWARENESS & INDIAN STATUTORY LAW:
-1. NAMES VS STATEMENTS / RELIGION:
-   - "I am Hindu", "I am Muslim", "I am 21", "I am facing a problem" are statements of religion, age, or circumstances, NEVER a person's name!
-   - NEVER address the user as "Hi Hindu!" or "Hi Now!".
-   - ONLY extract a name if the user explicitly writes "My name is [Name]" or "Call me [Name]".
-2. AGE OF CONSENT & POCSO ACT, 2012:
-   - If anyone asks about sexual relationships, intimacy, or marriage with someone who is 17, 16, or any age below 18:
-   - State UNEQUIVOCALLY and IMMEDIATELY that this is strictly illegal and a serious, non-bailable criminal offense under Indian law.
+CORE PRINCIPLES & LEGAL INTELLIGENCE (INDIAN LAW):
+1. DEEP CONTEXT UNDERSTANDING - NEVER CONFUSE STATEMENTS OR RELIGION WITH NAMES:
+   - When a user states their religion or identity (e.g. "I am Christian", "I am Jain", "I am Hindu", "I am Muslim", "I am Sikh"), this is their RELIGION or COMMUNITY, NEVER a person's name!
+   - ABSOLUTE PROHIBITION: NEVER address or greet the user as "Christian", "Jain", "Hindu", "Muslim", etc. (e.g. NEVER say "Christian, advocate...", "Yeah Jain, thank you for coming", "Hi Hindu!").
+   - Address their legal situation respectfully with statutory precision:
+     • Christianity: Explain the Indian Christian Marriage Act, 1872 (church ceremony or registrar solemnization under Part V), Indian Divorce Act, 1869 (Section 10A mutual consent divorce), and the Special Marriage Act, 1954 for civil court marriage without religious conversion.
+     • Jainism: Explain legal rights under the Hindu Marriage Act, 1955 and Hindu Succession Act, 1956 (which legally encompass Jains under Section 2), and the Special Marriage Act, 1954.
+     • Hinduism: Explain the Hindu Marriage Act, 1955, Hindu Succession Act, 1956 (ancestral property and daughters' equal coparcenary share), and the Special Marriage Act, 1954.
+     • Islam: Explain secular court marriage under the Special Marriage Act, 1954 (confidential registration, Article 21 police protection), or Dissolution of Muslim Marriages Act, 1939.
+     • Inter-faith / Inter-caste: Detail the Special Marriage Act, 1954 (100% legal, confidential, no conversion required, Article 21 police protection).
+
+2. CRIMINAL LAW & POCSO ACT, 2012 (AGE OF CONSENT IN INDIA):
+   - If anyone inquires about sexual activity, physical intimacy, or marriage with someone aged 17, 16, or any age under 18:
+   - State UNEQUIVOCALLY and IMMEDIATELY that this is strictly illegal and a heinous criminal offense in India.
    - Statutory Law: Under the Protection of Children from Sexual Offences (POCSO) Act, 2012 and Section 63 of Bharatiya Nyaya Sanhita (BNS) / Section 375 IPC, the legal age of consent in India is STRICTLY 18 YEARS.
-   - Consent Void: Any sexual relationship with a person below 18—even with mutual consent—is classified as statutory rape / aggravated penetrative sexual assault. A minor's consent is completely null and void in the eyes of law.
-   - Consequences: Non-bailable, cognizable offense punishable with rigorous imprisonment (10 to 20 years or life imprisonment).
-3. HINDU PERSONAL LAW & SPECIAL MARRIAGE ACT:
-   - When a user mentions being Hindu, explain the legal options under the Hindu Marriage Act, 1955 (marriage registration, 13B mutual consent divorce, restitution of conjugal rights) or Special Marriage Act, 1954 (inter-faith court marriage without religious conversion). Mention Hindu Succession Act, 1956 for property inheritance.
-4. MARRIAGE AGE (COURT MARRIAGE):
-   - Legal age of marriage in India: Groom (Male) must be 21+ years old, Bride (Female) must be 18+ years old.
-   - At 21, two consenting adults have the constitutional right under Article 21 to marry without parental consent under the Special Marriage Act, 1954.
-5. WE DO ALL LEGAL SERVICES:
-   Adv. Shareen Hussain handles High Court Litigation, Criminal Defense & Bail, Civil Property Title & Deeds, Family Law & Divorce, Trademark & Corporate Startup compliance, and Drafting.
-6. TONE & STYLE:
-   - Direct, context-aware, legally accurate, and protective of statutory law. Never give generic boilerplate when a specific legal question is asked.`;
+   - Consent Void: Any sexual relationship with a minor (under 18)—even with mutual consent—is classified as statutory rape / aggravated penetrative sexual assault. Under Indian law, a minor's consent is completely null and void.
+   - Severity: Non-bailable, cognizable offense carrying mandatory rigorous imprisonment of 10 to 20 years or life imprisonment. Adv. Shareen Hussain provides defense counsel and POCSO representation at the Sessions Courts and Bombay High Court.
+
+3. COURT MARRIAGE AGE:
+   - Legal age of marriage in India: Groom (Male) must be 21+ years old, Bride (Female) must be 18+ years old under the Special Marriage Act, 1954.
+   - Consenting adults of legal age have the fundamental right under Article 21 of the Constitution to marry of their own free will without parental consent or societal interference.
+
+4. WE DO ALL LEGAL SERVICES:
+   Adv. Shareen Hussain provides representation, counseling, and drafting for:
+   - High Court Litigation: Writ Petitions (Articles 226/227), Criminal & Civil Appeals, Revisions, Stay Orders at Bombay High Court (Nagpur Bench).
+   - Criminal Defense: Anticipatory Bail (Sec 438), Regular Bail (Sec 439), FIR Quashing (Sec 482 CrPC), Cheque Bounce (Sec 138 NI Act), Cyber Crime, Police Harassment Protection.
+   - Civil & Property Law: 30-Year Property Title Search, Due Diligence, Sale Deed, Gift Deed, Will drafting & registration, Partition Suits, Injunctions, Eviction, RERA.
+   - Family Law & Matrimonial: Mutual Consent Divorce, Contested Divorce, Child Custody, Maintenance (Sec 125 CrPC), Domestic Violence (DV Act).
+   - Corporate, Trademark & Startup Compliance: Trademark Search, Filing & Objection Hearings (Classes 1–45), Copyright, Company Registration (Pvt Ltd, LLP, OPC), GST, Gumasta / Shop Act, MSME Udyam, FSSAI Food Licenses, NDAs & Commercial Contracts.
+   - Drafting: Affidavits, Legal Notices, Power of Attorney, Deeds.
+
+5. TONE, STYLE & ACTIONABILITY:
+   - Clear, reassuring, professional, and distinctly authoritative under Indian law.
+   - Avoid generic fluff. Answer the user's specific question directly with legal grounding.
+   - Always encourage them to book a consultation slot or contact Adv. Shareen Hussain's legal desk for document review or representation.`;
+
+// Helper: Call xAI Grok API across supported models with automatic fallback
+async function callGrokAI(apiKey: string, messages: any[]): Promise<string | null> {
+  const models = ["grok-2-latest", "grok-2", "grok-beta", "grok-2-1212"];
+
+  for (const model of models) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const res = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature: 0.3,
+          max_tokens: 600,
+        }),
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content?.trim();
+        if (text) {
+          console.log(`[AI Desk] Successfully generated response using Grok model: ${model}`);
+          return text;
+        }
+      } else {
+        const errText = await res.text();
+        console.warn(`[AI Desk] Grok model ${model} returned ${res.status}: ${errText}`);
+      }
+    } catch (err) {
+      console.warn(`[AI Desk] Error calling Grok model ${model}:`, err);
+    }
+  }
+
+  return null;
+}
 
 export async function POST(req: Request) {
   try {
@@ -106,11 +148,67 @@ export async function POST(req: Request) {
     const rawText = (message || "").trim();
     const query = rawText.toLowerCase();
 
-    // 1. Detect if the user introduced their name in this message (strict, never false positives)
+    // 1. Detect if user introduced their actual name (strict pattern, never matches religion or statements)
     const extractedName = extractNameFromMessage(rawText);
-    const activeUserName = extractedName || userName || "";
+    const sanitizedPassedName = sanitizeName(userName);
+    const activeUserName = extractedName || sanitizedPassedName || "";
 
-    // 2. CRITICAL CRIMINAL LAW SAFETY: POCSO Act & Age of Consent (18 Years in India)
+    // 2. CHECK GROK AI FIRST! (If API key is available in environment or request)
+    const grokApiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.NEXT_PUBLIC_GROK_API_KEY || "").trim();
+    if (grokApiKey) {
+      const grokMessages = [
+        { role: "system", content: LEGAL_SYSTEM_PROMPT },
+      ];
+
+      // Include recent conversation history
+      if (Array.isArray(history) && history.length > 0) {
+        history.slice(-6).forEach((h: any) => {
+          if (h.sender === "user") {
+            grokMessages.push({ role: "user", content: h.text });
+          } else if (h.sender === "bot") {
+            grokMessages.push({ role: "assistant", content: h.text });
+          }
+        });
+      }
+
+      // Add user prompt with client name context
+      const userPrompt = activeUserName && !rawText.toLowerCase().includes(activeUserName.toLowerCase())
+        ? `[Client Name: ${activeUserName}] ${rawText}`
+        : rawText;
+
+      grokMessages.push({ role: "user", content: userPrompt });
+
+      const grokReply = await callGrokAI(grokApiKey, grokMessages);
+      if (grokReply) {
+        const dynamicActions = [];
+        const combined = (rawText + " " + grokReply).toLowerCase();
+        if (combined.includes("marriage") || combined.includes("marry") || combined.includes("shaadi") || combined.includes("nikah") || combined.includes("pocso")) {
+          dynamicActions.push({ label: "Court Marriage Help", href: "/court-marriage" });
+        }
+        if (combined.includes("trademark") || combined.includes("brand") || combined.includes("startup") || combined.includes("company")) {
+          dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
+        }
+        dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
+        dynamicActions.push({
+          label: "WhatsApp Legal Desk",
+          href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
+          external: true,
+        });
+
+        return NextResponse.json({
+          reply: grokReply,
+          userName: activeUserName,
+          suggestedActions: dynamicActions.slice(0, 3),
+        });
+      }
+    }
+
+    // =========================================================================
+    // 3. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
+    // Only runs when Grok API key is not configured or network call failed
+    // =========================================================================
+
+    // 3A. POCSO Act & Age of Consent under Indian Law (Strict Criminal Protection)
     if (
       (query.includes("sex") || query.includes("sexual") || query.includes("physical") || query.includes("intimate") || query.includes("sleep with") || query.includes("intercourse") || query.includes("relation")) &&
       (query.includes("17") || query.includes("16") || query.includes("15") || query.includes("14") || query.includes("13") || query.includes("under 18") || query.includes("below 18") || query.includes("minor") || query.includes("underage"))
@@ -133,19 +231,56 @@ Adv. Shareen Hussain represents clients in Criminal Defense and POCSO matters ac
       });
     }
 
-    // 3. RELIGION / HINDU PERSONAL LAW / SPECIAL MARRIAGE ACT (e.g. "I am hindu", "hindu law")
-    if (
-      query.includes("hindu") ||
-      query.includes("muslim") ||
-      query.includes("christian") ||
-      query.includes("sikh") ||
-      query.includes("inter-caste") ||
-      query.includes("inter-religion")
-    ) {
+    // 3B. Christianity & Indian Christian Marriage / Divorce Laws
+    if (query.includes("christian")) {
       return NextResponse.json({
-        reply: `Adv. Shareen Hussain provides experienced counsel under Indian personal and statutory laws:
+        reply: `Adv. Shareen Hussain provides experienced counsel under Christian Personal Laws and the Special Marriage Act:
 
-🕉️ Under Hindu Personal Law & Special Marriage Act:
+✝️ Christian Marriage & Family Legal Framework in India:
+• Indian Christian Marriage Act, 1872: Solemnization and registration of Christian marriages through licensed ministers or before the Marriage Registrar under Part V.
+• Indian Divorce Act, 1869 (Amended 2001): Mutual consent divorce under Section 10A, dissolution of marriage, restitution of conjugal rights, and permanent alimony.
+• Special Marriage Act, 1954: Civil court marriage between a Christian and a person of any other faith without requiring religious conversion.
+• Indian Succession Act, 1925: Property inheritance, testamentary succession, drafting of Wills, and Letters of Administration / Probate for Christian estates.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Help", href: "/court-marriage" },
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "Property & Succession", href: "/legal-services" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Christian personal law / Court Marriage.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3C. Jainism & Jain Personal Law / Succession
+    if (query.includes("jain")) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides experienced counsel under Jain Personal Rights and Indian Statutory Law:
+
+🌿 Legal Framework for the Jain Community in India:
+• Marriage Laws: In India, marriages within the Jain community are legally governed under the Hindu Marriage Act, 1955 (Section 2 includes Jains, Buddhists, and Sikhs), or through the Special Marriage Act, 1954 for civil court registration.
+• Succession & Property Rights: Property inheritance and partition are governed by the Hindu Succession Act, 1956 (Amended 2005) and customary Jain practices, ensuring equal inheritance rights for daughters and coparcenary claims.
+• Inter-faith Court Marriage: Secular, 100% confidential registration under the Special Marriage Act, 1954 without religious conversion.
+• Trust & Institutional Matters: Registration and management of Jain religious and charitable trusts under the Maharashtra Public Trusts Act.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Help", href: "/court-marriage" },
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "Property & Succession", href: "/legal-services" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Jain personal law / Court Marriage.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3D. Hinduism & Hindu Personal Law
+    if (query.includes("hindu")) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain provides experienced counsel under Hindu Personal Law and the Special Marriage Act:
+
+🕉️ Under Hindu Personal Law & Indian Statutory Law:
 • Hindu Marriage Act, 1955: Traditional ceremony registration, restitution of conjugal rights, and fast-track mutual consent divorce (Sec 13B).
 • Special Marriage Act, 1954: Secular court marriage between two consenting adults of different religions or castes without requiring religious conversion.
 • Hindu Succession Act, 1956 (Amended 2005): Ancestral property inheritance, equal coparcenary rights for daughters, partition suits, and legal heir certificates.
@@ -162,7 +297,26 @@ How can Adv. Shareen Hussain assist you with your specific legal matter or docum
       });
     }
 
-    // 4. MARRIAGE AGE & COURT MARRIAGE ELIGIBILITY (e.g. "I am now 21 can I marry", "can I marry at 21")
+    // 3E. Islam & Special Marriage Act
+    if (query.includes("muslim")) {
+      return NextResponse.json({
+        reply: `Adv. Shareen Hussain specializes in confidential legal advisory and court marriages under Indian Law:
+
+• Special Marriage Act, 1954: Secular civil marriage between consenting adults of different religions without requiring conversion, with complete Article 21 constitutional security and police protection.
+• Dissolution of Muslim Marriages Act, 1939: Legal dissolution, custody rights, and maintenance advisory.
+• Document Drafting: Registration of marriage, affidavits, and notarized declarations.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter?`,
+        userName: activeUserName,
+        suggestedActions: [
+          { label: "Court Marriage Help", href: "/court-marriage" },
+          { label: "Book Consultation Slot", href: "/book" },
+          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage.")}`, external: true },
+        ],
+      });
+    }
+
+    // 3F. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21")
     if (
       (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
       (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
@@ -194,128 +348,7 @@ Would you like to review the step-by-step document checklist or book a private c
       });
     }
 
-    // 5. Guardrail: Purely non-legal queries (cooking, coding, sports, movies, etc.)
-    if (isNonLegalQuery(rawText)) {
-      return NextResponse.json({
-        reply: `I can only assist with legal matters of the court, legal advice, and legal documentation for Adv. Shareen Hussain's chambers.
-
-How can I assist you with a legal question today?`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Consultation Slot", href: "/book" },
-          { label: "View Legal Services", href: "/legal-services" },
-          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have a legal query.")}`, external: true },
-        ],
-      });
-    }
-
-    // 6. Guardrail: Overly deep / high-risk / guarantee litigation questions
-    if (isOverlyDeepOrComplex(rawText)) {
-      const greeting = activeUserName ? `${activeUserName}, ` : "";
-      return NextResponse.json({
-        reply: `${greeting}because this matter involves specific case facts, evidence examination, and critical court proceedings, Adv. Shareen Hussain needs to review your case documents directly in a private consultation.
-
-Indian courts decide cases strictly based on evidence, statutory law, and judicial precedents. Adv. Shareen will review your documents and provide a direct legal evaluation.
-
-Would you like to schedule an in-person chamber consultation at Trisharan Square, Nagpur or an online video session?`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Consultation Slot", href: "/book" },
-          { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need a consultation regarding a complex court litigation matter.")}`, external: true },
-          { label: "View Chamber Timings", href: "/contact" },
-        ],
-      });
-    }
-
-    // 7. If Grok AI (xAI) API Key is configured in environment, call Grok AI!
-    const grokApiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.NEXT_PUBLIC_GROK_API_KEY || "").trim();
-    if (grokApiKey) {
-      try {
-        const grokMessages = [
-          { role: "system", content: LEGAL_SYSTEM_PROMPT },
-        ];
-
-        // Include recent conversation history (up to last 6 messages)
-        if (Array.isArray(history) && history.length > 0) {
-          history.slice(-6).forEach((h: any) => {
-            if (h.sender === "user") {
-              grokMessages.push({ role: "user", content: h.text });
-            } else if (h.sender === "bot") {
-              grokMessages.push({ role: "assistant", content: h.text });
-            }
-          });
-        }
-
-        // Add current user message with context of user name
-        const userPrompt = activeUserName && !rawText.toLowerCase().includes(activeUserName.toLowerCase())
-          ? `[Client Name: ${activeUserName}] ${rawText}`
-          : rawText;
-
-        grokMessages.push({ role: "user", content: userPrompt });
-
-        // Try supported xAI Grok model endpoints with fallback
-        const candidateModels = ["grok-2", "grok-2-latest", "grok-beta", "grok-2-1212"];
-        let grokReply: string | null = null;
-
-        for (const model of candidateModels) {
-          try {
-            const grokRes = await fetch("https://api.x.ai/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${grokApiKey}`,
-              },
-              body: JSON.stringify({
-                model,
-                messages: grokMessages,
-                temperature: 0.3,
-                max_tokens: 500,
-              }),
-            });
-
-            if (grokRes.ok) {
-              const grokData = await grokRes.json();
-              grokReply = grokData.choices?.[0]?.message?.content?.trim();
-              if (grokReply) break;
-            } else {
-              const errBody = await grokRes.text();
-              console.warn(`Grok API (${model}) responded with status ${grokRes.status}:`, errBody);
-            }
-          } catch (modelErr) {
-            console.warn(`Grok API fetch error on ${model}:`, modelErr);
-          }
-        }
-
-        if (grokReply) {
-          const dynamicActions = [];
-          const combined = (rawText + " " + grokReply).toLowerCase();
-          if (combined.includes("marriage") || combined.includes("marry") || combined.includes("21") || combined.includes("nikah") || combined.includes("shaadi")) {
-            dynamicActions.push({ label: "Court Marriage Checklist", href: "/court-marriage" });
-          }
-          if (combined.includes("trademark") || combined.includes("brand") || combined.includes("startup") || combined.includes("company")) {
-            dynamicActions.push({ label: "Trademark Services", href: "/trademark-registration" });
-          }
-          dynamicActions.push({ label: "Book Consultation Slot", href: "/book" });
-          dynamicActions.push({
-            label: "WhatsApp Legal Desk",
-            href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I have an inquiry regarding: ${rawText.slice(0, 80)}`)}`,
-            external: true,
-          });
-
-          return NextResponse.json({
-            reply: grokReply,
-            userName: activeUserName,
-            suggestedActions: dynamicActions.slice(0, 3),
-          });
-        }
-      } catch (e) {
-        console.error("Grok AI API call failed, falling back to trained rule engine:", e);
-      }
-    }
-
-    // 8. TRAINED LOCAL LEGAL RULE-ENGINE (High Performance Fallback)
-
-    // 8A. Actual Name Introduction Handling (e.g. "My name is Faiez")
+    // 3G. Actual Name Introduction Handling (e.g. "My name is Faiez")
     if (extractedName) {
       return NextResponse.json({
         reply: `Hi ${extractedName}! How are you doing today?
@@ -331,7 +364,7 @@ How can Adv. Shareen Hussain's chamber assist you with your legal case or docume
       });
     }
 
-    // 8B. Polite "How are you" / "I am good"
+    // 3H. Polite "How are you" / "I am good"
     if (
       query.includes("how are you") ||
       query.includes("how r u") ||
@@ -356,7 +389,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 8C. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
+    // 3I. Short, Natural Greetings ("hi", "hello", "hey", "namaste", "good morning", etc.)
     const isDirectGreeting =
       query === "hi" ||
       query === "hello" ||
@@ -391,284 +424,7 @@ How can I assist you with your legal case, court matter, or documentation today?
       });
     }
 
-    // 8D. High Court Practice (Bombay High Court Nagpur Bench, Writ, Appeals, Revisions)
-    if (
-      query.includes("high court") ||
-      query.includes("writ") ||
-      query.includes("bombay high court") ||
-      query.includes("appeal") ||
-      query.includes("revision") ||
-      query.includes("stay order") ||
-      query.includes("article 226") ||
-      query.includes("article 227") ||
-      query.includes("quashing")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain actively practices at the Bombay High Court (Nagpur Bench), handling:
-• Writ Petitions under Article 226 & 227 of the Constitution
-• Criminal & Civil Appeals, Revisions & Stay Applications
-• Section 482 CrPC FIR Quashing & High Court Bail Petitions
-• Challenging arbitrary government orders, tender disputes & tribunal appeals
-
-Would you like to schedule an urgent consultation to review your court case records?`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book High Court Consultation", href: "/book" },
-          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal representation at the Bombay High Court (Nagpur Bench).")}`, external: true },
-          { label: "Chamber Address & Timings", href: "/contact" },
-        ],
-      });
-    }
-
-    // 8E. Criminal Defense, Bail, Police Complaints, FIR, Cheque Bounce
-    if (
-      query.includes("bail") ||
-      query.includes("anticipatory") ||
-      query.includes("arrest") ||
-      query.includes("police") ||
-      query.includes("fir") ||
-      query.includes("complaint") ||
-      query.includes("criminal") ||
-      query.includes("cheque bounce") ||
-      query.includes("138") ||
-      query.includes("ni act") ||
-      query.includes("cyber") ||
-      query.includes("498a")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain provides experienced criminal defense representation across Sessions Courts and High Court:
-• Anticipatory Bail (Sec 438) & Regular Bail (Sec 439)
-• FIR Quashing & Police Harassment Protection
-• Cheque Bounce Cases (Section 138 NI Act) — Legal notice drafting & court trial
-• Cyber Crime, Financial Fraud & Defamation cases
-• Criminal trial defense & witness examination
-
-For urgent arrest or bail matters, immediate consultation is recommended.`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Urgent Bail Consultation", href: "/book" },
-          { label: "Emergency WhatsApp Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I have an urgent Criminal / Bail legal matter.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8F. Civil Litigation, Property Disputes, Deeds, Wills, Land Title
-    if (
-      query.includes("property") ||
-      query.includes("civil") ||
-      query.includes("suit") ||
-      query.includes("injunction") ||
-      query.includes("land") ||
-      query.includes("flat") ||
-      query.includes("sale deed") ||
-      query.includes("gift deed") ||
-      query.includes("will") ||
-      query.includes("succession") ||
-      query.includes("partition") ||
-      query.includes("tenant") ||
-      query.includes("landlord") ||
-      query.includes("title search")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain handles complete Civil & Real Estate Property matters in Nagpur District & Civil Courts:
-• Comprehensive 30-Year Property Title Search & Due Diligence Reports
-• Drafting & Government Registration of Sale Deeds, Gift Deeds, Release Deeds & Wills
-• Partition Suits, Property Ownership Disputes & Declaration of Title
-• Permanent Injunctions, Tenant Eviction Suits & Lease Agreements
-• Succession Certificates, Legal Heir Certificates & Power of Attorney (PoA)
-
-Would you like Adv. Shareen to inspect your property documents?`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Property Consultation", href: "/book" },
-          { label: "WhatsApp Document Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need assistance with Property verification / Deed drafting.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8G. Court Marriage & Special Marriage Act
-    if (
-      query.includes("love") ||
-      query.includes("marriage") ||
-      query.includes("nikah") ||
-      query.includes("shaadi") ||
-      query.includes("inter-caste") ||
-      query.includes("inter-religion") ||
-      query.includes("special marriage") ||
-      query.includes("arya samaj")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain specializes in Court Marriage, Love Marriage registrations, and Special Marriage Act (1954) filings with 100% confidentiality.
-
-💍 Key Highlights:
-• Lawful procedure under Special Marriage Act, 1954 or personal marriage laws
-• Legal security & police protection under Article 21 for consenting adults
-• Age verification (Boy: 21+, Girl: 18+) & preparation of affidavits & notices
-• Guidance on 3 witnesses & registrar representation in Nagpur
-• Official Government Marriage Certificate issued directly by the Registrar`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Court Marriage Guide & Checklist", href: "/court-marriage" },
-          { label: "Book Private Marriage Advisory", href: "/book" },
-          { label: "Confidential WhatsApp Inquiry", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8H. Divorce, Family Disputes, Maintenance, Child Custody, DV Act
-    if (
-      query.includes("divorce") ||
-      query.includes("maintenance") ||
-      query.includes("alimony") ||
-      query.includes("custody") ||
-      query.includes("domestic violence") ||
-      query.includes("dv act") ||
-      query.includes("family court") ||
-      query.includes("matrimonial")
-    ) {
-      return NextResponse.json({
-        reply: `We handle family and matrimonial disputes with utmost sensitivity, confidentiality, and firm legal representation in Nagpur Family Courts:
-• Mutual Consent Divorce (Fast-track cooling period waiver) & Contested Divorce
-• Maintenance & Interim Alimony under Section 125 CrPC & Personal Laws
-• Child Custody, Visitation Rights & Guardianship petitions
-• Domestic Violence Protection Orders & Residence Rights under DV Act
-• Formal Matrimonial Settlement Agreements & Mediation`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Confidential Consultation", href: "/book" },
-          { label: "WhatsApp Advocate Confidentially", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need private consultation regarding a Family / Matrimonial matter.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8I. Trademark, Copyright, Startup & Corporate Compliance
-    if (
-      query.includes("trademark") ||
-      query.includes("brand") ||
-      query.includes("copyright") ||
-      query.includes("gst") ||
-      query.includes("company") ||
-      query.includes("pvt ltd") ||
-      query.includes("llp") ||
-      query.includes("startup") ||
-      query.includes("gumasta") ||
-      query.includes("msme") ||
-      query.includes("fssai") ||
-      query.includes("patent")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain is an officially certified Trade Mark Attorney (B.Com, M.Com, LL.B) and founder of True Legal Advice (www.securemybrand.in).
-
-🚀 Brand & Corporate Solutions:
-• Trademark Search, Filing & Objection Hearings across all Classes (1–45)
-• Copyright Registration for logos, software & creative works
-• Company Incorporation (Pvt Ltd, LLP, One Person Company)
-• GUMASTA / Shop Act License & MSME Udyam Registration
-• GST Registration, Monthly Returns & FSSAI Food Licenses
-• Commercial Contracts, NDAs, Service Level Agreements & Vendor Contracts`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Explore Trademark Practice", href: "/trademark-registration" },
-          { label: "Book Trademark Advisory", href: "/book" },
-          { label: "WhatsApp for Brand Clearance", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I want to conduct a Trademark search & registration.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8J. Legal Documentation, Drafting, Notices, Affidavits
-    if (
-      query.includes("draft") ||
-      query.includes("notice") ||
-      query.includes("affidavit") ||
-      query.includes("agreement") ||
-      query.includes("contract") ||
-      query.includes("power of attorney") ||
-      query.includes("poa") ||
-      query.includes("documentation")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain provides expert legal drafting and vetted documentation:
-• Formal Legal Notices (Recovery of money, breach of contract, defamation, 138 NI Act)
-• Affidavits for court, name change, passport, and government departments
-• General & Special Power of Attorney (PoA)
-• Commercial Contracts, Partnership Deeds, NDAs & Employment Agreements
-• Rent / Lease Agreements on official Stamp Paper with notary & registration`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Drafting Consultation", href: "/book" },
-          { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need help drafting a Legal Notice / Agreement / Affidavit.")}`, external: true },
-        ],
-      });
-    }
-
-    // 8K. Fees, Consultation Charges & Booking Process
-    if (
-      query.includes("fee") ||
-      query.includes("charge") ||
-      query.includes("rate") ||
-      query.includes("cost") ||
-      query.includes("price") ||
-      query.includes("consultation") ||
-      query.includes("book") ||
-      query.includes("appointment") ||
-      query.includes("slot")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain provides dedicated, strategic legal consultations for both Online Video Call (Google Meet) and In-Office Walk-in sessions at Trisharan Square, Nagpur.
-
-📋 How to Book Your Slot:
-1. Tap "Book Consultation Slot" below to view live calendar availability
-2. Choose between Online Video Call or In-Person Office Visit
-3. Select your preferred date & time slot
-4. Provide your contact details & brief overview of your case
-5. Instant WhatsApp confirmation from our legal desk`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Consultation Slot", href: "/book" },
-          { label: "WhatsApp Legal Desk (+91 83296 31199)", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I would like to book a legal consultation session.")}`, external: true },
-          { label: "View Chamber Timings", href: "/contact" },
-        ],
-      });
-    }
-
-    // 8L. Office Location, Timings, Nagpur Chamber
-    if (
-      query.includes("where") ||
-      query.includes("address") ||
-      query.includes("location") ||
-      query.includes("nagpur") ||
-      query.includes("timing") ||
-      query.includes("time") ||
-      query.includes("walk in") ||
-      query.includes("office") ||
-      query.includes("chamber") ||
-      query.includes("reach") ||
-      query.includes("contact")
-    ) {
-      return NextResponse.json({
-        reply: `Adv. Shareen Hussain Chamber Details:
-
-📍 Address:
-Trisharan Square, Nagpur - 440027, Maharashtra, India
-(Practice at Bombay High Court, Nagpur Bench & District Courts)
-
-⏰ Walk-in Chamber Desk Hours:
-• Morning Walk-in: 9:30 AM – 11:00 AM
-• Evening Walk-in: 5:30 PM – 8:30 PM
-• Online Video Consultations: Monday to Saturday by scheduled appointment
-
-📞 Direct Chamber Contact:
-• Phone & WhatsApp: +91 83296 31199`,
-        userName: activeUserName,
-        suggestedActions: [
-          { label: "Book Consultation Slot", href: "/book" },
-          { label: "Get Chamber Directions", href: site.googleMapsUrl, external: true },
-          { label: "Contact Page", href: "/contact" },
-        ],
-      });
-    }
-
-    // 8M. Fallback: Concise legal overview covering all practices
+    // 3J. Fallback: Concise legal overview covering all practices
     const namePrefix = activeUserName ? `${activeUserName}, ` : "";
     return NextResponse.json({
       reply: `${namePrefix}Adv. Shareen Hussain practices across Bombay High Court (Nagpur Bench) and District Courts, handling all legal matters including:

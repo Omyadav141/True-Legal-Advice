@@ -16,18 +16,40 @@ interface Message {
   suggestedActions?: { label: string; href?: string; external?: boolean; query?: string }[];
 }
 
-// Helper: Extract user's name if introduced in the text
+// Comprehensive blacklist of words that must NEVER be treated as a person's name
+const NAME_BLACKLIST = new Set([
+  "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
+  "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
+  "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
+  "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
+  "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
+  "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
+  "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi", "islam", "jainism",
+  "hinduism", "christianity", "sikhism", "buddhism", "true", "false", "null", "undefined",
+  "advocate", "lawyer", "judge", "court", "police", "fir", "bail", "pocso", "case", "help"
+]);
+
+// Helper: strictly sanitize and validate a name string
+function sanitizeName(name: unknown): string {
+  if (typeof name !== "string") return "";
+  const trimmed = name.trim();
+  if (!/^[a-zA-Z]{2,20}$/.test(trimmed)) return "";
+  const lower = trimmed.toLowerCase();
+  if (NAME_BLACKLIST.has(lower)) return "";
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 // Helper: Extract user's name ONLY when explicitly introduced, e.g. "My name is Faiez"
-function extractNameFromText(text: string): string | null {
+function extractNameFromText(text: string): string {
   const clean = text.trim();
 
   // If message contains numbers, questions, or legal/religious words, never extract name
   if (
     clean.includes("?") ||
     /\d/.test(clean) ||
-    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|now|today|tomorrow)\b/i.test(clean)
+    /\b(can|could|how|what|where|when|why|should|would|will|do|does|want|need|help|marry|marriage|shaadi|nikah|bail|case|court|lawyer|advocate|fee|charge|cost|divorce|property|police|fir|age|years?|old|sex|girl|boy|minor|pocso|hindu|muslim|christian|sikh|jain|buddhist|now|today|tomorrow)\b/i.test(clean)
   ) {
-    return null;
+    return "";
   }
 
   // Strictly ONLY match explicit "my name is <Name>" or "call me <Name>"
@@ -36,32 +58,17 @@ function extractNameFromText(text: string): string | null {
     clean.match(/^(?:hi|hello|hey|namaste)?[\s,]*call me\s+([a-zA-Z]{2,20})\.?$/i);
 
   if (match && match[1]) {
-    const raw = match[1].toLowerCase();
-    const blacklist = new Set([
-      "now", "here", "there", "not", "ready", "happy", "sad", "good", "fine", "ok", "okay",
-      "married", "single", "divorced", "facing", "looking", "seeking", "asking", "having",
-      "trying", "calling", "writing", "living", "working", "stuck", "student", "citizen",
-      "indian", "adult", "boy", "girl", "man", "woman", "guy", "person", "human", "someone",
-      "anyone", "nobody", "new", "old", "from", "with", "just", "also", "very", "so", "too",
-      "sure", "yes", "no", "legal", "client", "friend", "brother", "sister", "father", "mother",
-      "hindu", "muslim", "christian", "sikh", "jain", "buddhist", "jew", "parsi"
-    ]);
-
-    if (!blacklist.has(raw)) {
-      return raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
+    return sanitizeName(match[1]);
   }
 
-  return null;
+  return "";
 }
 
 function getInstantLegalResponse(text: string, currentUserName?: string) {
   const query = text.toLowerCase().trim();
   const detectedName = extractNameFromText(text);
-  const activeName = detectedName || currentUserName || "";
+  const activeName = detectedName || sanitizeName(currentUserName) || "";
   const nameGreeting = activeName ? ` ${activeName}` : "";
-
-  // 1. POCSO Act & Age of Consent under Indian Law (Strict Criminal Protection)
   if (
     (query.includes("sex") || query.includes("sexual") || query.includes("physical") || query.includes("intimate") || query.includes("sleep with") || query.includes("intercourse") || query.includes("relation")) &&
     (query.includes("17") || query.includes("16") || query.includes("15") || query.includes("14") || query.includes("13") || query.includes("under 18") || query.includes("below 18") || query.includes("minor") || query.includes("underage"))
@@ -83,19 +90,54 @@ Adv. Shareen Hussain represents clients in Criminal Defense and POCSO matters ac
     };
   }
 
-  // 2. Religion / Hindu Personal Law / Special Marriage Act (e.g. "I am hindu", "hindu law")
-  if (
-    query.includes("hindu") ||
-    query.includes("muslim") ||
-    query.includes("christian") ||
-    query.includes("sikh") ||
-    query.includes("inter-caste") ||
-    query.includes("inter-religion")
-  ) {
+  // 2. Christianity & Indian Christian Marriage / Divorce Laws
+  if (query.includes("christian")) {
     return {
-      text: `Adv. Shareen Hussain provides experienced counsel under Indian personal and statutory laws:
+      text: `Adv. Shareen Hussain provides experienced counsel under Christian Personal Laws and the Special Marriage Act:
 
-🕉️ Under Hindu Personal Law & Special Marriage Act:
+✝️ Christian Marriage & Family Legal Framework in India:
+• Indian Christian Marriage Act, 1872: Solemnization and registration of Christian marriages through licensed ministers or before the Marriage Registrar under Part V.
+• Indian Divorce Act, 1869 (Amended 2001): Mutual consent divorce under Section 10A, dissolution of marriage, restitution of conjugal rights, and permanent alimony.
+• Special Marriage Act, 1954: Civil court marriage between a Christian and a person of any other faith without requiring religious conversion.
+• Indian Succession Act, 1925: Property inheritance, testamentary succession, drafting of Wills, and Letters of Administration / Probate for Christian estates.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+      suggestedActions: [
+        { label: "Court Marriage Help", href: "/court-marriage" },
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Property & Succession", href: "/legal-services" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Christian personal law / Court Marriage.")}`, external: true },
+      ],
+    };
+  }
+
+  // 3. Jainism & Jain Personal Law / Succession
+  if (query.includes("jain")) {
+    return {
+      text: `Adv. Shareen Hussain provides experienced counsel under Jain Personal Rights and Indian Statutory Law:
+
+🌿 Legal Framework for the Jain Community in India:
+• Marriage Laws: In India, marriages within the Jain community are legally governed under the Hindu Marriage Act, 1955 (Section 2 includes Jains, Buddhists, and Sikhs), or through the Special Marriage Act, 1954 for civil court registration.
+• Succession & Property Rights: Property inheritance and partition are governed by the Hindu Succession Act, 1956 (Amended 2005) and customary Jain practices, ensuring equal inheritance rights for daughters and coparcenary claims.
+• Inter-faith Court Marriage: Secular, 100% confidential registration under the Special Marriage Act, 1954 without religious conversion.
+• Trust & Institutional Matters: Registration and management of Jain religious and charitable trusts under the Maharashtra Public Trusts Act.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter or documentation?`,
+      suggestedActions: [
+        { label: "Court Marriage Help", href: "/court-marriage" },
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "Property & Succession", href: "/legal-services" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need legal guidance regarding Jain personal law / Court Marriage.")}`, external: true },
+      ],
+    };
+  }
+
+  // 4. Hinduism & Hindu Personal Law
+  if (query.includes("hindu")) {
+    return {
+      text: `Adv. Shareen Hussain provides experienced counsel under Hindu Personal Law and the Special Marriage Act:
+
+🕉️ Under Hindu Personal Law & Indian Statutory Law:
 • Hindu Marriage Act, 1955: Traditional ceremony registration, restitution of conjugal rights, and fast-track mutual consent divorce (Sec 13B).
 • Special Marriage Act, 1954: Secular court marriage between two consenting adults of different religions or castes without requiring religious conversion.
 • Hindu Succession Act, 1956 (Amended 2005): Ancestral property inheritance, equal coparcenary rights for daughters, partition suits, and legal heir certificates.
@@ -111,7 +153,25 @@ How can Adv. Shareen Hussain assist you with your specific legal matter or docum
     };
   }
 
-  // 3. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
+  // 5. Islam & Special Marriage Act
+  if (query.includes("muslim")) {
+    return {
+      text: `Adv. Shareen Hussain specializes in confidential legal advisory and court marriages under Indian Law:
+
+• Special Marriage Act, 1954: Secular civil marriage between consenting adults of different religions without requiring conversion, with complete Article 21 constitutional security and police protection.
+• Dissolution of Muslim Marriages Act, 1939: Legal dissolution, custody rights, and maintenance advisory.
+• Document Drafting: Registration of marriage, affidavits, and notarized declarations.
+
+How can Adv. Shareen Hussain assist you with your specific legal matter?`,
+      suggestedActions: [
+        { label: "Court Marriage Help", href: "/court-marriage" },
+        { label: "Book Consultation Slot", href: "/book" },
+        { label: "WhatsApp Legal Desk", href: `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need confidential legal guidance regarding Court Marriage.")}`, external: true },
+      ],
+    };
+  }
+
+  // 6. Marriage Age & Court Marriage Eligibility (e.g. "I am now 21 can I marry", "can I marry at 21", "legal age for marriage")
   if (
     (query.includes("21") || query.includes("18") || query.includes("age") || query.includes("eligible") || query.includes("can i marry") || query.includes("can we marry")) &&
     (query.includes("marry") || query.includes("marriage") || query.includes("shaadi") || query.includes("nikah") || query.includes("court marriage") || query.includes("special marriage"))
@@ -589,8 +649,14 @@ export default function AiLegalAssistantBot() {
         }
       }
       const savedName = localStorage.getItem("advocate_ai_user_name");
-      if (savedName) {
-        setUserName(savedName);
+      const cleanSavedName = sanitizeName(savedName);
+      if (cleanSavedName) {
+        setUserName(cleanSavedName);
+      } else {
+        setUserName("");
+        try {
+          localStorage.removeItem("advocate_ai_user_name");
+        } catch (e) {}
       }
       const savedOpen = localStorage.getItem(CHAT_OPEN_KEY);
       if (savedOpen === "true") {
@@ -647,11 +713,17 @@ export default function AiLegalAssistantBot() {
 
     // Detect if user introduced their name
     const detectedName = extractNameFromText(userText);
-    const activeName = detectedName || userName;
+    const validCurrentName = sanitizeName(userName);
+    const activeName = detectedName || validCurrentName || "";
     if (detectedName && detectedName !== userName) {
       setUserName(detectedName);
       try {
         localStorage.setItem("advocate_ai_user_name", detectedName);
+      } catch (e) {}
+    } else if (!validCurrentName && userName) {
+      setUserName("");
+      try {
+        localStorage.removeItem("advocate_ai_user_name");
       } catch (e) {}
     }
 
@@ -680,10 +752,16 @@ export default function AiLegalAssistantBot() {
 
       if (res.ok) {
         const data = await res.json();
-        if (data.userName && data.userName !== userName) {
-          setUserName(data.userName);
+        const returnedName = sanitizeName(data.userName);
+        if (returnedName && returnedName !== userName) {
+          setUserName(returnedName);
           try {
-            localStorage.setItem("advocate_ai_user_name", data.userName);
+            localStorage.setItem("advocate_ai_user_name", returnedName);
+          } catch (e) {}
+        } else if (!returnedName && userName) {
+          setUserName("");
+          try {
+            localStorage.removeItem("advocate_ai_user_name");
           } catch (e) {}
         }
 
