@@ -11,6 +11,9 @@ import {
   getBookingId,
 } from "@/lib/bookings-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const MEETING_DURATION_MINUTES = 60;
 
 /** Current date/time in India (Asia/Kolkata), where all appointments happen. */
@@ -85,7 +88,16 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ bookings: mergedBookings, role });
+  return NextResponse.json(
+    { bookings: mergedBookings, role },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    }
+  );
 }
 
 export async function PATCH(req: NextRequest) {
@@ -139,12 +151,22 @@ export async function PATCH(req: NextRequest) {
     // Try updating Supabase
     try {
       const supabase = supabaseServer();
-      await supabase
+      const { error: sbErr } = await supabase
         .from("bookings")
         .update(updates)
-        .or(`id.eq.${id},booking_id.eq.${id}`);
+        .eq("id", id);
+
+      if (sbErr) {
+        if (sbErr.code === "23505") {
+          return NextResponse.json(
+            { error: "This time slot is already booked for that date. Please select another slot." },
+            { status: 409 }
+          );
+        }
+        console.error("Supabase update error:", sbErr.message);
+      }
     } catch (sbErr) {
-      console.warn("Supabase update notice:", sbErr);
+      console.warn("Supabase update exception:", sbErr);
     }
 
     // Update local store
@@ -174,12 +196,16 @@ export async function DELETE(req: NextRequest) {
     // Try deleting from Supabase
     try {
       const supabase = supabaseServer();
-      await supabase
+      const { error: sbErr } = await supabase
         .from("bookings")
         .delete()
-        .or(`id.eq.${id},booking_id.eq.${id}`);
+        .eq("id", id);
+
+      if (sbErr) {
+        console.error("Supabase delete error:", sbErr.message);
+      }
     } catch (sbErr) {
-      console.warn("Supabase delete notice:", sbErr);
+      console.warn("Supabase delete exception:", sbErr);
     }
 
     // Delete from local store

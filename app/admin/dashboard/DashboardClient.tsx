@@ -249,9 +249,9 @@ export default function DashboardClient() {
     setLoading(true);
     try {
       const [bookRes, contRes, statusRes] = await Promise.all([
-        fetch("/api/admin/bookings"),
-        fetch("/api/admin/contacts"),
-        fetch("/api/admin/chamber-status"),
+        fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`/api/admin/contacts?_t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`/api/admin/chamber-status?_t=${Date.now()}`, { cache: "no-store" }),
       ]);
 
       if (bookRes.status === 401) {
