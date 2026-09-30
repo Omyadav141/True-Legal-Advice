@@ -9,14 +9,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
 
-    const role = verifyStaffCredentials(email, password);
+    const staff = verifyStaffCredentials(email, password);
 
-    if (!role) {
+    if (!staff) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
-    await setStaffSessionCookie(role);
-    return NextResponse.json({ success: true, role });
+    await setStaffSessionCookie(staff);
+    return NextResponse.json({
+      success: true,
+      role: staff.role,
+      name: staff.name,
+      title: staff.title,
+      permissions: staff.permissions,
+    });
   } catch (err) {
     console.error("Admin login error:", err);
     return NextResponse.json({ error: "Login failed. Please try again." }, { status: 500 });

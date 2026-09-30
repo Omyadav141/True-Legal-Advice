@@ -54,6 +54,13 @@ import {
   BarChart3,
   PieChart,
   Archive,
+  Bell,
+  KeyRound,
+  UserPlus,
+  Shield,
+  EyeOff,
+  Lock,
+  CheckSquare,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
@@ -176,11 +183,66 @@ export default function DashboardClient() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [contacts, setContacts] = useState<ContactInquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<"admin" | "secretary">("admin");
+  const [role, setRole] = useState<"admin" | "secretary" | "assistant">("admin");
 
-  // Navigation View: Dashboard vs Bookings vs Contacts vs Clients vs Chamber
-  const [activeNav, setActiveNav] = useState<"dashboard" | "bookings" | "contacts" | "clients" | "chamber">("dashboard");
+  // Navigation View: Dashboard vs Bookings vs Contacts vs Clients vs Chamber vs Team
+  const [activeNav, setActiveNav] = useState<"dashboard" | "bookings" | "contacts" | "clients" | "chamber" | "team">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Current session staff member & Team list
+  const [currentStaff, setCurrentStaff] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: "admin" | "secretary" | "assistant";
+    title: string;
+    permissions: {
+      canManageBookings: boolean;
+      canManageInquiries: boolean;
+      canViewClients: boolean;
+      canManageChamber: boolean;
+      canManageStaff: boolean;
+    };
+  } | null>(null);
+  const [staffList, setStaffList] = useState<any[]>([]);
+
+  // Notification Center
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>([]);
+
+  // Profile dropdown in header
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Change Password Modal States
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+
+  // Add Assistant / Team Modal States
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [newStaffForm, setNewStaffForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    title: "Legal Assistant",
+    role: "assistant" as "assistant" | "secretary",
+    permissions: {
+      canManageBookings: true,
+      canManageInquiries: true,
+      canViewClients: true,
+      canManageChamber: false,
+      canManageStaff: false,
+    },
+  });
+  const [showNewStaffPw, setShowNewStaffPw] = useState(false);
+  const [staffSubmitting, setStaffSubmitting] = useState(false);
+  const [staffError, setStaffError] = useState("");
+  const [staffSuccess, setStaffSuccess] = useState("");
+  const [createdStaffCreds, setCreatedStaffCreds] = useState<{ email: string; password: string; name: string } | null>(null);
 
   // Period Filter: Month, Quarter, Year, Custom
   const [periodFilter, setPeriodFilter] = useState<"month" | "quarter" | "year" | "all">("month");
@@ -191,9 +253,8 @@ export default function DashboardClient() {
   // Search input
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Dedicated Booking Filter Tab:
-  // "all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined"
-  const [bookingTabFilter, setBookingTabFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined">("all");
+  // Dedicated Booking Filter Tab: Default to "today" as requested
+  const [bookingTabFilter, setBookingTabFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined">("today");
 
   // Dedicated Contact Inquiries Filter:
   // "all" | "new" | "contacted" | "converted" | "closed"
@@ -268,10 +329,11 @@ export default function DashboardClient() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [bookRes, contRes, statusRes] = await Promise.all([
+      const [bookRes, contRes, statusRes, staffRes] = await Promise.all([
         fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/contacts?_t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/chamber-status?_t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`/api/admin/staff?_t=${Date.now()}`, { cache: "no-store" }),
       ]);
 
       if (bookRes.status === 401) {
@@ -298,6 +360,17 @@ export default function DashboardClient() {
         setStatusModalReason(statusData.awayReason || "");
         setStatusModalEstimate(statusData.returnEstimate || "");
       }
+
+      if (staffRes && staffRes.ok) {
+        const staffData = await staffRes.json();
+        if (staffData.currentStaff) {
+          setCurrentStaff(staffData.currentStaff);
+          if (staffData.currentStaff.role) setRole(staffData.currentStaff.role);
+        }
+        if (staffData.staff) {
+          setStaffList(staffData.staff);
+        }
+      }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
@@ -308,6 +381,238 @@ export default function DashboardClient() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Live Notifications Computed from System Data
+  const notificationsList = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      message: string;
+      time: string;
+      type: "booking" | "inquiry" | "chamber" | "alert";
+      actionLabel?: string;
+      onClick?: () => void;
+    }> = [];
+
+    // 1. Today's Slots Notification
+    const todaySlots = bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled");
+    if (todaySlots.length > 0) {
+      list.push({
+        id: "today-bookings",
+        title: `${todaySlots.length} Appointment${todaySlots.length > 1 ? "s" : ""} Today`,
+        message: `Adv. Shareen has ${todaySlots.length} confirmed consultation${todaySlots.length > 1 ? "s" : ""} scheduled for today (${formatDateLabel(todayStr)}).`,
+        time: "Today",
+        type: "booking",
+        actionLabel: "View Today's Slots",
+        onClick: () => {
+          setActiveNav("bookings");
+          setBookingTabFilter("today");
+          setNotificationOpen(false);
+        },
+      });
+    }
+
+    // 2. Pending Bookings Needing Confirmation
+    const pendingSlots = bookings.filter((b) => b.status === "pending");
+    if (pendingSlots.length > 0) {
+      list.push({
+        id: "pending-bookings",
+        title: `${pendingSlots.length} Booking${pendingSlots.length > 1 ? "s" : ""} Awaiting Review`,
+        message: `Clients are waiting for slot confirmation or Google Meet video link dispatch.`,
+        time: "Action Needed",
+        type: "alert",
+        actionLabel: "Review Requests",
+        onClick: () => {
+          setActiveNav("bookings");
+          setBookingTabFilter("pending");
+          setNotificationOpen(false);
+        },
+      });
+    }
+
+    // 3. New Contact Inquiries
+    const newContacts = contacts.filter((c) => c.status === "new");
+    if (newContacts.length > 0) {
+      list.push({
+        id: "new-inquiries",
+        title: `${newContacts.length} New Contact Inquir${newContacts.length > 1 ? "ies" : "y"}`,
+        message: `Recent web consultation inquiries submitted through the True Legal Advice website.`,
+        time: "New Form",
+        type: "inquiry",
+        actionLabel: "Open Inquiries",
+        onClick: () => {
+          setActiveNav("contacts");
+          setContactStatusFilter("new");
+          setNotificationOpen(false);
+        },
+      });
+    }
+
+    // 4. Chamber Presence Real Notice
+    list.push({
+      id: "chamber-status-notif",
+      title: chamberStatus.isOfficeOpen ? "Chamber Office is OPEN" : "Chamber Office is AWAY",
+      message: chamberStatus.isOfficeOpen
+        ? "Nagpur chamber desk is actively accepting walk-ins and scheduled visitors."
+        : `Away notice: ${chamberStatus.awayReason || "Attending court proceedings"}. Estimated resume: ${chamberStatus.returnEstimate || "Later today"}.`,
+      time: "Presence",
+      type: "chamber",
+      actionLabel: "Manage Presence",
+      onClick: () => {
+        setActiveNav("chamber");
+        setNotificationOpen(false);
+      },
+    });
+
+    return list.filter((n) => !dismissedNotifIds.includes(n.id));
+  }, [bookings, contacts, chamberStatus, todayStr, dismissedNotifIds]);
+
+  // Handle Change Password Form Submit
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setPasswordError("Both current and new passwords are required.");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordError(data.error || "Failed to change password.");
+      } else {
+        setPasswordSuccess("Password updated successfully! Your credentials have been saved.");
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordSuccess("");
+        }, 1800);
+      }
+    } catch {
+      setPasswordError("Network error. Please try again.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Handle Add Assistant
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStaffError("");
+    setStaffSuccess("");
+
+    if (!newStaffForm.name || !newStaffForm.email || !newStaffForm.password) {
+      setStaffError("Name, email, and initial password are required.");
+      return;
+    }
+    if (newStaffForm.password.length < 6) {
+      setStaffError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    setStaffSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newStaffForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setStaffError(data.error || "Failed to create assistant account.");
+      } else {
+        setStaffSuccess(`Assistant "${newStaffForm.name}" created successfully!`);
+        setCreatedStaffCreds({
+          name: newStaffForm.name,
+          email: newStaffForm.email,
+          password: newStaffForm.password,
+        });
+        setStaffList((prev) => [...prev, data.staff]);
+        setNewStaffForm({
+          name: "",
+          email: "",
+          password: "",
+          title: "Legal Assistant",
+          role: "assistant",
+          permissions: {
+            canManageBookings: true,
+            canManageInquiries: true,
+            canViewClients: true,
+            canManageChamber: false,
+            canManageStaff: false,
+          },
+        });
+      }
+    } catch {
+      setStaffError("Network error while creating assistant.");
+    } finally {
+      setStaffSubmitting(false);
+    }
+  };
+
+  // Handle Toggle Permission
+  const handleToggleStaffPermission = async (staffId: string, permKey: string) => {
+    const target = staffList.find((s) => s.id === staffId);
+    if (!target || target.role === "admin") return;
+
+    const updatedPermissions = {
+      ...target.permissions,
+      [permKey]: !target.permissions[permKey],
+    };
+
+    try {
+      const res = await fetch("/api/admin/staff", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: staffId, permissions: updatedPermissions }),
+      });
+      if (res.ok) {
+        setStaffList((prev) =>
+          prev.map((s) => (s.id === staffId ? { ...s, permissions: updatedPermissions } : s))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to toggle permission:", err);
+    }
+  };
+
+  // Handle Delete Assistant
+  const handleDeleteStaff = async (staffId: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove assistant "${name}"? They will lose dashboard access immediately.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/staff?id=${encodeURIComponent(staffId)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setStaffList((prev) => prev.filter((s) => s.id !== staffId));
+      }
+    } catch (err) {
+      console.error("Failed to delete staff:", err);
+    }
+  };
 
   // Handle Logout
   const handleLogout = async () => {
@@ -1112,26 +1417,126 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           </div>
         </div>
 
-        {/* Right Controls: Chamber Status Badge, Refresh, Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right Controls: Chamber Status Badge, Notifications, Refresh, Profile */}
+        <div className="flex items-center gap-2 sm:gap-3 relative">
           {/* Quick Chamber Away / Open Indicator */}
-          <button
-            type="button"
-            onClick={() => setActiveNav("chamber")}
-            className={`hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-              chamberStatus.isOfficeOpen
-                ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
-                : "bg-amber-950/60 text-amber-300 border-amber-500/40"
-            }`}
-            title="Click to manage chamber availability"
-          >
-            <span
-              className={`h-2 w-2 rounded-full ${
-                chamberStatus.isOfficeOpen ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"
+          {(!currentStaff || currentStaff.permissions?.canManageChamber !== false) && (
+            <button
+              type="button"
+              onClick={() => setActiveNav("chamber")}
+              className={`hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                chamberStatus.isOfficeOpen
+                  ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
+                  : "bg-amber-950/60 text-amber-300 border-amber-500/40"
               }`}
-            />
-            <span>{chamberStatus.isOfficeOpen ? "Chamber Open" : `Away: ${chamberStatus.returnEstimate || "Hearing"}`}</span>
-          </button>
+              title="Click to manage chamber availability"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  chamberStatus.isOfficeOpen ? "bg-emerald-400 animate-pulse" : "bg-amber-400 animate-pulse"
+                }`}
+              />
+              <span>{chamberStatus.isOfficeOpen ? "Chamber Open" : `Away: ${chamberStatus.returnEstimate || "Hearing"}`}</span>
+            </button>
+          )}
+
+          {/* Real Notification Center Bell */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setNotificationOpen(!notificationOpen);
+                setProfileDropdownOpen(false);
+              }}
+              className="p-1.5 sm:px-2 sm:py-1 rounded-lg bg-white/10 text-slate-200 hover:bg-white/15 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer relative"
+              title="Chamber Notifications"
+            >
+              <Bell size={14} className={notificationsList.length > 0 ? "text-[#cba758]" : ""} />
+              {notificationsList.length > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs animate-pulse">
+                  {notificationsList.length}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Center Dropdown */}
+            {notificationOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl bg-[#181b22] border border-[#cba758]/30 shadow-2xl p-4 z-50 text-xs text-slate-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Bell size={14} className="text-[#cba758]" />
+                    <span className="font-bold text-white text-sm">Chamber Notifications</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#cba758]/20 text-[#cba758] font-mono text-[10px] font-bold">
+                      {notificationsList.length}
+                    </span>
+                  </div>
+                  {notificationsList.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDismissedNotifIds(notificationsList.map((n) => n.id));
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {notificationsList.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400">
+                      <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-400" />
+                      <p className="font-semibold text-white">All caught up!</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">No urgent notifications right now.</p>
+                    </div>
+                  ) : (
+                    notificationsList.map((notif) => (
+                      <div
+                        key={notif.id}
+                        className="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-[#cba758]/40 transition-all space-y-1.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+                            {notif.type === "booking" && <Calendar size={12} className="text-[#cba758]" />}
+                            {notif.type === "alert" && <Clock size={12} className="text-amber-400" />}
+                            {notif.type === "inquiry" && <MessageSquare size={12} className="text-blue-400" />}
+                            {notif.type === "chamber" && <Building2 size={12} className="text-emerald-400" />}
+                            <span>{notif.title}</span>
+                          </h4>
+                          <span className="text-[9.5px] font-mono text-[#cba758] bg-[#cba758]/10 px-1.5 py-0.5 rounded">
+                            {notif.time}
+                          </span>
+                        </div>
+                        <p className="text-slate-300 text-[11px] leading-relaxed">
+                          {notif.message}
+                        </p>
+                        {notif.onClick && (
+                          <div className="pt-1 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={notif.onClick}
+                              className="text-[10.5px] font-bold text-[#cba758] hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>{notif.actionLabel || "View Details"}</span>
+                              <ChevronRight size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDismissedNotifIds((prev) => [...prev, notif.id])}
+                              className="text-[10px] text-slate-500 hover:text-slate-300"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Refresh Button */}
           <button
@@ -1144,23 +1549,92 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             <span className="hidden sm:inline">Sync</span>
           </button>
 
-          {/* User Profile Badge */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-700">
-            <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-[#cba758] to-amber-200 text-black font-bold text-xs flex items-center justify-center font-mono">
-              SH
-            </div>
-            <div className="hidden lg:block text-left">
-              <span className="text-xs font-semibold text-white block leading-none">Adv. Shareen</span>
-              <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">High Court Desk</span>
-            </div>
+          {/* User Profile Badge & Dropdown */}
+          <div className="relative">
             <button
               type="button"
-              onClick={handleLogout}
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-              title="Sign Out"
+              onClick={() => {
+                setProfileDropdownOpen(!profileDropdownOpen);
+                setNotificationOpen(false);
+              }}
+              className="flex items-center gap-2 pl-2 border-l border-slate-700 hover:opacity-90 transition-opacity cursor-pointer text-left"
             >
-              <LogOut size={14} />
+              <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-[#cba758] to-amber-200 text-black font-bold text-xs flex items-center justify-center font-mono">
+                {currentStaff ? getInitials(currentStaff.name) : "SH"}
+              </div>
+              <div className="hidden lg:block text-left">
+                <span className="text-xs font-semibold text-white block leading-none">
+                  {currentStaff ? currentStaff.name : "Adv. Shareen"}
+                </span>
+                <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">
+                  {currentStaff ? currentStaff.title : "High Court Desk"}
+                </span>
+              </div>
+              <ChevronDown size={12} className="text-slate-400 hidden sm:block" />
             </button>
+
+            {/* Profile Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-[#181b22] border border-[#cba758]/30 shadow-2xl p-2 z-50 text-xs text-slate-200 space-y-1">
+                <div className="px-3 py-2 border-b border-white/10">
+                  <p className="font-bold text-white text-xs truncate">
+                    {currentStaff?.name || "Adv. Shareen Hussain"}
+                  </p>
+                  <p className="font-mono text-[10px] text-slate-400 truncate">
+                    {currentStaff?.email || "shareenhussain@truelegaladvice.com"}
+                  </p>
+                  <span className="mt-1 inline-block px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758]">
+                    {currentStaff?.role === "admin" ? "Master Advocate" : currentStaff?.title || "Staff Assistant"}
+                  </span>
+                </div>
+
+                {/* Change Password Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    setPasswordError("");
+                    setPasswordSuccess("");
+                    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                    setShowPasswordModal(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                >
+                  <KeyRound size={14} className="text-[#cba758]" />
+                  <span>Change Password</span>
+                </button>
+
+                {/* Team & Assistants Option (if allowed) */}
+                {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      setActiveNav("team");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <UserCheck size={14} className="text-[#cba758]" />
+                    <span>Team & Assistants</span>
+                  </button>
+                )}
+
+                <div className="border-t border-white/10 my-1" />
+
+                {/* Logout Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -1219,95 +1693,128 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               )}
             </button>
 
-            {/* 2. Bookings & Slots */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("bookings");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                activeNav === "bookings"
-                  ? "bg-[#2b6cb0] text-white shadow-sm"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Calendar size={16} />
-                <span>Bookings & Slots</span>
-              </div>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-white font-bold">
-                {bookings.length}
-              </span>
-            </button>
+            {/* 2. Bookings & Slots (defaults to Today's Slots) */}
+            {(!currentStaff || currentStaff.permissions?.canManageBookings !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("bookings");
+                  setBookingTabFilter("today");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeNav === "bookings"
+                    ? "bg-[#2b6cb0] text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Calendar size={16} />
+                  <span>Bookings & Slots</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-white font-bold">
+                  {bookings.length}
+                </span>
+              </button>
+            )}
 
             {/* 3. Contact Inquiries */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("contacts");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                activeNav === "contacts"
-                  ? "bg-[#2b6cb0] text-white shadow-sm"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare size={16} />
-                <span>Contact Inquiries</span>
-              </div>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-300 font-bold">
-                {contacts.length}
-              </span>
-            </button>
+            {(!currentStaff || currentStaff.permissions?.canManageInquiries !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("contacts");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeNav === "contacts"
+                    ? "bg-[#2b6cb0] text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <MessageSquare size={16} />
+                  <span>Contact Inquiries</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-300 font-bold">
+                  {contacts.length}
+                </span>
+              </button>
+            )}
 
             {/* 4. Clients Directory */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("clients");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                activeNav === "clients"
-                  ? "bg-[#2b6cb0] text-white shadow-sm"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Users size={16} />
-                <span>Clients Directory</span>
-              </div>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-slate-300">
-                {clientsDirectory.length}
-              </span>
-            </button>
+            {(!currentStaff || currentStaff.permissions?.canViewClients !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("clients");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeNav === "clients"
+                    ? "bg-[#2b6cb0] text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users size={16} />
+                  <span>Clients Directory</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-slate-300">
+                  {clientsDirectory.length}
+                </span>
+              </button>
+            )}
 
             {/* 5. Chamber Status & Presence */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveNav("chamber");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                activeNav === "chamber"
-                  ? "bg-[#2b6cb0] text-white shadow-sm"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Building2 size={16} />
-                <span>Chamber Presence</span>
-              </div>
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  chamberStatus.isOfficeOpen ? "bg-emerald-400" : "bg-amber-400"
+            {(!currentStaff || currentStaff.permissions?.canManageChamber !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("chamber");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeNav === "chamber"
+                    ? "bg-[#2b6cb0] text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
                 }`}
-              />
-            </button>
+              >
+                <div className="flex items-center gap-3">
+                  <Building2 size={16} />
+                  <span>Chamber Presence</span>
+                </div>
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    chamberStatus.isOfficeOpen ? "bg-emerald-400" : "bg-amber-400"
+                  }`}
+                />
+              </button>
+            )}
+
+            {/* 6. Team & Assistants (Master Admin & authorized staff) */}
+            {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveNav("team");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeNav === "team"
+                    ? "bg-[#2b6cb0] text-white shadow-sm"
+                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <UserCheck size={16} />
+                  <span>Team & Assistants</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-[#cba758]/20 text-[#cba758] font-bold">
+                  {staffList.length || 1}
+                </span>
+              </button>
+            )}
           </nav>
 
           {/* Quick CTA: Manual Booking / Block Slot Button */}
@@ -1351,6 +1858,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     {activeNav === "contacts" && "Website Contact Inquiries"}
                     {activeNav === "clients" && "Clients Directory"}
                     {activeNav === "chamber" && "Chamber Status & Presence"}
+                    {activeNav === "team" && "Team & Assistant Management"}
                   </span>
                   <span className="h-2.5 w-2.5 rounded-full bg-[#f6ad55] inline-block shadow-xs" />
                 </h1>
@@ -1361,6 +1869,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 {activeNav === "contacts" && "Inquiries inbox: website messages with instant WhatsApp reply drafts."}
                 {activeNav === "clients" && "Client directory: unique client records and past consultation histories."}
                 {activeNav === "chamber" && "Availability manager: office visits, hearings, and client notice banners."}
+                {activeNav === "team" && "Assistant accounts: manage logins, assign role permissions, and customize dashboard access."}
               </p>
             </div>
 
@@ -1983,11 +2492,11 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   </div>
                 ) : (
                   <>
-                    {/* Desktop Table View (Hidden on mobile phones) */}
-                    <div className="hidden sm:block overflow-x-auto">
+                    {/* Desktop Table View (Scrollable container with sticky header so buttons never push down) */}
+                    <div className="hidden sm:block overflow-x-auto max-h-[580px] overflow-y-auto rounded-xl border border-zinc-200">
                       <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
+                        <thead className="sticky top-0 z-10 bg-zinc-100/95 backdrop-blur-xs shadow-2xs border-b border-zinc-200">
+                          <tr className="text-zinc-700 font-mono text-[11px] uppercase tracking-wider">
                             <th className="py-3 px-4 font-semibold">Client</th>
                             <th className="py-3 px-4 font-semibold">Booking ID & Mode</th>
                             <th className="py-3 px-4 font-semibold">Legal Matter</th>
@@ -2210,8 +2719,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       </table>
                     </div>
 
-                    {/* Mobile Touch Cards View (Optimized for Adv. Shareen on phone) */}
-                    <div className="sm:hidden divide-y divide-zinc-200">
+                    {/* Mobile Touch Cards View (Max-height scroll container so controls stay top) */}
+                    <div className="sm:hidden divide-y divide-zinc-200 max-h-[580px] overflow-y-auto rounded-xl border border-zinc-200">
                       {filteredBookings.map((b) => {
                         const statusMeta = statusStyles[b.status] || statusStyles.pending;
                         const isAttended = b.attendance === "attended";
@@ -3022,6 +3531,260 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               </div>
             </div>
           )}
+
+          {/* ================= VIEW 6: TEAM & ASSISTANTS MANAGEMENT ================= */}
+          {activeNav === "team" && (
+            <div className="space-y-6">
+              {/* Executive Overview Header */}
+              <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-6 sm:p-7 rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758] border border-[#cba758]/40">
+                      Chamber Administration
+                    </span>
+                    <span className="text-xs text-zinc-400 font-mono">Role-Based Access Control</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-white mt-2">
+                    Team & Assistant Management
+                  </h2>
+                  <p className="text-xs text-zinc-300 mt-1 max-w-xl leading-relaxed">
+                    Create secure staff credentials for junior advocates, chamber clerks, and legal secretaries. Each assistant receives a tailored dashboard showing only their assigned capabilities.
+                  </p>
+                </div>
+
+                {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStaffError("");
+                      setStaffSuccess("");
+                      setCreatedStaffCreds(null);
+                      setShowAddStaffModal(true);
+                    }}
+                    className="self-start md:self-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                  >
+                    <UserPlus size={15} strokeWidth={2.5} />
+                    <span>+ Add New Assistant</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Staff Stats Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Total Staff</span>
+                    <Users size={16} />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{staffList.length}</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Active chamber accounts</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs">
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Assistants</span>
+                    <UserCheck size={16} />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">
+                    {staffList.filter((s) => s.role !== "admin").length}
+                  </p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Delegated staff members</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs">
+                  <div className="flex items-center justify-between text-[#9f7d32]">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Head of Chambers</span>
+                    <Shield size={16} />
+                  </div>
+                  <p className="text-sm font-bold text-zinc-900 mt-2 truncate">Adv. Shareen Hussain</p>
+                  <p className="text-[11px] text-[#9f7d32] mt-0.5 font-medium">Permanent Master Admin</p>
+                </div>
+              </div>
+
+              {/* Staff Members Roster */}
+              <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+                <div className="p-4 sm:p-5 border-b border-zinc-200 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-serif font-bold text-zinc-900">
+                      Chamber Staff Directory & Permissions
+                    </h3>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      Toggle active permissions to instantly grant or revoke access to dashboard modules.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-zinc-200">
+                  {staffList.map((member) => {
+                    const isMaster = member.role === "admin";
+                    return (
+                      <div key={member.id} className="p-4 sm:p-6 space-y-4 hover:bg-zinc-50/60 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`h-11 w-11 rounded-2xl font-mono font-bold text-sm flex items-center justify-center shrink-0 ${
+                                isMaster
+                                  ? "bg-black text-[#cba758] border border-[#cba758]/50 shadow-md"
+                                  : "bg-zinc-800 text-white"
+                              }`}
+                            >
+                              {getInitials(member.name)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-bold text-sm text-zinc-900">{member.name}</h4>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                                    isMaster
+                                      ? "bg-black text-[#cba758] border-[#cba758]/40"
+                                      : "bg-blue-50 text-blue-700 border-blue-200"
+                                  }`}
+                                >
+                                  {isMaster ? "Master Admin" : member.role}
+                                </span>
+                              </div>
+                              <p className="text-xs text-zinc-600 font-mono mt-0.5">{member.email}</p>
+                              <span className="text-[11px] text-zinc-500 block mt-0.5 font-sans font-medium">
+                                {member.title}
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isMaster && (!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+                            <div className="flex items-center gap-2 self-start sm:self-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStaff(member.id, member.name)}
+                                className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Trash2 size={13} />
+                                <span>Remove Assistant</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Permission Pills / Toggle Switchboard */}
+                        <div className="pt-2 border-t border-zinc-100">
+                          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-zinc-400 block mb-2">
+                            Assigned Dashboard Powers & Modules
+                          </span>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            {/* 1. Bookings Desk */}
+                            <div
+                              onClick={() => {
+                                if (!isMaster) handleToggleStaffPermission(member.id, "canManageBookings");
+                              }}
+                              className={`p-2.5 rounded-xl border text-xs transition-all ${
+                                isMaster
+                                  ? "bg-emerald-50/80 border-emerald-300 text-emerald-900"
+                                  : member.permissions?.canManageBookings
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-800 cursor-pointer hover:bg-emerald-100"
+                                  : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-pointer hover:bg-zinc-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold flex items-center gap-1.5">
+                                  <Calendar size={13} />
+                                  <span>Bookings Desk</span>
+                                </span>
+                                <span className="text-[10px] font-mono font-bold">
+                                  {isMaster || member.permissions?.canManageBookings ? "✓ ON" : "✕ OFF"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] mt-1 opacity-80">
+                                Confirm slots, reschedule, attendance
+                              </p>
+                            </div>
+
+                            {/* 2. Web Inquiries */}
+                            <div
+                              onClick={() => {
+                                if (!isMaster) handleToggleStaffPermission(member.id, "canManageInquiries");
+                              }}
+                              className={`p-2.5 rounded-xl border text-xs transition-all ${
+                                isMaster
+                                  ? "bg-blue-50/80 border-blue-300 text-blue-900"
+                                  : member.permissions?.canManageInquiries
+                                  ? "bg-blue-50 border-blue-300 text-blue-800 cursor-pointer hover:bg-blue-100"
+                                  : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-pointer hover:bg-zinc-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold flex items-center gap-1.5">
+                                  <MessageSquare size={13} />
+                                  <span>Inquiries Inbox</span>
+                                </span>
+                                <span className="text-[10px] font-mono font-bold">
+                                  {isMaster || member.permissions?.canManageInquiries ? "✓ ON" : "✕ OFF"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] mt-1 opacity-80">
+                                View website forms, WhatsApp replies
+                              </p>
+                            </div>
+
+                            {/* 3. Clients Directory */}
+                            <div
+                              onClick={() => {
+                                if (!isMaster) handleToggleStaffPermission(member.id, "canViewClients");
+                              }}
+                              className={`p-2.5 rounded-xl border text-xs transition-all ${
+                                isMaster
+                                  ? "bg-purple-50/80 border-purple-300 text-purple-900"
+                                  : member.permissions?.canViewClients
+                                  ? "bg-purple-50 border-purple-300 text-purple-800 cursor-pointer hover:bg-purple-100"
+                                  : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-pointer hover:bg-zinc-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold flex items-center gap-1.5">
+                                  <Users size={13} />
+                                  <span>Client Directory</span>
+                                </span>
+                                <span className="text-[10px] font-mono font-bold">
+                                  {isMaster || member.permissions?.canViewClients ? "✓ ON" : "✕ OFF"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] mt-1 opacity-80">
+                                Client history, contact details
+                              </p>
+                            </div>
+
+                            {/* 4. Chamber Presence */}
+                            <div
+                              onClick={() => {
+                                if (!isMaster) handleToggleStaffPermission(member.id, "canManageChamber");
+                              }}
+                              className={`p-2.5 rounded-xl border text-xs transition-all ${
+                                isMaster
+                                  ? "bg-amber-50/80 border-amber-300 text-amber-900"
+                                  : member.permissions?.canManageChamber
+                                  ? "bg-amber-50 border-amber-300 text-amber-800 cursor-pointer hover:bg-amber-100"
+                                  : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-pointer hover:bg-zinc-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold flex items-center gap-1.5">
+                                  <Building2 size={13} />
+                                  <span>Chamber Presence</span>
+                                </span>
+                                <span className="text-[10px] font-mono font-bold">
+                                  {isMaster || member.permissions?.canManageChamber ? "✓ ON" : "✕ OFF"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] mt-1 opacity-80">
+                                Away notice, office open/closed status
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* ================= MOBILE BOTTOM NAVIGATION BAR (Fixed bottom for phone usability) ================= */}
@@ -3039,7 +3802,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
           <button
             type="button"
-            onClick={() => setActiveNav("bookings")}
+            onClick={() => {
+              setActiveNav("bookings");
+              setBookingTabFilter("today");
+            }}
             className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
               activeNav === "bookings" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
             }`}
@@ -3086,6 +3852,19 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             <Building2 size={18} />
             <span className="mt-0.5">Chamber</span>
           </button>
+
+          {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+            <button
+              type="button"
+              onClick={() => setActiveNav("team")}
+              className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+                activeNav === "team" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <UserCheck size={18} />
+              <span className="mt-0.5">Team</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -3769,6 +4548,358 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= CHANGE PASSWORD MODAL ================= */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
+                    <KeyRound size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-zinc-900">Change Password</h3>
+                    <p className="text-[11px] font-mono text-zinc-500">
+                      Update your chamber account credentials
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="text-slate-400 hover:text-slate-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {passwordError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+                  <CheckCircle2 size={15} className="shrink-0 text-emerald-600" />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs">
+                {/* Current Password */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">Current Password</label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPw ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      placeholder="Enter existing password"
+                      className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPw(!showCurrentPw)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    >
+                      {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">New Password (Min 6 chars)</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPw ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      placeholder="Enter new secure password"
+                      className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPw(!showNewPw)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    >
+                      {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="font-bold text-zinc-800 block mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    placeholder="Repeat new password"
+                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(false)}
+                    className="px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    {passwordLoading && <Loader2 size={13} className="animate-spin" />}
+                    <span>Update Password</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= ADD ASSISTANT MODAL ================= */}
+      <AnimatePresence>
+        {showAddStaffModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
+                    <UserPlus size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-zinc-900">Add Chamber Assistant</h3>
+                    <p className="text-[11px] font-mono text-zinc-500">
+                      Create assistant login & assign customized dashboard powers
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddStaffModal(false)}
+                  className="text-slate-400 hover:text-slate-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {createdStaffCreds ? (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
+                    <CheckCircle2 size={16} />
+                    <span>Assistant account created successfully!</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-emerald-200 font-mono text-xs text-zinc-800 space-y-1.5">
+                    <p><strong>Name:</strong> {createdStaffCreds.name}</p>
+                    <p><strong>Email:</strong> {createdStaffCreds.email}</p>
+                    <p><strong>Password:</strong> {createdStaffCreds.password}</p>
+                    <p><strong>Portal URL:</strong> /admin/login</p>
+                  </div>
+                  <p className="text-[11px] text-zinc-600">
+                    Share these credentials with your assistant. They can log in immediately at the admin portal and their dashboard will only display their authorized features.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatedStaffCreds(null);
+                      setShowAddStaffModal(false);
+                    }}
+                    className="w-full py-2 rounded-xl bg-black text-[#cba758] font-bold text-xs shadow-sm cursor-pointer"
+                  >
+                    Done & Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAddStaff} className="space-y-4 text-xs">
+                  {staffError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+                      <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                      <span>{staffError}</span>
+                    </div>
+                  )}
+
+                  {/* Name and Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-zinc-800 block mb-1">Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newStaffForm.name}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
+                        placeholder="e.g. Rahul Sharma"
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-zinc-800 block mb-1">Email Address *</label>
+                      <input
+                        type="email"
+                        required
+                        value={newStaffForm.email}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, email: e.target.value })}
+                        placeholder="assistant@truelegaladvice.com"
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password & Title */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-zinc-800 block mb-1">Initial Password * (Min 6 chars)</label>
+                      <div className="relative">
+                        <input
+                          type={showNewStaffPw ? "text" : "password"}
+                          required
+                          value={newStaffForm.password}
+                          onChange={(e) => setNewStaffForm({ ...newStaffForm, password: e.target.value })}
+                          placeholder="assistant123"
+                          className="w-full pl-3 pr-9 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewStaffPw(!showNewStaffPw)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        >
+                          {showNewStaffPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="font-bold text-zinc-800 block mb-1">Role / Job Title</label>
+                      <input
+                        type="text"
+                        value={newStaffForm.title}
+                        onChange={(e) => setNewStaffForm({ ...newStaffForm, title: e.target.value })}
+                        placeholder="e.g. Legal Secretary / Junior Advocate"
+                        className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Customized Role Permissions Checklist */}
+                  <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2.5">
+                    <label className="font-bold text-zinc-800 block font-mono text-[11px] uppercase tracking-wider">
+                      Assign Dashboard Access Powers:
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-zinc-200 hover:border-black cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newStaffForm.permissions.canManageBookings}
+                        onChange={(e) =>
+                          setNewStaffForm({
+                            ...newStaffForm,
+                            permissions: { ...newStaffForm.permissions, canManageBookings: e.target.checked },
+                          })
+                        }
+                        className="h-4 w-4 rounded accent-black"
+                      />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Manage Bookings & Consultations</span>
+                        <span className="text-[10.5px] text-zinc-500">Confirm slots, reschedule, view today's list, mark Came ✓</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-zinc-200 hover:border-black cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newStaffForm.permissions.canManageInquiries}
+                        onChange={(e) =>
+                          setNewStaffForm({
+                            ...newStaffForm,
+                            permissions: { ...newStaffForm.permissions, canManageInquiries: e.target.checked },
+                          })
+                        }
+                        className="h-4 w-4 rounded accent-black"
+                      />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Manage Web Contact Inquiries</span>
+                        <span className="text-[10.5px] text-zinc-500">Read website client messages and dispatch WhatsApp replies</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-zinc-200 hover:border-black cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newStaffForm.permissions.canViewClients}
+                        onChange={(e) =>
+                          setNewStaffForm({
+                            ...newStaffForm,
+                            permissions: { ...newStaffForm.permissions, canViewClients: e.target.checked },
+                          })
+                        }
+                        className="h-4 w-4 rounded accent-black"
+                      />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Access Client Directory</span>
+                        <span className="text-[10.5px] text-zinc-500">Search client records and view historical consultations</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-zinc-200 hover:border-black cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newStaffForm.permissions.canManageChamber}
+                        onChange={(e) =>
+                          setNewStaffForm({
+                            ...newStaffForm,
+                            permissions: { ...newStaffForm.permissions, canManageChamber: e.target.checked },
+                          })
+                        }
+                        className="h-4 w-4 rounded accent-black"
+                      />
+                      <div>
+                        <span className="font-bold text-zinc-900 block">Manage Chamber Office Presence</span>
+                        <span className="text-[10.5px] text-zinc-500">Update office open/away status and publish public notice banners</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddStaffModal(false)}
+                      className="px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={staffSubmitting}
+                      className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      {staffSubmitting && <Loader2 size={13} className="animate-spin" />}
+                      <span>Create Assistant Account</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}
