@@ -53,6 +53,7 @@ import {
   ChevronRight,
   BarChart3,
   PieChart,
+  Archive,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
@@ -82,7 +83,7 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     label: "Confirmed Slot",
   },
   completed: {
-    bg: "bg-slate-50",
+    bg: "bg-slate-100",
     text: "text-slate-700",
     border: "border-slate-200",
     label: "Completed",
@@ -91,7 +92,7 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     bg: "bg-rose-50",
     text: "text-rose-800",
     border: "border-rose-200",
-    label: "Declined",
+    label: "Declined / Freed",
   },
   new: {
     bg: "bg-blue-50",
@@ -109,7 +110,7 @@ const statusStyles: Record<string, { bg: string; text: string; border: string; l
     bg: "bg-black",
     text: "text-[#cba758]",
     border: "border-[#cba758]/40",
-    label: "Retained",
+    label: "Retained Client",
   },
   closed: {
     bg: "bg-slate-50",
@@ -177,8 +178,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<"admin" | "secretary">("admin");
 
-  // Redwood Style Main Sidebar Nav View:
-  // "dashboard" | "bookings" | "contacts" | "clients" | "chamber"
+  // Navigation View: Dashboard vs Bookings vs Contacts vs Clients vs Chamber
   const [activeNav, setActiveNav] = useState<"dashboard" | "bookings" | "contacts" | "clients" | "chamber">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -188,11 +188,16 @@ export default function DashboardClient() {
   // Chart Category Filter (Volume Chart): "all" | "bookings" | "contacts"
   const [chartCategory, setChartCategory] = useState<"all" | "bookings" | "contacts">("all");
 
-  // Search & Status Filters for dedicated views
+  // Search input
   const [searchQuery, setSearchQuery] = useState("");
-  const [bookingStatusFilter, setBookingStatusFilter] = useState<"all" | "pending" | "confirmed" | "attended" | "cancelled">("all");
+
+  // Dedicated Booking Filter Tab:
+  // "all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined"
+  const [bookingTabFilter, setBookingTabFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined">("all");
+
+  // Dedicated Contact Inquiries Filter:
+  // "all" | "new" | "contacted" | "converted" | "closed"
   const [contactStatusFilter, setContactStatusFilter] = useState<"all" | "new" | "contacted" | "converted" | "closed">("all");
-  const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "past">("all");
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -431,7 +436,7 @@ export default function DashboardClient() {
 
   // Delete Contact Inquiry
   async function deleteContactInquiry(id: string) {
-    if (!window.confirm("Permanently delete this contact inquiry? This cannot be undone.")) return;
+    if (!window.confirm("Permanently delete this contact inquiry? This action cannot be undone.")) return;
     setUpdatingId(id);
     try {
       const res = await fetch(`/api/admin/contacts?id=${id}`, { method: "DELETE" });
@@ -869,8 +874,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
     );
   }, [bookings, contacts]);
 
-  // Overall Statistics for Redwood 5 KPI Cards
-  const stats = useMemo(() => {
+  // Overall Statistics for Dashboard View ONLY
+  const dashboardStats = useMemo(() => {
     const totalClients = clientsDirectory.length;
     const totalBookings = bookings.length;
     const totalContacts = contacts.length;
@@ -890,9 +895,46 @@ Please join the Google Meet link above at your scheduled appointment time.`;
     };
   }, [clientsDirectory, bookings, contacts, todayStr]);
 
+  // Specific Booking Metrics for "Bookings & Slots" View ONLY
+  const bookingMetrics = useMemo(() => {
+    const todayCount = bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
+    const tomorrowCount = bookings.filter((b) => b.booking_date === tomorrowStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
+    const upcomingCount = bookings.filter((b) => b.booking_date > tomorrowStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
+    const pendingCount = bookings.filter((b) => b.status === "pending").length;
+    const attendedCount = bookings.filter((b) => b.attendance === "attended").length;
+    const completedCount = bookings.filter((b) => b.status === "completed").length;
+    const declinedCount = bookings.filter((b) => b.status === "cancelled" || b.attendance === "no_show").length;
+    const totalActive = bookings.filter((b) => b.status !== "cancelled" && b.attendance !== "no_show").length;
+
+    return {
+      todayCount,
+      tomorrowCount,
+      upcomingCount,
+      pendingCount,
+      attendedCount,
+      completedCount,
+      declinedCount,
+      totalActive,
+    };
+  }, [bookings, todayStr, tomorrowStr]);
+
+  // Specific Contact Inquiry Metrics
+  const contactMetrics = useMemo(() => {
+    const newCount = contacts.filter((c) => c.status === "new").length;
+    const contactedCount = contacts.filter((c) => c.status === "contacted").length;
+    const convertedCount = contacts.filter((c) => c.status === "converted").length;
+    const closedCount = contacts.filter((c) => c.status === "closed").length;
+    return {
+      total: contacts.length,
+      newCount,
+      contactedCount,
+      convertedCount,
+      closedCount,
+    };
+  }, [contacts]);
+
   // Chart Data 1: Volume Stacked Bars (4 Time Buckets)
   const volumeChartData = useMemo(() => {
-    // Generate 4 weekly buckets
     const buckets = [
       { label: "Week 1", start: 1, end: 7, bookings: 0, contacts: 0, total: 0 },
       { label: "Week 2", start: 8, end: 14, bookings: 0, contacts: 0, total: 0 },
@@ -914,7 +956,6 @@ Please join the Google Meet link above at your scheduled appointment time.`;
       bkt.total += 1;
     });
 
-    // Ensure chart has realistic sample visualization if data is light
     return buckets;
   }, [bookings, contacts]);
 
@@ -953,30 +994,27 @@ Please join the Google Meet link above at your scheduled appointment time.`;
     ];
   }, [bookings]);
 
-  // Filtered Bookings for the Dedicated Bookings View
+  // Filtered Bookings for the Dedicated Bookings View (strictly separated by time & status)
   const filteredBookings = useMemo(() => {
     let list = [...bookings];
 
-    if (bookingStatusFilter === "pending") {
+    if (bookingTabFilter === "today") {
+      list = list.filter((b) => b.booking_date === todayStr && b.status !== "cancelled");
+    } else if (bookingTabFilter === "tomorrow") {
+      list = list.filter((b) => b.booking_date === tomorrowStr && b.status !== "cancelled");
+    } else if (bookingTabFilter === "upcoming") {
+      list = list.filter((b) => b.booking_date > tomorrowStr && b.status !== "cancelled");
+    } else if (bookingTabFilter === "pending") {
       list = list.filter((b) => b.status === "pending");
-    } else if (bookingStatusFilter === "confirmed") {
-      list = list.filter((b) => b.status === "confirmed");
-    } else if (bookingStatusFilter === "attended") {
+    } else if (bookingTabFilter === "attended") {
       list = list.filter((b) => b.attendance === "attended");
-    } else if (bookingStatusFilter === "cancelled") {
+    } else if (bookingTabFilter === "completed") {
+      list = list.filter((b) => b.status === "completed");
+    } else if (bookingTabFilter === "declined") {
       list = list.filter((b) => b.status === "cancelled" || b.attendance === "no_show");
-    } else if (bookingStatusFilter === "all") {
+    } else {
+      // "all": Active, not declined or no-show
       list = list.filter((b) => b.status !== "cancelled" && b.attendance !== "no_show");
-    }
-
-    if (dateFilter === "today") {
-      list = list.filter((b) => b.booking_date === todayStr);
-    } else if (dateFilter === "tomorrow") {
-      list = list.filter((b) => b.booking_date === tomorrowStr);
-    } else if (dateFilter === "upcoming") {
-      list = list.filter((b) => b.booking_date >= todayStr);
-    } else if (dateFilter === "past") {
-      list = list.filter((b) => b.booking_date < todayStr);
     }
 
     if (searchQuery.trim()) {
@@ -996,11 +1034,13 @@ Please join the Google Meet link above at your scheduled appointment time.`;
     }
 
     return list.sort((a, b) => {
+      if (a.booking_date === todayStr && b.booking_date !== todayStr) return -1;
+      if (b.booking_date === todayStr && a.booking_date !== todayStr) return 1;
       if (a.status === "pending" && b.status !== "pending") return -1;
       if (b.status === "pending" && a.status !== "pending") return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [bookings, bookingStatusFilter, dateFilter, searchQuery, todayStr, tomorrowStr]);
+  }, [bookings, bookingTabFilter, searchQuery, todayStr, tomorrowStr]);
 
   // Filtered Contacts for the Dedicated Contact Inquiries View
   const filteredContacts = useMemo(() => {
@@ -1043,13 +1083,15 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
   return (
     <div className="min-h-screen bg-[#f1f3f7] text-[#09090b] flex flex-col antialiased">
-      {/* ================= TOP APPLICATION HEADER (Dark Redwood Band) ================= */}
+      {/* ================= TOP APPLICATION HEADER ================= */}
       <header className="bg-[#1b1f2b] text-white border-b border-[#2d3243] sticky top-0 z-40 px-4 sm:px-6 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Mobile Menu Hamburger */}
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10"
+            aria-label="Toggle navigation drawer"
           >
             <Menu size={20} />
           </button>
@@ -1074,9 +1116,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Quick Chamber Away / Open Indicator */}
           <button
-            onClick={() => {
-              setActiveNav("chamber");
-            }}
+            type="button"
+            onClick={() => setActiveNav("chamber")}
             className={`hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
               chamberStatus.isOfficeOpen
                 ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/40"
@@ -1094,6 +1135,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
           {/* Refresh Button */}
           <button
+            type="button"
             onClick={loadData}
             className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/10 text-slate-200 hover:bg-white/15 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
             title="Refresh Live Data"
@@ -1112,6 +1154,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               <span className="text-[9.5px] text-slate-400 font-mono block mt-0.5">High Court Desk</span>
             </div>
             <button
+              type="button"
               onClick={handleLogout}
               className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
               title="Sign Out"
@@ -1123,11 +1166,19 @@ Please join the Google Meet link above at your scheduled appointment time.`;
       </header>
 
       {/* ================= MAIN CONTAINER: SIDEBAR + CONTENT AREA ================= */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* ================= PERSISTENT DARK SIDEBAR (Redwood Style) ================= */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Backdrop Overlay */}
+        {mobileMenuOpen && (
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-xs md:hidden"
+          />
+        )}
+
+        {/* ================= PERSISTENT DARK SIDEBAR ================= */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-64 bg-[#1f2430] text-slate-300 transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 flex flex-col shrink-0 border-r border-[#2c3243] shadow-lg md:shadow-none ${
-            mobileMenuOpen ? "translate-x-0" : "-translate-x-0 max-md:-translate-x-full"
+          className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#1f2430] text-slate-300 transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 flex flex-col shrink-0 border-r border-[#2c3243] shadow-2xl md:shadow-none ${
+            mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
           {/* Sidebar Header Title */}
@@ -1135,15 +1186,20 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
               Admin Portal
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-[#cba758] font-bold">
-              v2.4
-            </span>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              className="md:hidden text-slate-400 hover:text-white"
+            >
+              <X size={16} />
+            </button>
           </div>
 
           {/* Navigation Links */}
           <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
             {/* 1. Dashboard Overview */}
             <button
+              type="button"
               onClick={() => {
                 setActiveNav("dashboard");
                 setMobileMenuOpen(false);
@@ -1156,15 +1212,16 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             >
               <div className="flex items-center gap-3">
                 <LayoutDashboard size={16} />
-                <span>Dashboard</span>
+                <span>Dashboard Overview</span>
               </div>
-              {stats.pendingAction > 0 && (
+              {dashboardStats.pendingAction > 0 && (
                 <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
               )}
             </button>
 
-            {/* 2. Bookings & Consultations */}
+            {/* 2. Bookings & Slots */}
             <button
+              type="button"
               onClick={() => {
                 setActiveNav("bookings");
                 setMobileMenuOpen(false);
@@ -1186,6 +1243,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
             {/* 3. Contact Inquiries */}
             <button
+              type="button"
               onClick={() => {
                 setActiveNav("contacts");
                 setMobileMenuOpen(false);
@@ -1207,6 +1265,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
             {/* 4. Clients Directory */}
             <button
+              type="button"
               onClick={() => {
                 setActiveNav("clients");
                 setMobileMenuOpen(false);
@@ -1228,6 +1287,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
             {/* 5. Chamber Status & Presence */}
             <button
+              type="button"
               onClick={() => {
                 setActiveNav("chamber");
                 setMobileMenuOpen(false);
@@ -1253,6 +1313,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           {/* Quick CTA: Manual Booking / Block Slot Button */}
           <div className="p-3.5 border-t border-[#2c3243]">
             <button
+              type="button"
               onClick={() => {
                 setManualForm({
                   name: "",
@@ -1267,6 +1328,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 });
                 setManualError("");
                 setShowManualModal(true);
+                setMobileMenuOpen(false);
               }}
               className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
@@ -1277,28 +1339,28 @@ Please join the Google Meet link above at your scheduled appointment time.`;
         </aside>
 
         {/* ================= MAIN CONTENT VIEWPORT ================= */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* ================= SUB-HEADER: TITLE + DATE FILTERS (Redwood Style) ================= */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 md:pb-8">
+          {/* ================= SUB-HEADER: TITLE + DATE FILTERS ================= */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-zinc-200">
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-serif font-bold text-zinc-900 capitalize flex items-center gap-2">
                   <span>
-                    {activeNav === "dashboard" && "Dashboard"}
+                    {activeNav === "dashboard" && "Dashboard Overview"}
                     {activeNav === "bookings" && "Bookings & Consultations"}
                     {activeNav === "contacts" && "Website Contact Inquiries"}
                     {activeNav === "clients" && "Clients Directory"}
-                    {activeNav === "chamber" && "Chamber Status & Away Manager"}
+                    {activeNav === "chamber" && "Chamber Status & Presence"}
                   </span>
                   <span className="h-2.5 w-2.5 rounded-full bg-[#f6ad55] inline-block shadow-xs" />
                 </h1>
               </div>
               <p className="text-xs text-zinc-500 mt-0.5">
-                {activeNav === "dashboard" && "Executive overview of chamber consultations, client intake, and attendance."}
-                {activeNav === "bookings" && "Dedicated appointments desk: schedule, confirm, reschedule, and verify visits."}
-                {activeNav === "contacts" && "Dedicated inbox for online inquiry forms with instant WhatsApp reply drafts."}
-                {activeNav === "clients" && "Unified legal client directory with historical engagement records."}
-                {activeNav === "chamber" && "Live availability manager for office visits and online consultation channels."}
+                {activeNav === "dashboard" && "Executive metrics, consultation volume, and practice breakdown."}
+                {activeNav === "bookings" && "Appointments desk: view by Today, Tomorrow, Upcoming, Attended, and Completed."}
+                {activeNav === "contacts" && "Inquiries inbox: website messages with instant WhatsApp reply drafts."}
+                {activeNav === "clients" && "Client directory: unique client records and past consultation histories."}
+                {activeNav === "chamber" && "Availability manager: office visits, hearings, and client notice banners."}
               </p>
             </div>
 
@@ -1308,6 +1370,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 {(["month", "quarter", "year", "all"] as const).map((p) => (
                   <button
                     key={p}
+                    type="button"
                     onClick={() => setPeriodFilter(p)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
                       periodFilter === p
@@ -1330,127 +1393,108 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             </div>
           </div>
 
-          {/* ================= 5 KPI METRIC CARDS (Redwood Style) ================= */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
-            {/* Card 1: Users / Clients */}
-            <div
-              onClick={() => setActiveNav("clients")}
-              className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-zinc-300 ${
-                activeNav === "clients" ? "border-[#2b6cb0] ring-2 ring-[#2b6cb0]/15" : "border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center justify-between text-zinc-500">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Total Clients</span>
-                <Users size={16} />
-              </div>
-              <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{stats.totalClients}</p>
-              <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-emerald-700">
-                <span>▲ Verified clients</span>
-              </div>
-            </div>
-
-            {/* Card 2: Consultations (Bookings) */}
-            <div
-              onClick={() => {
-                setActiveNav("bookings");
-                setBookingStatusFilter("all");
-              }}
-              className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-zinc-300 ${
-                activeNav === "bookings" && bookingStatusFilter === "all"
-                  ? "border-[#2b6cb0] ring-2 ring-[#2b6cb0]/15"
-                  : "border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center justify-between text-zinc-500">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Bookings</span>
-                <Calendar size={16} />
-              </div>
-              <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{stats.totalBookings}</p>
-              <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-zinc-500">
-                <span>Total consultations</span>
-              </div>
-            </div>
-
-            {/* Card 3: Attended / Came (Fixed Beautiful Light Emerald Theme - No Color Glitch) */}
-            <div
-              onClick={() => {
-                setActiveNav("bookings");
-                setBookingStatusFilter("attended");
-              }}
-              className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-emerald-400 ${
-                activeNav === "bookings" && bookingStatusFilter === "attended"
-                  ? "border-emerald-500 ring-2 ring-emerald-500/25 bg-emerald-50/40"
-                  : "border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-800">
-                  Attended / Came
-                </span>
-                <CheckCheck size={16} className="text-emerald-600" />
-              </div>
-              <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{stats.attendedCount}</p>
-              <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-emerald-700">
-                <span>✓ Verified chamber visits</span>
-              </div>
-            </div>
-
-            {/* Card 4: Contact Inquiries */}
-            <div
-              onClick={() => {
-                setActiveNav("contacts");
-                setContactStatusFilter("all");
-              }}
-              className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-blue-400 ${
-                activeNav === "contacts" ? "border-blue-600 ring-2 ring-blue-600/15" : "border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center justify-between text-blue-800">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Inquiries</span>
-                <MessageSquare size={16} />
-              </div>
-              <p className="text-2xl font-serif font-bold text-blue-900 mt-2">{stats.totalContacts}</p>
-              <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700">
-                <span>Web contact forms</span>
-              </div>
-            </div>
-
-            {/* Card 5: Needs Action / Awaiting Review */}
-            <div
-              onClick={() => {
-                setActiveNav("bookings");
-                setBookingStatusFilter("pending");
-              }}
-              className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-amber-400 ${
-                activeNav === "bookings" && bookingStatusFilter === "pending"
-                  ? "border-amber-500 ring-2 ring-amber-500/25 bg-amber-50/40"
-                  : "border-zinc-200"
-              }`}
-            >
-              <div className="flex items-center justify-between text-amber-800">
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Needs Action</span>
-                <Clock size={16} />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <p className="text-2xl font-serif font-bold text-amber-900">{stats.pendingAction}</p>
-                {stats.pendingAction > 0 && (
-                  <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
-                    Review
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-amber-700">
-                <span>Pending confirmation</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ================= VIEW 1: DASHBOARD OVERVIEW ================= */}
+          {/* ================= VIEW 1: DASHBOARD OVERVIEW ONLY ================= */}
           {activeNav === "dashboard" && (
             <div className="space-y-6">
-              {/* Charts Row: Left Volume Bar Chart + Right Matter Donut Chart */}
+              {/* 5 Overall Dashboard KPI Metric Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+                {/* Card 1: Total Clients */}
+                <div
+                  onClick={() => setActiveNav("clients")}
+                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-[#2b6cb0]"
+                >
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Total Clients</span>
+                    <Users size={16} />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{dashboardStats.totalClients}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-emerald-700">
+                    <span>▲ Verified client base</span>
+                  </div>
+                </div>
+
+                {/* Card 2: Consultations Booked */}
+                <div
+                  onClick={() => {
+                    setActiveNav("bookings");
+                    setBookingTabFilter("all");
+                  }}
+                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-[#2b6cb0]"
+                >
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Bookings</span>
+                    <Calendar size={16} />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{dashboardStats.totalBookings}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-zinc-500">
+                    <span>Total consultations</span>
+                  </div>
+                </div>
+
+                {/* Card 3: Attended / Came (Fixed light emerald theme) */}
+                <div
+                  onClick={() => {
+                    setActiveNav("bookings");
+                    setBookingTabFilter("attended");
+                  }}
+                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-emerald-500"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-800">
+                      Attended / Came
+                    </span>
+                    <CheckCheck size={16} className="text-emerald-600" />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-2">{dashboardStats.attendedCount}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-emerald-700">
+                    <span>✓ Verified chamber visits</span>
+                  </div>
+                </div>
+
+                {/* Card 4: Contact Inquiries */}
+                <div
+                  onClick={() => setActiveNav("contacts")}
+                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-blue-500"
+                >
+                  <div className="flex items-center justify-between text-blue-800">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Inquiries</span>
+                    <MessageSquare size={16} />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-blue-900 mt-2">{dashboardStats.totalContacts}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700">
+                    <span>Web contact forms</span>
+                  </div>
+                </div>
+
+                {/* Card 5: Needs Action */}
+                <div
+                  onClick={() => {
+                    setActiveNav("bookings");
+                    setBookingTabFilter("pending");
+                  }}
+                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-amber-500"
+                >
+                  <div className="flex items-center justify-between text-amber-800">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Needs Action</span>
+                    <Clock size={16} />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <p className="text-2xl font-serif font-bold text-amber-900">{dashboardStats.pendingAction}</p>
+                    {dashboardStats.pendingAction > 0 && (
+                      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-900 animate-pulse">
+                        Review
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-amber-700">
+                    <span>Pending confirmation</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts Row: Volume Bar Chart + Practice Areas Donut Chart */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Card (7 cols): Consultation & Inquiry Activity Bar Chart */}
+                {/* Left Card (8 cols): Volume Stacked Bars */}
                 <div className="lg:col-span-8 bg-white rounded-2xl border border-zinc-200 p-5 shadow-2xs space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 pb-3">
                     <div>
@@ -1458,15 +1502,15 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                         Consultation & Inquiry Volume
                       </h3>
                       <p className="text-[11px] text-zinc-500">
-                        Weekly intake activity across all chamber practice areas
+                        Weekly intake activity across all chamber practice tracks
                       </p>
                     </div>
 
-                    {/* Chart Category Toggle: All, Consultations, Inquiries */}
                     <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 text-xs font-medium">
                       {(["all", "bookings", "contacts"] as const).map((cat) => (
                         <button
                           key={cat}
+                          type="button"
                           onClick={() => setChartCategory(cat)}
                           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                             chartCategory === cat
@@ -1563,8 +1607,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       {/* Donut Segments */}
                       {(() => {
                         let accumulated = 0;
-                        const circumference = 2 * Math.PI * 38; // ~238.76
-                        return practiceDonutData.map((seg, i) => {
+                        const circumference = 2 * Math.PI * 38;
+                        return practiceDonutData.map((seg) => {
                           const strokeLen = (seg.pct / 100) * circumference;
                           const offset = -accumulated;
                           accumulated += strokeLen;
@@ -1586,7 +1630,6 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       })()}
                     </svg>
 
-                    {/* Donut Center Count */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-xl font-serif font-bold text-zinc-900">
                         {bookings.length}
@@ -1613,34 +1656,35 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
               </div>
 
-              {/* Today's Urgent Consultations & Chamber Quick Actions */}
+              {/* Today's Urgent Schedule Preview */}
               <div className="bg-white rounded-2xl border border-zinc-200 p-5 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                   <div className="flex items-center gap-2">
                     <CalendarDays size={16} className="text-[#cba758]" />
                     <h3 className="font-serif font-bold text-sm text-zinc-900">
-                      Today&apos;s Chamber Schedule ({stats.todayBookings.length} Appointments)
+                      Today&apos;s Chamber Schedule ({dashboardStats.todayBookings.length} Appointments)
                     </h3>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
                       setActiveNav("bookings");
-                      setDateFilter("today");
+                      setBookingTabFilter("today");
                     }}
                     className="text-xs font-semibold text-[#2b6cb0] hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <span>View All Bookings</span>
+                    <span>View Today in Bookings</span>
                     <ChevronRight size={13} />
                   </button>
                 </div>
 
-                {stats.todayBookings.length === 0 ? (
+                {dashboardStats.todayBookings.length === 0 ? (
                   <div className="py-8 text-center text-zinc-500 text-xs">
                     No consultation appointments scheduled for today yet.
                   </div>
                 ) : (
                   <div className="divide-y divide-zinc-100 overflow-x-auto">
-                    {stats.todayBookings.map((b) => (
+                    {dashboardStats.todayBookings.map((b) => (
                       <div
                         key={b.id}
                         className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
@@ -1665,7 +1709,6 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                           </div>
                         </div>
 
-                        {/* Quick Attendance & WhatsApp Dispatch */}
                         <div className="flex items-center gap-2 self-end sm:self-center">
                           <button
                             type="button"
@@ -1686,18 +1729,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => openConfirmModal(b)}
                             className="px-2.5 py-1 rounded-lg bg-black text-[#cba758] hover:bg-zinc-900 text-[11px] font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
                           >
                             <MessageCircle size={12} />
                             <span>WhatsApp</span>
-                          </button>
-
-                          <button
-                            onClick={() => openRescheduleModal(b)}
-                            className="px-2 py-1 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-[11px] font-semibold transition-all cursor-pointer"
-                          >
-                            Reschedule
                           </button>
                         </div>
                       </div>
@@ -1708,24 +1745,138 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             </div>
           )}
 
-          {/* ================= VIEW 2: DEDICATED BOOKINGS & CONSULTATIONS ================= */}
+          {/* ================= VIEW 2: DEDICATED BOOKINGS & SLOTS ONLY ================= */}
           {activeNav === "bookings" && (
             <div className="space-y-4">
-              {/* Action Bar: Search Input + Status Filter Pills + Date Filters */}
+              {/* Dedicated Booking Metric Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {/* 1. Today's Slots */}
+                <div
+                  onClick={() => setBookingTabFilter("today")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-[#cba758] ${
+                    bookingTabFilter === "today"
+                      ? "border-[#cba758] ring-2 ring-[#cba758]/25 bg-amber-50/20"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#9f7d32]">
+                      Today&apos;s Slots
+                    </span>
+                    <CalendarDays size={15} className="text-[#cba758]" />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1.5">
+                    {bookingMetrics.todayCount}
+                  </p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Scheduled for today</p>
+                </div>
+
+                {/* 2. Tomorrow's Slots */}
+                <div
+                  onClick={() => setBookingTabFilter("tomorrow")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-[#2b6cb0] ${
+                    bookingTabFilter === "tomorrow"
+                      ? "border-[#2b6cb0] ring-2 ring-[#2b6cb0]/25 bg-blue-50/20"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-blue-700">
+                      Tomorrow
+                    </span>
+                    <Calendar size={15} className="text-blue-600" />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1.5">
+                    {bookingMetrics.tomorrowCount}
+                  </p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Upcoming tomorrow</p>
+                </div>
+
+                {/* 3. Upcoming (Future) */}
+                <div
+                  onClick={() => setBookingTabFilter("upcoming")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-purple-500 ${
+                    bookingTabFilter === "upcoming"
+                      ? "border-purple-500 ring-2 ring-purple-500/25 bg-purple-50/20"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-zinc-500">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-purple-700">
+                      Upcoming
+                    </span>
+                    <CalendarClock size={15} className="text-purple-600" />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1.5">
+                    {bookingMetrics.upcomingCount}
+                  </p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Future booked slots</p>
+                </div>
+
+                {/* 4. Awaiting Review */}
+                <div
+                  onClick={() => setBookingTabFilter("pending")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-amber-500 ${
+                    bookingTabFilter === "pending"
+                      ? "border-amber-500 ring-2 ring-amber-500/25 bg-amber-50/30"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-amber-800">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider">
+                      Awaiting Review
+                    </span>
+                    <Clock size={15} />
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <p className="text-2xl font-serif font-bold text-amber-900">
+                      {bookingMetrics.pendingCount}
+                    </p>
+                    {bookingMetrics.pendingCount > 0 && (
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Needs confirmation</p>
+                </div>
+
+                {/* 5. Attended / Came (Fixed clean emerald theme) */}
+                <div
+                  onClick={() => setBookingTabFilter("attended")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:border-emerald-500 ${
+                    bookingTabFilter === "attended"
+                      ? "border-emerald-500 ring-2 ring-emerald-500/25 bg-emerald-50/40"
+                      : "border-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-emerald-800">
+                      Attended / Came
+                    </span>
+                    <CheckCheck size={15} className="text-emerald-600" />
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1.5">
+                    {bookingMetrics.attendedCount}
+                  </p>
+                  <p className="text-[10.5px] text-emerald-700 mt-0.5">Verified chamber visits</p>
+                </div>
+              </div>
+
+              {/* Action Bar: Search Bar + Filter Tabs + New Booking */}
               <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-2xs space-y-3">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   {/* Search Bar */}
-                  <div className="relative w-full lg:w-96">
+                  <div className="relative w-full sm:w-96">
                     <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search bookings by client name, phone, TLA-2026 ID, or matter..."
+                      placeholder="Search bookings by client name, phone, or TLA-2026 ID..."
                       className="w-full pl-9 pr-8 py-2 rounded-xl border border-zinc-300 bg-white text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:outline-none"
                     />
                     {searchQuery && (
                       <button
+                        type="button"
                         onClick={() => setSearchQuery("")}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
                       >
@@ -1734,8 +1885,9 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     )}
                   </div>
 
-                  {/* Add Manual Booking Button */}
+                  {/* Add Manual Booking / Block Slot Button */}
                   <button
+                    type="button"
                     onClick={() => {
                       setManualForm({
                         name: "",
@@ -1751,80 +1903,62 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       setManualError("");
                       setShowManualModal(true);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer self-start lg:self-center"
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
                   >
-                    <Plus size={14} />
+                    <Plus size={14} strokeWidth={2.5} />
                     <span>+ Add Walk-in / Block Slot</span>
                   </button>
                 </div>
 
-                {/* Status & Date Filter Pills */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-100 text-xs">
-                  {/* Status Pills */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono text-[10.5px] uppercase font-bold text-zinc-500 mr-1">
-                      Status:
-                    </span>
-                    {[
-                      { id: "all", label: "Active Slots" },
-                      { id: "pending", label: "Awaiting Review" },
-                      { id: "confirmed", label: "Confirmed" },
-                      { id: "attended", label: "Attended / Came" },
-                      { id: "cancelled", label: "Declined / Cancelled" },
-                    ].map((f) => {
-                      const isSelected = bookingStatusFilter === f.id;
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => setBookingStatusFilter(f.id as any)}
-                          className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                            isSelected
-                              ? f.id === "attended"
-                                ? "bg-emerald-600 text-white font-bold shadow-xs"
-                                : "bg-black text-white font-bold shadow-xs"
-                              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Date Quick Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[10.5px] uppercase font-bold text-zinc-500 mr-1">
-                      Date:
-                    </span>
-                    {[
-                      { id: "all", label: "All" },
-                      { id: "today", label: "Today" },
-                      { id: "upcoming", label: "Upcoming" },
-                      { id: "past", label: "Past" },
-                    ].map((df) => (
+                {/* Booking Section Time & Status Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-zinc-100 text-xs no-scrollbar">
+                  {[
+                    { id: "all", label: "All Active", count: bookingMetrics.totalActive },
+                    { id: "today", label: "Today's Slots", count: bookingMetrics.todayCount },
+                    { id: "tomorrow", label: "Tomorrow", count: bookingMetrics.tomorrowCount },
+                    { id: "upcoming", label: "Upcoming", count: bookingMetrics.upcomingCount },
+                    { id: "pending", label: "Awaiting Review", count: bookingMetrics.pendingCount },
+                    { id: "attended", label: "Attended / Came", count: bookingMetrics.attendedCount },
+                    { id: "completed", label: "Completed", count: bookingMetrics.completedCount },
+                    { id: "declined", label: "Declined / Freed", count: bookingMetrics.declinedCount },
+                  ].map((tab) => {
+                    const isSelected = bookingTabFilter === tab.id;
+                    return (
                       <button
-                        key={df.id}
-                        onClick={() => setDateFilter(df.id as any)}
-                        className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                          dateFilter === df.id
-                            ? "bg-[#cba758] text-black font-bold shadow-xs"
-                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setBookingTabFilter(tab.id as any)}
+                        className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? tab.id === "attended"
+                              ? "bg-emerald-600 text-white font-bold shadow-xs"
+                              : tab.id === "today"
+                              ? "bg-[#cba758] text-black font-bold shadow-xs"
+                              : "bg-black text-white font-bold shadow-xs"
+                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                         }`}
                       >
-                        {df.label}
+                        <span>{tab.label}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                            isSelected ? "bg-white/20 text-white" : "bg-black/5 text-zinc-500"
+                          }`}
+                        >
+                          {tab.count}
+                        </span>
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Dedicated Bookings Table */}
+              {/* Bookings Container */}
               <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
                 {loading ? (
                   <div className="py-20 text-center">
                     <Loader2 size={30} className="animate-spin text-[#cba758] mx-auto mb-2" />
                     <p className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
-                      Loading appointments...
+                      Loading bookings desk...
                     </p>
                   </div>
                 ) : filteredBookings.length === 0 ? (
@@ -1834,254 +1968,431 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <p className="text-xs text-zinc-500 mt-1">
                       {searchQuery
                         ? `No bookings match "${searchQuery}".`
-                        : "No bookings for the selected filter."}
+                        : "No appointments match this timing tab."}
                     </p>
                     <button
+                      type="button"
                       onClick={() => {
                         setSearchQuery("");
-                        setBookingStatusFilter("all");
-                        setDateFilter("all");
+                        setBookingTabFilter("all");
                       }}
                       className="mt-3 px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-bold"
                     >
-                      Clear Filters
+                      Show All Active Slots
                     </button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
-                          <th className="py-3 px-4 font-semibold">Client</th>
-                          <th className="py-3 px-4 font-semibold">Booking ID & Mode</th>
-                          <th className="py-3 px-4 font-semibold">Legal Matter</th>
-                          <th className="py-3 px-4 font-semibold">Date & Slot</th>
-                          <th className="py-3 px-4 font-semibold">Slot Status</th>
-                          <th className="py-3 px-4 font-semibold text-center">Attendance (Came?)</th>
-                          <th className="py-3 px-4 font-semibold text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {filteredBookings.map((b, idx) => {
-                          const statusMeta = statusStyles[b.status] || statusStyles.pending;
-                          const isAttended = b.attendance === "attended";
-                          const isNoShow = b.attendance === "no_show";
+                  <>
+                    {/* Desktop Table View (Hidden on mobile phones) */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
+                            <th className="py-3 px-4 font-semibold">Client</th>
+                            <th className="py-3 px-4 font-semibold">Booking ID & Mode</th>
+                            <th className="py-3 px-4 font-semibold">Legal Matter</th>
+                            <th className="py-3 px-4 font-semibold">Date & Slot</th>
+                            <th className="py-3 px-4 font-semibold">Slot Status</th>
+                            <th className="py-3 px-4 font-semibold text-center">Attendance (Came?)</th>
+                            <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                          {filteredBookings.map((b, idx) => {
+                            const statusMeta = statusStyles[b.status] || statusStyles.pending;
+                            const isAttended = b.attendance === "attended";
+                            const isNoShow = b.attendance === "no_show";
 
-                          return (
-                            <tr
-                              key={b.id}
-                              className={`hover:bg-zinc-50/80 transition-colors ${
-                                isAttended ? "bg-emerald-50/20" : ""
-                              }`}
-                            >
-                              {/* Client Details */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className={`h-8 w-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
-                                      AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                                    }`}
-                                  >
-                                    {getInitials(b.name)}
+                            return (
+                              <tr
+                                key={b.id}
+                                className={`hover:bg-zinc-50/80 transition-colors ${
+                                  isAttended ? "bg-emerald-50/20" : ""
+                                }`}
+                              >
+                                {/* Client Details */}
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`h-8 w-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                                        AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                                      }`}
+                                    >
+                                      {getInitials(b.name)}
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-zinc-900 block">{b.name}</span>
+                                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono">
+                                        <span>{b.phone}</span>
+                                        {b.email && (
+                                          <>
+                                            <span>·</span>
+                                            <span className="truncate max-w-[120px]">{b.email}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <span className="font-bold text-zinc-900 block">{b.name}</span>
-                                    <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono">
-                                      <span>{b.phone}</span>
-                                      {b.email && (
+                                </td>
+
+                                {/* Booking ID & Mode */}
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span className="font-mono text-[10px] font-bold text-[#9f7d32]">
+                                      {b.booking_id || getBookingId(b)}
+                                    </span>
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                        b.consultation_mode === "online"
+                                          ? "bg-purple-50 text-purple-800 border-purple-200"
+                                          : "bg-zinc-100 text-zinc-800 border-zinc-200"
+                                      }`}
+                                    >
+                                      {b.consultation_mode === "online" ? (
                                         <>
-                                          <span>·</span>
-                                          <span className="truncate max-w-[120px]">{b.email}</span>
+                                          <Video size={10} className="text-purple-600" />
+                                          <span>Google Meet</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MapPin size={10} className="text-zinc-600" />
+                                          <span>In-Person Chamber</span>
                                         </>
                                       )}
-                                    </div>
+                                    </span>
                                   </div>
-                                </div>
-                              </td>
+                                </td>
 
-                              {/* Booking ID & Mode */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex flex-col items-start gap-1">
-                                  <span className="font-mono text-[10px] font-bold text-[#9f7d32]">
-                                    {b.booking_id || getBookingId(b)}
-                                  </span>
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                      b.consultation_mode === "online"
-                                        ? "bg-purple-50 text-purple-800 border-purple-200"
-                                        : "bg-zinc-100 text-zinc-800 border-zinc-200"
-                                    }`}
-                                  >
-                                    {b.consultation_mode === "online" ? (
-                                      <>
-                                        <Video size={10} className="text-purple-600" />
-                                        <span>Google Meet</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <MapPin size={10} className="text-zinc-600" />
-                                        <span>In-Person Chamber</span>
-                                      </>
-                                    )}
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* Legal Matter */}
-                              <td className="py-3 px-4 max-w-[220px]">
-                                <p className="font-bold text-zinc-900 truncate">
-                                  {serviceLabels[b.service] || b.service}
-                                </p>
-                                {b.sub_service && (
-                                  <span className="text-[10px] font-mono text-[#9f7d32] font-semibold truncate block mt-0.5">
-                                    {b.sub_service}
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Date & Slot */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
-                                  <Clock size={12} className="text-zinc-400" />
-                                  <span>{formatTime12(b.booking_time)}</span>
-                                </div>
-                                <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                                  {formatDateLabel(b.booking_date)}
-                                </div>
-                              </td>
-
-                              {/* Slot Status */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <div className="flex flex-col items-start gap-1">
-                                  <span
-                                    className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider border ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                                  >
-                                    {statusMeta.label}
-                                  </span>
-                                  {b.status === "pending" && (
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                      <button
-                                        onClick={() => openConfirmModal(b)}
-                                        className="px-2 py-0.5 rounded bg-black text-[#cba758] text-[10px] font-bold hover:bg-zinc-900 cursor-pointer"
-                                      >
-                                        Confirm
-                                      </button>
-                                      <button
-                                        onClick={() => discardBooking(b.id)}
-                                        className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold cursor-pointer"
-                                      >
-                                        Decline
-                                      </button>
-                                    </div>
+                                {/* Legal Matter */}
+                                <td className="py-3 px-4 max-w-[220px]">
+                                  <p className="font-bold text-zinc-900 truncate">
+                                    {serviceLabels[b.service] || b.service}
+                                  </p>
+                                  {b.sub_service && (
+                                    <span className="text-[10px] font-mono text-[#9f7d32] font-semibold truncate block mt-0.5">
+                                      {b.sub_service}
+                                    </span>
                                   )}
-                                </div>
-                              </td>
+                                </td>
 
-                              {/* Attendance (Came?) - Clean, Beautiful, Emerald High-Contrast UI */}
-                              <td className="py-3 px-4 text-center whitespace-nowrap">
-                                <div className="inline-flex items-center gap-1.5 justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      updateAttendance(
-                                        b.id,
-                                        isAttended ? "scheduled" : "attended"
-                                      );
-                                      if (b.status === "cancelled") {
-                                        updateBookingStatus(b.id, "confirmed");
-                                      }
-                                    }}
-                                    disabled={updatingId === b.id}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
-                                      isAttended
-                                        ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs"
-                                        : "bg-white text-zinc-700 border-zinc-300 hover:border-emerald-600 hover:text-emerald-700"
-                                    }`}
-                                    title="Toggle client attendance"
-                                  >
-                                    <Check size={12} strokeWidth={2.5} className={isAttended ? "text-emerald-700" : ""} />
-                                    <span>{isAttended ? "Came ✓" : "Mark Came"}</span>
-                                  </button>
+                                {/* Date & Slot */}
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
+                                    <Clock size={12} className="text-zinc-400" />
+                                    <span>{formatTime12(b.booking_time)}</span>
+                                  </div>
+                                  <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                                    {formatDateLabel(b.booking_date)}
+                                  </div>
+                                </td>
 
-                                  {!isAttended && (
+                                {/* Slot Status */}
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase tracking-wider border ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                                    >
+                                      {statusMeta.label}
+                                    </span>
+                                    {b.status === "pending" && (
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => openConfirmModal(b)}
+                                          className="px-2 py-0.5 rounded bg-black text-[#cba758] text-[10px] font-bold hover:bg-zinc-900 cursor-pointer"
+                                        >
+                                          Confirm
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => discardBooking(b.id)}
+                                          className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Decline
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Attendance Column */}
+                                <td className="py-3 px-4 text-center whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1.5 justify-center">
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        if (!isNoShow) {
-                                          updateAttendance(b.id, "no_show");
-                                          updateBookingStatus(b.id, "cancelled");
-                                        } else {
-                                          updateAttendance(b.id, "scheduled");
+                                        updateAttendance(
+                                          b.id,
+                                          isAttended ? "scheduled" : "attended"
+                                        );
+                                        if (b.status === "cancelled") {
+                                          updateBookingStatus(b.id, "confirmed");
                                         }
                                       }}
                                       disabled={updatingId === b.id}
-                                      className={`px-2 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer border ${
-                                        isNoShow
-                                          ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
-                                          : "bg-white text-zinc-400 border-zinc-200 hover:text-rose-600"
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                                        isAttended
+                                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs"
+                                          : "bg-white text-zinc-700 border-zinc-300 hover:border-emerald-600 hover:text-emerald-700"
                                       }`}
-                                      title={isNoShow ? "Marked No-Show" : "Mark No-Show & Release Slot"}
+                                      title="Toggle client attendance"
                                     >
-                                      {isNoShow ? "No-Show" : <X size={11} />}
+                                      <Check size={12} strokeWidth={2.5} className={isAttended ? "text-emerald-700" : ""} />
+                                      <span>{isAttended ? "Came ✓" : "Mark Came"}</span>
                                     </button>
-                                  )}
+
+                                    {!isAttended && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!isNoShow) {
+                                            updateAttendance(b.id, "no_show");
+                                            updateBookingStatus(b.id, "cancelled");
+                                          } else {
+                                            updateAttendance(b.id, "scheduled");
+                                          }
+                                        }}
+                                        disabled={updatingId === b.id}
+                                        className={`px-2 py-1 rounded-lg text-[10.5px] transition-all cursor-pointer border ${
+                                          isNoShow
+                                            ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
+                                            : "bg-white text-zinc-400 border-zinc-200 hover:text-rose-600"
+                                        }`}
+                                        title={isNoShow ? "Marked No-Show" : "Mark No-Show & Release Slot"}
+                                      >
+                                        {isNoShow ? "No-Show" : <X size={11} />}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Actions */}
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => openConfirmModal(b)}
+                                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                                      title="WhatsApp Dispatch & Confirm"
+                                    >
+                                      <MessageCircle size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openRescheduleModal(b)}
+                                      className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
+                                      title="Reschedule Appointment Slot"
+                                    >
+                                      <CalendarClock size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedRecord({ type: "booking", data: b })}
+                                      className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
+                                      title="View Case Details"
+                                    >
+                                      <Eye size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteBookingPermanently(b.id)}
+                                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                      title="Delete Record"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Touch Cards View (Optimized for Adv. Shareen on phone) */}
+                    <div className="sm:hidden divide-y divide-zinc-200">
+                      {filteredBookings.map((b) => {
+                        const statusMeta = statusStyles[b.status] || statusStyles.pending;
+                        const isAttended = b.attendance === "attended";
+                        const isNoShow = b.attendance === "no_show";
+
+                        return (
+                          <div key={b.id} className="p-4 space-y-3 bg-white">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-sm text-zinc-900">{b.name}</span>
+                                  <span className="font-mono text-[10px] font-bold text-[#9f7d32] bg-[#cba758]/10 px-1.5 py-0.5 rounded">
+                                    {b.booking_id || getBookingId(b)}
+                                  </span>
                                 </div>
-                              </td>
+                                <a
+                                  href={`tel:${b.phone}`}
+                                  className="font-mono text-xs text-blue-600 font-semibold block mt-0.5"
+                                >
+                                  📞 {b.phone}
+                                </a>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                              >
+                                {statusMeta.label}
+                              </span>
+                            </div>
 
-                              {/* Actions */}
-                              <td className="py-3 px-4 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {/* WhatsApp / Confirm Modal */}
-                                  <button
-                                    onClick={() => openConfirmModal(b)}
-                                    className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                                    title="WhatsApp Dispatch & Confirm"
-                                  >
-                                    <MessageCircle size={14} />
-                                  </button>
-
-                                  {/* Reschedule Modal */}
-                                  <button
-                                    onClick={() => openRescheduleModal(b)}
-                                    className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
-                                    title="Reschedule Appointment Slot"
-                                  >
-                                    <CalendarClock size={14} />
-                                  </button>
-
-                                  {/* View Detail Drawer */}
-                                  <button
-                                    onClick={() => setSelectedRecord({ type: "booking", data: b })}
-                                    className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
-                                    title="View Case Details"
-                                  >
-                                    <Eye size={14} />
-                                  </button>
-
-                                  {/* Delete */}
-                                  <button
-                                    onClick={() => deleteBookingPermanently(b.id)}
-                                    className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                    title="Delete Record"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
+                            {/* Slot & Service Box */}
+                            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-between text-xs">
+                              <div>
+                                <div className="font-bold text-zinc-900 flex items-center gap-1.5">
+                                  <Clock size={13} className="text-[#cba758]" />
+                                  <span>{formatTime12(b.booking_time)}</span>
+                                  <span className="text-zinc-400 font-normal">· {formatDateLabel(b.booking_date)}</span>
                                 </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                <span className="text-[11px] text-zinc-600 block mt-0.5 truncate max-w-[200px]">
+                                  {b.sub_service || serviceLabels[b.service] || b.service}
+                                </span>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${
+                                  b.consultation_mode === "online"
+                                    ? "bg-purple-50 text-purple-800 border-purple-200"
+                                    : "bg-zinc-100 text-zinc-800 border-zinc-200"
+                                }`}
+                              >
+                                {b.consultation_mode === "online" ? "Meet 📹" : "Office 🏛️"}
+                              </span>
+                            </div>
+
+                            {/* Thumb-friendly mobile action buttons */}
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateAttendance(b.id, isAttended ? "scheduled" : "attended");
+                                  if (b.status === "cancelled") updateBookingStatus(b.id, "confirmed");
+                                }}
+                                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border shadow-2xs ${
+                                  isAttended
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                    : "bg-white text-zinc-800 border-zinc-300 hover:border-emerald-600"
+                                }`}
+                              >
+                                <Check size={14} strokeWidth={2.5} className={isAttended ? "text-emerald-700" : ""} />
+                                <span>{isAttended ? "Came ✓" : "Mark Came"}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openConfirmModal(b)}
+                                className="py-2 px-3 rounded-xl bg-black text-[#cba758] text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+                              >
+                                <MessageCircle size={14} />
+                                <span>WhatsApp</span>
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-100 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => openRescheduleModal(b)}
+                                className="py-1 px-2.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 font-semibold flex items-center gap-1 text-[11px]"
+                              >
+                                <CalendarClock size={12} />
+                                <span>Reschedule</span>
+                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRecord({ type: "booking", data: b })}
+                                  className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                                  title="View Details"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteBookingPermanently(b.id)}
+                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* ================= VIEW 3: DEDICATED WEBSITE CONTACT INQUIRIES ================= */}
+          {/* ================= VIEW 3: DEDICATED CONTACT INQUIRIES ONLY ================= */}
           {activeNav === "contacts" && (
             <div className="space-y-4">
+              {/* Dedicated Inquiries Counters */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div
+                  onClick={() => setContactStatusFilter("all")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs ${
+                    contactStatusFilter === "all" ? "border-blue-600 ring-2 ring-blue-600/20" : "border-zinc-200"
+                  }`}
+                >
+                  <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-blue-700">
+                    Total Inquiries
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1">{contactMetrics.total}</p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">All received forms</p>
+                </div>
+
+                <div
+                  onClick={() => setContactStatusFilter("new")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs ${
+                    contactStatusFilter === "new" ? "border-blue-600 ring-2 ring-blue-600/20" : "border-zinc-200"
+                  }`}
+                >
+                  <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-blue-700">
+                    New / Unread
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <p className="text-2xl font-serif font-bold text-blue-900">{contactMetrics.newCount}</p>
+                    {contactMetrics.newCount > 0 && (
+                      <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-blue-600 mt-0.5">Fresh inquiries</p>
+                </div>
+
+                <div
+                  onClick={() => setContactStatusFilter("contacted")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs ${
+                    contactStatusFilter === "contacted" ? "border-purple-600 ring-2 ring-purple-600/20" : "border-zinc-200"
+                  }`}
+                >
+                  <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-purple-700">
+                    Contacted
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-purple-900 mt-1">{contactMetrics.contactedCount}</p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Replied on WhatsApp/call</p>
+                </div>
+
+                <div
+                  onClick={() => setContactStatusFilter("converted")}
+                  className={`p-3.5 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs ${
+                    contactStatusFilter === "converted" ? "border-black ring-2 ring-black/20" : "border-zinc-200"
+                  }`}
+                >
+                  <div className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#9f7d32]">
+                    Retained Clients
+                  </div>
+                  <p className="text-2xl font-serif font-bold text-zinc-900 mt-1">{contactMetrics.convertedCount}</p>
+                  <p className="text-[10.5px] text-zinc-500 mt-0.5">Converted to mandate</p>
+                </div>
+              </div>
+
               {/* Search & Status Filters */}
               <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-2xs space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2096,6 +2407,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     />
                     {searchQuery && (
                       <button
+                        type="button"
                         onClick={() => setSearchQuery("")}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
                       >
@@ -2105,14 +2417,15 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   </div>
 
                   {/* Status Pills */}
-                  <div className="flex items-center gap-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 text-xs overflow-x-auto no-scrollbar">
                     {(["all", "new", "contacted", "converted", "closed"] as const).map((st) => {
                       const isSelected = contactStatusFilter === st;
                       return (
                         <button
                           key={st}
+                          type="button"
                           onClick={() => setContactStatusFilter(st)}
-                          className={`px-3 py-1 rounded-lg font-semibold capitalize transition-all cursor-pointer ${
+                          className={`px-3 py-1 rounded-lg font-semibold capitalize transition-all cursor-pointer whitespace-nowrap ${
                             isSelected
                               ? "bg-blue-600 text-white font-bold shadow-xs"
                               : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
@@ -2126,13 +2439,13 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
               </div>
 
-              {/* Dedicated Inquiries Table */}
+              {/* Inquiries Container */}
               <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
                 {loading ? (
                   <div className="py-20 text-center">
                     <Loader2 size={30} className="animate-spin text-blue-600 mx-auto mb-2" />
                     <p className="text-xs font-mono text-zinc-500 uppercase tracking-wider">
-                      Loading inquiries...
+                      Loading inquiries inbox...
                     </p>
                   </div>
                 ) : filteredContacts.length === 0 ? (
@@ -2145,6 +2458,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                         : "No inquiries under this status filter."}
                     </p>
                     <button
+                      type="button"
                       onClick={() => {
                         setSearchQuery("");
                         setContactStatusFilter("all");
@@ -2155,130 +2469,204 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     </button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
-                          <th className="py-3 px-4 font-semibold">Sender Details</th>
-                          <th className="py-3 px-4 font-semibold">Subject / Practice Track</th>
-                          <th className="py-3 px-4 font-semibold">Message Preview</th>
-                          <th className="py-3 px-4 font-semibold">Received Date</th>
-                          <th className="py-3 px-4 font-semibold">Status</th>
-                          <th className="py-3 px-4 font-semibold text-right">Quick Contact & Reply</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {filteredContacts.map((c) => {
-                          const statusMeta = statusStyles[c.status] || statusStyles.new;
+                  <>
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
+                            <th className="py-3 px-4 font-semibold">Sender Details</th>
+                            <th className="py-3 px-4 font-semibold">Subject / Practice Track</th>
+                            <th className="py-3 px-4 font-semibold">Message Preview</th>
+                            <th className="py-3 px-4 font-semibold">Received Date</th>
+                            <th className="py-3 px-4 font-semibold">Status</th>
+                            <th className="py-3 px-4 font-semibold text-right">Quick Contact & Reply</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                          {filteredContacts.map((c) => {
+                            const statusMeta = statusStyles[c.status] || statusStyles.new;
 
-                          return (
-                            <tr key={c.id} className="hover:bg-zinc-50/80 transition-colors">
-                              {/* Sender */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <span className="font-bold text-zinc-900 block">{c.name}</span>
-                                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono mt-0.5">
+                            return (
+                              <tr key={c.id} className="hover:bg-zinc-50/80 transition-colors">
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <span className="font-bold text-zinc-900 block">{c.name}</span>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 font-mono mt-0.5">
+                                    <span>{c.phone}</span>
+                                    {c.email && (
+                                      <>
+                                        <span>·</span>
+                                        <span className="truncate max-w-[130px]">{c.email}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-4 max-w-[180px]">
+                                  <span className="font-semibold text-zinc-900 block truncate">
+                                    {c.service}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 px-4 max-w-[280px]">
+                                  <p className="text-zinc-600 truncate text-[11px]">
+                                    &ldquo;{c.message || "No message body"}&rdquo;
+                                  </p>
+                                </td>
+
+                                <td className="py-3 px-4 whitespace-nowrap text-zinc-500 font-mono text-[11px]">
+                                  {formatDateLabel(c.created_at.slice(0, 10))}
+                                </td>
+
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <select
+                                    value={c.status}
+                                    onChange={(e) =>
+                                      updateContactStatus(c.id, e.target.value as ContactInquiry["status"])
+                                    }
+                                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-bold uppercase tracking-wider border cursor-pointer ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} focus:outline-none`}
+                                  >
+                                    <option value="new">New</option>
+                                    <option value="contacted">Contacted</option>
+                                    <option value="converted">Converted</option>
+                                    <option value="closed">Closed</option>
+                                  </select>
+                                </td>
+
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <a
+                                      href={`https://wa.me/${formatWhatsAppNumber(c.phone)}?text=${encodeURIComponent(
+                                        buildContactReplyWhatsApp(c)
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={() => updateContactStatus(c.id, "contacted")}
+                                      className="px-2.5 py-1 rounded-lg bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold text-[11px] flex items-center gap-1 shadow-2xs transition-colors"
+                                    >
+                                      <MessageCircle size={12} />
+                                      <span>WhatsApp Reply</span>
+                                    </a>
+
+                                    <a
+                                      href={`tel:${c.phone}`}
+                                      className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                                      title="Call Sender"
+                                    >
+                                      <Phone size={13} />
+                                    </a>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedRecord({ type: "contact", data: c })}
+                                      className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                                      title="View Full Message"
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteContactInquiry(c.id)}
+                                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50"
+                                      title="Delete Inquiry"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Touch Cards View */}
+                    <div className="sm:hidden divide-y divide-zinc-200">
+                      {filteredContacts.map((c) => {
+                        const statusMeta = statusStyles[c.status] || statusStyles.new;
+
+                        return (
+                          <div key={c.id} className="p-4 space-y-3 bg-white">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="font-bold text-sm text-zinc-900 block">{c.name}</span>
+                                <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-500 mt-0.5">
                                   <span>{c.phone}</span>
                                   {c.email && (
                                     <>
                                       <span>·</span>
-                                      <span className="truncate max-w-[130px]">{c.email}</span>
+                                      <span className="truncate max-w-[120px]">{c.email}</span>
                                     </>
                                   )}
                                 </div>
-                              </td>
+                              </div>
+                              <select
+                                value={c.status}
+                                onChange={(e) =>
+                                  updateContactStatus(c.id, e.target.value as ContactInquiry["status"])
+                                }
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} focus:outline-none`}
+                              >
+                                <option value="new">New</option>
+                                <option value="contacted">Contacted</option>
+                                <option value="converted">Converted</option>
+                                <option value="closed">Closed</option>
+                              </select>
+                            </div>
 
-                              {/* Service */}
-                              <td className="py-3 px-4 max-w-[180px]">
-                                <span className="font-semibold text-zinc-900 block truncate">
-                                  {c.service}
-                                </span>
-                              </td>
+                            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-xs space-y-1">
+                              <span className="font-semibold text-zinc-900 block">{c.service}</span>
+                              <p className="text-zinc-600 text-[11.5px] leading-relaxed">
+                                &ldquo;{c.message || "No message body"}&rdquo;
+                              </p>
+                              <span className="font-mono text-[10px] text-zinc-400 block pt-1">
+                                Received: {formatDateLabel(c.created_at.slice(0, 10))}
+                              </span>
+                            </div>
 
-                              {/* Message */}
-                              <td className="py-3 px-4 max-w-[280px]">
-                                <p className="text-zinc-600 truncate text-[11px]">
-                                  &ldquo;{c.message || "No message body"}&rdquo;
-                                </p>
-                              </td>
-
-                              {/* Received Date */}
-                              <td className="py-3 px-4 whitespace-nowrap text-zinc-500 font-mono text-[11px]">
-                                {formatDateLabel(c.created_at.slice(0, 10))}
-                              </td>
-
-                              {/* Status Dropdown */}
-                              <td className="py-3 px-4 whitespace-nowrap">
-                                <select
-                                  value={c.status}
-                                  onChange={(e) =>
-                                    updateContactStatus(c.id, e.target.value as ContactInquiry["status"])
-                                  }
-                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-bold uppercase tracking-wider border cursor-pointer ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} focus:outline-none`}
-                                >
-                                  <option value="new">New</option>
-                                  <option value="contacted">Contacted</option>
-                                  <option value="converted">Converted</option>
-                                  <option value="closed">Closed</option>
-                                </select>
-                              </td>
-
-                              {/* Quick Actions */}
-                              <td className="py-3 px-4 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  {/* Direct WhatsApp Reply */}
-                                  <a
-                                    href={`https://wa.me/${formatWhatsAppNumber(c.phone)}?text=${encodeURIComponent(
-                                      buildContactReplyWhatsApp(c)
-                                    )}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => updateContactStatus(c.id, "contacted")}
-                                    className="px-2.5 py-1 rounded-lg bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold text-[11px] flex items-center gap-1 shadow-2xs transition-colors"
-                                  >
-                                    <MessageCircle size={12} />
-                                    <span>WhatsApp Reply</span>
-                                  </a>
-
-                                  {/* Call */}
-                                  <a
-                                    href={`tel:${c.phone}`}
-                                    className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                                    title="Call Sender"
-                                  >
-                                    <Phone size={13} />
-                                  </a>
-
-                                  {/* View Detail Drawer */}
-                                  <button
-                                    onClick={() => setSelectedRecord({ type: "contact", data: c })}
-                                    className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                                    title="View Full Message"
-                                  >
-                                    <Eye size={13} />
-                                  </button>
-
-                                  {/* Delete */}
-                                  <button
-                                    onClick={() => deleteContactInquiry(c.id)}
-                                    className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50"
-                                    title="Delete Inquiry"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                            {/* Mobile Actions */}
+                            <div className="flex items-center justify-between gap-2 pt-1">
+                              <a
+                                href={`https://wa.me/${formatWhatsAppNumber(c.phone)}?text=${encodeURIComponent(
+                                  buildContactReplyWhatsApp(c)
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => updateContactStatus(c.id, "contacted")}
+                                className="flex-1 py-2 px-3 rounded-xl bg-[#25D366] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs"
+                              >
+                                <MessageCircle size={14} />
+                                <span>WhatsApp Reply</span>
+                              </a>
+                              <a
+                                href={`tel:${c.phone}`}
+                                className="p-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                                title="Call"
+                              >
+                                <Phone size={14} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => deleteContactInquiry(c.id)}
+                                className="p-2 rounded-xl text-zinc-400 hover:text-rose-600 hover:bg-rose-50"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* ================= VIEW 4: CLIENTS DIRECTORY ================= */}
+          {/* ================= VIEW 4: DEDICATED CLIENTS DIRECTORY ONLY ================= */}
           {activeNav === "clients" && (
             <div className="space-y-4">
               <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2293,6 +2681,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   />
                   {searchQuery && (
                     <button
+                      type="button"
                       onClick={() => setSearchQuery("")}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
                     >
@@ -2306,105 +2695,156 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
               </div>
 
-              {/* Clients Table */}
+              {/* Clients Container */}
               <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
                 {filteredClients.length === 0 ? (
                   <div className="py-16 text-center text-zinc-500 text-xs">
                     No clients found matching &ldquo;{searchQuery}&rdquo;.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
-                          <th className="py-3 px-4 font-semibold">Client Name</th>
-                          <th className="py-3 px-4 font-semibold">Phone & Contact</th>
-                          <th className="py-3 px-4 font-semibold text-center">Consultations</th>
-                          <th className="py-3 px-4 font-semibold text-center">Inquiries</th>
-                          <th className="py-3 px-4 font-semibold">Last Legal Matter</th>
-                          <th className="py-3 px-4 font-semibold">Last Interaction</th>
-                          <th className="py-3 px-4 font-semibold text-right">Quick Connect</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {filteredClients.map((cl, idx) => (
-                          <tr key={cl.key} className="hover:bg-zinc-50/80 transition-colors">
-                            {/* Name & Avatar */}
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="flex items-center gap-2.5">
-                                <div
-                                  className={`h-8 w-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
-                                    AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                                  }`}
-                                >
-                                  {getInitials(cl.name)}
-                                </div>
-                                <span className="font-bold text-zinc-900">{cl.name}</span>
-                              </div>
-                            </td>
-
-                            {/* Phone & Email */}
-                            <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-zinc-600">
-                              <div>{cl.phone}</div>
-                              {cl.email && <div className="text-zinc-400 truncate max-w-[140px]">{cl.email}</div>}
-                            </td>
-
-                            {/* Bookings Count */}
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <span className="font-mono font-bold text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded-full">
-                                {cl.totalBookings}
-                              </span>
-                            </td>
-
-                            {/* Inquiries Count */}
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <span className="font-mono font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded-full">
-                                {cl.totalContacts}
-                              </span>
-                            </td>
-
-                            {/* Last Matter */}
-                            <td className="py-3 px-4 max-w-[200px] truncate text-zinc-800">
-                              {cl.lastMatter}
-                            </td>
-
-                            {/* Last Date */}
-                            <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-zinc-500">
-                              {formatDateLabel(cl.lastDate)}
-                            </td>
-
-                            {/* Connect Actions */}
-                            <td className="py-3 px-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <a
-                                  href={`https://wa.me/${formatWhatsAppNumber(cl.phone)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
-                                  title="WhatsApp Client"
-                                >
-                                  <MessageCircle size={13} />
-                                </a>
-                                <a
-                                  href={`tel:${cl.phone}`}
-                                  className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
-                                  title="Call Client"
-                                >
-                                  <Phone size={13} />
-                                </a>
-                              </div>
-                            </td>
+                  <>
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-200 bg-zinc-50/80 text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
+                            <th className="py-3 px-4 font-semibold">Client Name</th>
+                            <th className="py-3 px-4 font-semibold">Phone & Contact</th>
+                            <th className="py-3 px-4 font-semibold text-center">Consultations</th>
+                            <th className="py-3 px-4 font-semibold text-center">Inquiries</th>
+                            <th className="py-3 px-4 font-semibold">Last Legal Matter</th>
+                            <th className="py-3 px-4 font-semibold">Last Interaction</th>
+                            <th className="py-3 px-4 font-semibold text-right">Quick Connect</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                          {filteredClients.map((cl, idx) => (
+                            <tr key={cl.key} className="hover:bg-zinc-50/80 transition-colors">
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className={`h-8 w-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                                      AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                                    }`}
+                                  >
+                                    {getInitials(cl.name)}
+                                  </div>
+                                  <span className="font-bold text-zinc-900">{cl.name}</span>
+                                </div>
+                              </td>
+
+                              <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-zinc-600">
+                                <div>{cl.phone}</div>
+                                {cl.email && <div className="text-zinc-400 truncate max-w-[140px]">{cl.email}</div>}
+                              </td>
+
+                              <td className="py-3 px-4 text-center whitespace-nowrap">
+                                <span className="font-mono font-bold text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded-full">
+                                  {cl.totalBookings}
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-4 text-center whitespace-nowrap">
+                                <span className="font-mono font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded-full">
+                                  {cl.totalContacts}
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-4 max-w-[200px] truncate text-zinc-800">
+                                {cl.lastMatter}
+                              </td>
+
+                              <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-zinc-500">
+                                {formatDateLabel(cl.lastDate)}
+                              </td>
+
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <a
+                                    href={`https://wa.me/${formatWhatsAppNumber(cl.phone)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors"
+                                    title="WhatsApp Client"
+                                  >
+                                    <MessageCircle size={13} />
+                                  </a>
+                                  <a
+                                    href={`tel:${cl.phone}`}
+                                    className="p-1.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors"
+                                    title="Call Client"
+                                  >
+                                    <Phone size={13} />
+                                  </a>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Touch Cards View */}
+                    <div className="sm:hidden divide-y divide-zinc-200">
+                      {filteredClients.map((cl, idx) => (
+                        <div key={cl.key} className="p-4 space-y-3 bg-white">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`h-8 w-8 rounded-lg font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                                  AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                                }`}
+                              >
+                                {getInitials(cl.name)}
+                              </div>
+                              <div>
+                                <span className="font-bold text-sm text-zinc-900 block">{cl.name}</span>
+                                <span className="font-mono text-xs text-zinc-500">{cl.phone}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-800 font-bold">
+                                {cl.totalBookings} Consults
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-xs">
+                            <span className="text-zinc-500 font-mono text-[10.5px] block">Last Matter:</span>
+                            <span className="font-semibold text-zinc-900 block mt-0.5">{cl.lastMatter}</span>
+                            <span className="font-mono text-[10px] text-zinc-400 block mt-1">
+                              Last Active: {formatDateLabel(cl.lastDate)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <a
+                              href={`https://wa.me/${formatWhatsAppNumber(cl.phone)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-2 px-3 rounded-xl bg-[#25D366] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs"
+                            >
+                              <MessageCircle size={14} />
+                              <span>WhatsApp</span>
+                            </a>
+                            <a
+                              href={`tel:${cl.phone}`}
+                              className="py-2 px-4 rounded-xl bg-zinc-100 text-zinc-800 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-200"
+                            >
+                              <Phone size={14} />
+                              <span>Call</span>
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* ================= VIEW 5: CHAMBER AVAILABILITY & AWAY MANAGER ================= */}
+          {/* ================= VIEW 5: DEDICATED CHAMBER PRESENCE ONLY ================= */}
           {activeNav === "chamber" && (
             <div className="max-w-3xl space-y-6">
               <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-2xs space-y-5">
@@ -2583,6 +3023,70 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             </div>
           )}
         </main>
+
+        {/* ================= MOBILE BOTTOM NAVIGATION BAR (Fixed bottom for phone usability) ================= */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1b1f2b] border-t border-[#2d3243] px-1 py-1.5 flex items-center justify-around shadow-2xl backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setActiveNav("dashboard")}
+            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+              activeNav === "dashboard" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <LayoutDashboard size={18} />
+            <span className="mt-0.5">Overview</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("bookings")}
+            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
+              activeNav === "bookings" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Calendar size={18} />
+            <span className="mt-0.5">Bookings</span>
+            {bookingMetrics.todayCount > 0 && (
+              <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("contacts")}
+            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
+              activeNav === "contacts" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <MessageSquare size={18} />
+            <span className="mt-0.5">Inquiries</span>
+            {contactMetrics.newCount > 0 && (
+              <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("clients")}
+            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+              activeNav === "clients" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Users size={18} />
+            <span className="mt-0.5">Clients</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveNav("chamber")}
+            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+              activeNav === "chamber" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Building2 size={18} />
+            <span className="mt-0.5">Chamber</span>
+          </button>
+        </div>
       </div>
 
       {/* ================= RECORD DETAIL SLIDE-OVER DRAWER ================= */}
@@ -2609,6 +3113,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setSelectedRecord(null)}
                     className="p-1 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100"
                   >
@@ -2730,7 +3235,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -2746,7 +3251,11 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     </p>
                   </div>
                 </div>
-                <button onClick={closeConfirmModal} className="text-slate-400 hover:text-slate-700">
+                <button
+                  type="button"
+                  onClick={closeConfirmModal}
+                  className="text-slate-400 hover:text-slate-700"
+                >
                   <X size={18} />
                 </button>
               </div>
@@ -2868,7 +3377,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -3044,7 +3553,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -3061,6 +3570,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowManualModal(false)}
                   className="text-slate-400 hover:text-slate-700 cursor-pointer"
                 >

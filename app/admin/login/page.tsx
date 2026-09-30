@@ -40,7 +40,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <section className="flex min-h-[calc(100dvh-72px)] items-center justify-center px-5 py-16">
+    <section className="flex min-h-[calc(100dvh-72px)] items-center justify-center px-4 py-6 sm:px-6 sm:py-16">
       <div className="fade-up w-full max-w-4xl overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_rgba(0,0,0,0.3)] md:grid md:grid-cols-5">
         {/* Brand panel */}
         <div className="relative hidden flex-col justify-between bg-[#09090b] border-r border-[#27272a] p-10 md:col-span-2 md:flex">
@@ -71,14 +71,14 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Form panel */}
-        <div className="p-8 sm:p-10 md:col-span-3 md:p-12">
-          <div className="mb-8 md:hidden">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-black border border-[var(--gold)]/30">
+        <div className="p-6 sm:p-10 md:col-span-3 md:p-12">
+          <div className="mb-6 sm:mb-8 md:hidden">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-black border border-[var(--gold)]/30">
               <Scale size={20} color="var(--gold-light)" aria-hidden="true" />
             </div>
-            <h1 className="text-2xl">Staff login</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {site.businessName} admin dashboard
+            <h1 className="text-xl sm:text-2xl font-bold">Staff Login</h1>
+            <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
+              {site.businessName} advocate portal
             </p>
           </div>
 
