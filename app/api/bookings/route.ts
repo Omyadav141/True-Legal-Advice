@@ -5,7 +5,7 @@ import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp, sendClientOfficeVisitW
 import { getAllDaySlots, isDateBookable } from "@/lib/availability";
 import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
-import { saveLocalBooking, BookingRecord } from "@/lib/bookings-store";
+import { saveLocalBooking, BookingRecord, generateBookingId } from "@/lib/bookings-store";
 
 import { getChamberStatus } from "@/lib/chamber-status";
 
@@ -83,9 +83,11 @@ export async function POST(req: NextRequest) {
 
     // Office visit consultations are auto-confirmed (paid slot); online can be confirmed or pending review
     const initialStatus = mode === "offline" ? "confirmed" : "pending";
+    const uniqueBookingId = generateBookingId();
 
     let bookingRecord: BookingRecord = {
       id: "bk_" + Date.now(),
+      booking_id: uniqueBookingId,
       name,
       phone,
       email: email || null,
@@ -121,15 +123,30 @@ export async function POST(req: NextRequest) {
           booking_time: bookingTime,
           consultation_mode: mode,
           meet_link: meetLink,
-          message: finalSubService ? `[Matter: ${finalSubService}] ${message || ""}`.trim() : (message || null),
+          message: finalSubService
+            ? `[Booking ID: ${uniqueBookingId}] [Matter: ${finalSubService}] ${message || ""}`.trim()
+            : `[Booking ID: ${uniqueBookingId}] ${message || ""}`.trim(),
           status: initialStatus,
+          booking_id: uniqueBookingId,
         };
 
-        const { data: dbData, error } = await supabase
+        let { data: dbData, error } = await supabase
           .from("bookings")
           .insert(payload)
           .select()
           .single();
+
+        // If error is because booking_id column does not exist in Supabase yet, retry without it
+        if (error && error.message && error.message.includes("booking_id")) {
+          const { booking_id: _, ...fallbackPayload } = payload;
+          const retry = await supabase
+            .from("bookings")
+            .insert(fallbackPayload)
+            .select()
+            .single();
+          dbData = retry.data;
+          error = retry.error;
+        }
 
         if (error) {
           if (error.code === UNIQUE_VIOLATION) {
@@ -140,7 +157,7 @@ export async function POST(req: NextRequest) {
           }
           console.error("Supabase insert error:", error.code, error.message, error.details || "");
         } else if (dbData) {
-          bookingRecord = { ...bookingRecord, ...dbData, sub_service: finalSubService };
+          bookingRecord = { ...bookingRecord, ...dbData, booking_id: uniqueBookingId, sub_service: finalSubService };
         }
       }
     } catch (sbErr) {
@@ -159,7 +176,11 @@ export async function POST(req: NextRequest) {
         : sendClientMeetLinkWhatsApp(bookingRecord),
     ]);
 
-    return NextResponse.json({ success: true, booking: bookingRecord });
+    return NextResponse.json({
+      success: true,
+      booking: bookingRecord,
+      bookingId: uniqueBookingId,
+    });
   } catch (err) {
     console.error("Booking API error:", err);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });

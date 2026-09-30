@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionRole } from "@/lib/admin-session";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getLocalBookings, updateLocalBookingStatus, updateLocalBookingAttendance, BookingRecord } from "@/lib/bookings-store";
+import { getLocalBookings, updateLocalBookingStatus, updateLocalBookingAttendance, BookingRecord, getBookingId } from "@/lib/bookings-store";
 
 const MEETING_DURATION_MINUTES = 60;
 
@@ -56,8 +56,12 @@ export async function GET() {
   // Merge and de-duplicate by ID
   const map = new Map<string, BookingRecord>();
   for (const b of [...supabaseList, ...localList]) {
+    const bookingWithId: BookingRecord = {
+      ...b,
+      booking_id: b.booking_id || getBookingId(b),
+    };
     if (!map.has(b.id)) {
-      map.set(b.id, b);
+      map.set(b.id, bookingWithId);
     }
   }
   const mergedBookings = Array.from(map.values()).sort(

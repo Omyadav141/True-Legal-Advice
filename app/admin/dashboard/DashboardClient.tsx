@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
-import type { BookingRecord } from "@/lib/bookings-store";
+import { type BookingRecord, getBookingId } from "@/lib/booking-utils";
 import type { ContactInquiry } from "@/lib/contacts-store";
 import type { ChamberStatus } from "@/lib/chamber-status";
 
@@ -406,6 +406,7 @@ export default function DashboardClient() {
   const buildConfirmationMessage = useCallback((b: Booking, customMeet?: string) => {
     const dateStr = formatDateLabel(b.booking_date);
     const timeStr = formatTime12(b.booking_time);
+    const bookingId = b.booking_id || getBookingId(b);
     const serviceTitle = b.sub_service
       ? `${b.sub_service} (${serviceLabels[b.service] || b.service})`
       : serviceLabels[b.service] || b.service;
@@ -415,6 +416,7 @@ export default function DashboardClient() {
 
 Your In-Person Chamber Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
 
+🆔 Booking Reference ID: ${bookingId}
 🏛️ Office: True Legal Advice
 ⚖️ Matter: ${serviceTitle}
 📅 Date: ${dateStr}
@@ -429,6 +431,7 @@ Please arrive 5 to 10 minutes prior with all relevant case documents, notices, o
 
 Your Online Video Consultation with Adv. Shareen Hussain has been officially CONFIRMED.
 
+🆔 Booking Reference ID: ${bookingId}
 ⚖️ Matter: ${serviceTitle}
 📅 Date: ${dateStr}
 ⏰ Scheduled Slot: ${timeStr}
@@ -441,17 +444,19 @@ Please click the Google Meet link above at your scheduled appointment time.`;
 
   // Generate Payment Verification WhatsApp message
   const buildPaymentCheckMessage = useCallback(
-    (r: { name: string; phone: string; service: string; date: string; time?: string; mode?: string }) => {
+    (r: { name: string; phone: string; service: string; date: string; time?: string; mode?: string; booking_id?: string; id?: string }) => {
       const serviceText = r.service || "Legal Consultation";
       const dateText = formatDateLabel(r.date);
       const timeText = r.time ? formatTime12(r.time) : "Chamber Slot";
       const modeText = r.mode === "online" ? "Google Meet Video Call" : "In-Person Chamber Visit";
+      const bookingId = r.booking_id || (r.id ? getBookingId({ id: r.id }) : "TLA-CONSULT");
 
       return `Namaste ${r.name},
 
 This is from the Chambers of Adv. Shareen Hussain (True Legal Advice), Nagpur.
 
-We have received your consultation appointment request for:
+We have received your consultation appointment request:
+🆔 Booking ID: ${bookingId}
 ⚖️ Matter: ${serviceText}
 📅 Date: ${dateText} at ${timeText}
 📍 Mode: ${modeText}
@@ -596,6 +601,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
     let rows: Array<{
       type: "booking" | "contact";
       id: string;
+      booking_id?: string;
       name: string;
       phone: string;
       email: string | null;
@@ -616,6 +622,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
         ...bookings.map((b) => ({
           type: "booking" as const,
           id: b.id,
+          booking_id: b.booking_id || getBookingId(b),
           name: b.name,
           phone: b.phone,
           email: b.email,
@@ -638,6 +645,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
         ...contacts.map((c) => ({
           type: "contact" as const,
           id: c.id,
+          booking_id: c.id,
           name: c.name,
           phone: c.phone,
           email: c.email,
@@ -683,7 +691,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
     }
     // "everything" tab shows all records without status filtering
 
-    // Apply Search Query across Name, Phone, Email, Service, Date
+    // Apply Search Query across Name, Phone, Email, Service, Date, Booking ID, Message
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       rows = rows.filter(
@@ -694,6 +702,8 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
           r.service.toLowerCase().includes(q) ||
           (r.sub_service && r.sub_service.toLowerCase().includes(q)) ||
           r.date.includes(q) ||
+          (r.booking_id && r.booking_id.toLowerCase().includes(q)) ||
+          r.id.toLowerCase().includes(q) ||
           (r.message && r.message.toLowerCase().includes(q))
       );
     }
@@ -988,7 +998,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by client, phone, matter, or date..."
+                placeholder="Search by client name, booking ID (e.g. TLA-2026), phone, or matter..."
                 className="w-full pl-9 pr-8 py-2 rounded-xl border border-zinc-300 bg-white text-xs text-[#09090b] placeholder-zinc-400 focus:border-black focus:outline-none shadow-2xs"
               />
               {searchQuery && (
@@ -1127,16 +1137,23 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                         key={r.id}
                         className="hover:bg-zinc-50/80 transition-colors group"
                       >
-                        {/* Column 1: Client Name, Initials, Phone, Email */}
+                        {/* Column 1: Client Name, Initials, Phone, Email, Booking ID */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs ${avatarBg}`}>
                               {getInitials(r.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="font-serif font-bold text-[#09090b] text-sm truncate">
-                                {r.name}
-                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-serif font-bold text-[#09090b] text-sm truncate">
+                                  {r.name}
+                                </p>
+                                {r.booking_id && (
+                                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 font-bold border border-zinc-200">
+                                    {r.booking_id}
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-0.5">
                                 <span className="font-mono">{r.phone}</span>
                                 {r.email && (
@@ -1150,13 +1167,20 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                           </div>
                         </td>
 
-                        {/* Column 2: Source Badge */}
+                        {/* Column 2: Source Badge & Booking ID */}
                         <td className="py-3.5 px-4">
                           {r.type === "booking" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-black/5 text-[#09090b] border border-black/15">
-                              <CalendarDays size={10} />
-                              <span>Booking</span>
-                            </span>
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-black/5 text-[#09090b] border border-black/15">
+                                <CalendarDays size={10} />
+                                <span>Booking</span>
+                              </span>
+                              {r.booking_id && (
+                                <span className="font-mono text-[10px] font-bold text-[#9f7d32]">
+                                  {r.booking_id}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
                               <Mail size={10} />
@@ -1590,7 +1614,39 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                 </div>
 
                 <div className="space-y-4 text-xs">
+                  {selectedRecord.type === "booking" && (
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#9f7d32] block">
+                          Official Booking ID
+                        </span>
+                        <span className="font-mono font-bold text-sm text-[#09090b]">
+                          {selectedRecord.data.booking_id || getBookingId(selectedRecord.data)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            selectedRecord.data.booking_id || getBookingId(selectedRecord.data)
+                          );
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-[10.5px] font-bold hover:bg-amber-100 text-amber-950 flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Copy Booking ID"
+                      >
+                        <Copy size={12} />
+                        <span>Copy ID</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-2">
+                    <p>
+                      <strong>Booking Reference:</strong>{" "}
+                      <span className="font-mono font-bold text-zinc-900">
+                        {selectedRecord.data.booking_id || getBookingId(selectedRecord.data)}
+                      </span>
+                    </p>
                     <p><strong>Phone:</strong> {selectedRecord.data.phone}</p>
                     {selectedRecord.data.email && <p><strong>Email:</strong> {selectedRecord.data.email}</p>}
                     <p><strong>Service:</strong> {selectedRecord.data.service}</p>

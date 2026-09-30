@@ -26,6 +26,7 @@ create table if not exists public.bookings (
 );
 
 -- Ensure all columns exist if the table was created previously
+alter table public.bookings add column if not exists booking_id text;
 alter table public.bookings add column if not exists sub_service text;
 alter table public.bookings add column if not exists consultation_mode text not null default 'offline';
 alter table public.bookings add column if not exists meet_link text;

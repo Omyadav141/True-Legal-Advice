@@ -1,22 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { BookingRecord, getBookingId } from "./booking-utils";
 
-export interface BookingRecord {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  service: string;
-  sub_service?: string | null;
-  booking_date: string;
-  booking_time: string;
-  consultation_mode: "online" | "offline";
-  meet_link: string | null;
-  message: string | null;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
-  attendance?: "attended" | "no_show" | "scheduled" | null;
-  created_at: string;
-}
+export * from "./booking-utils";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const BOOKINGS_FILE = path.join(DATA_DIR, "bookings.json");
@@ -35,7 +21,11 @@ export function getLocalBookings(): BookingRecord[] {
     ensureFileExists();
     const raw = fs.readFileSync(BOOKINGS_FILE, "utf-8");
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((b) => ({
+      ...b,
+      booking_id: b.booking_id || getBookingId(b),
+    }));
   } catch (err) {
     console.error("Error reading local bookings:", err);
     return [];
@@ -46,11 +36,15 @@ export function saveLocalBooking(record: BookingRecord): BookingRecord {
   try {
     ensureFileExists();
     const existing = getLocalBookings();
+    const ensuredRecord: BookingRecord = {
+      ...record,
+      booking_id: record.booking_id || getBookingId(record),
+    };
     // Check if duplicate ID exists
-    const filtered = existing.filter((b) => b.id !== record.id);
-    const updated = [record, ...filtered];
+    const filtered = existing.filter((b) => b.id !== ensuredRecord.id);
+    const updated = [ensuredRecord, ...filtered];
     fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
-    return record;
+    return ensuredRecord;
   } catch (err) {
     console.error("Error saving local booking:", err);
     return record;

@@ -376,10 +376,16 @@ function BookClient() {
         data.booking?.meet_link ||
         (consultationMode === "online" ? site.googleMeetRoom : null);
 
+      const returnedBookingId =
+        data.booking?.booking_id ||
+        data.bookingId ||
+        data.booking?.id ||
+        `TLA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       setConfirmedBooking({
         date: targetDate,
         slot: selectedSlot,
-        id: data.booking?.id || "BK-" + Math.floor(100000 + Math.random() * 900000),
+        id: returnedBookingId,
         meet_link: returnedMeetLink,
       });
       setStep("success");
