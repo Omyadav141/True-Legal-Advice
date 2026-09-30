@@ -162,19 +162,21 @@ export default function CourtMarriagePage() {
 
   return (
     <div className="bg-[var(--paper)] text-[var(--ink)]">
-      {/* ============ Cinematic Hero (Same as Trademark & Legal Services) ============ */}
-      <section className="relative flex min-h-[72svh] items-end overflow-hidden">
-        <div className="hero-media">
+      {/* ============ Cinematic Hero ============ */}
+      <section className="relative flex min-h-[78svh] items-end overflow-hidden bg-[#0d0a07]">
+        <div className="hero-media relative">
           <Image
             src="/images/hero-marriage.png"
-            alt="Court Marriage in Nagpur"
+            alt="Court Marriage Solemnization and Registration in Nagpur"
             fill
             priority
-            className="object-cover"
+            className="object-cover scale-105 transition-transform duration-1000"
             sizes="100vw"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/65 to-black/35 pointer-events-none" />
+          <div className="absolute inset-0 bg-radial from-transparent via-black/20 to-black/80 pointer-events-none" />
         </div>
-        <div className="hero-overlay" />
+        <div className="hero-overlay !opacity-0" />
         <div className="container relative z-10 pb-16 pt-32">
           <div className="max-w-4xl">
             {/* Live Security Badge */}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionRole } from "@/lib/admin-session";
-import { getLocalContacts, updateLocalContactStatus, ContactInquiry } from "@/lib/contacts-store";
+import { getLocalContacts, updateLocalContactStatus, deleteLocalContact, ContactInquiry } from "@/lib/contacts-store";
 import { supabaseServer } from "@/lib/supabase-server";
 
 export async function GET() {
@@ -75,3 +75,31 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const role = await getSessionRole();
+  if (!role) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "id is required." }, { status: 400 });
+    }
+
+    deleteLocalContact(id);
+
+    try {
+      const supabase = supabaseServer();
+      await supabase.from("contact_inquiries").delete().eq("id", id);
+    } catch {}
+
+    return NextResponse.json({ success: true, id });
+  } catch (err) {
+    console.error("Error deleting contact inquiry:", err);
+    return NextResponse.json({ error: "Failed to delete contact inquiry." }, { status: 500 });
+  }
+}
+

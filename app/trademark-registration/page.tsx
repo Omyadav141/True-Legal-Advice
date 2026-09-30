@@ -163,23 +163,28 @@ export default function TrademarkPage() {
   return (
     <div className="bg-[var(--paper)] text-[var(--ink)]">
       {/* ============ Cinematic Hero ============ */}
-      <section className="relative min-h-[85vh] flex items-center overflow-hidden">
-        <div className="hero-media">
+      <section className="relative min-h-[88vh] flex items-center overflow-hidden bg-[#07090e]">
+        {/* Background Visual Media */}
+        <div className="hero-media relative">
           <Image
             src="/images/hero-trademark.png"
             alt="Trademark Registration and Corporate IP in Nagpur"
             fill
             priority
-            className="object-cover"
+            className="object-cover opacity-85 scale-105 transition-transform duration-1000 ease-out"
             sizes="100vw"
           />
+          {/* Subtle Ambient Video / Motion Glow Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-purple-950/40 via-transparent to-amber-500/20 mix-blend-screen pointer-events-none animate-pulse duration-[4000ms]" />
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#cba758]/20 blur-3xl pointer-events-none" />
         </div>
-        <div className="hero-overlay" />
+        <div className="hero-overlay !bg-gradient-to-r !from-black/90 !via-black/75 !to-black/45" />
 
         <div className="container relative z-10 pb-16 pt-32 lg:pt-36">
           <div className="flex items-center gap-2 mb-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-[#cba758]/20 text-[#f5dfa8] border border-[#cba758]/40">
-              <Sparkles size={12} className="text-[#cba758]" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-[#cba758]/20 text-[#f5dfa8] border border-[#cba758]/40 shadow-sm backdrop-blur-md">
+              <Sparkles size={12} className="text-[#cba758] animate-spin" style={{ animationDuration: '6s' }} />
               TRADEMARK & CORPORATE IP CHAMBER · NAGPUR
             </span>
           </div>
@@ -200,15 +205,15 @@ export default function TrademarkPage() {
 
           {/* Quick Trust Pillars */}
           <div className="fade-up fade-up-delay-2 mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white hover:bg-white/15 transition-all hover:scale-[1.02]">
               <ShieldCheck size={16} className="text-[var(--gold-light)] shrink-0" />
               <span>Certified Trade Mark Attorney (CGPDTM)</span>
             </div>
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white hover:bg-white/15 transition-all hover:scale-[1.02]">
               <Zap size={16} className="text-[var(--gold-light)] shrink-0" />
               <span>™ Application Filing in 24–48 Hours</span>
             </div>
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white hover:bg-white/15 transition-all hover:scale-[1.02]">
               <Scale size={16} className="text-[var(--gold-light)] shrink-0" />
               <span>Section 9 & 11 Objection Defense</span>
             </div>
@@ -216,7 +221,7 @@ export default function TrademarkPage() {
 
           {/* CTAs */}
           <div className="fade-up fade-up-delay-3 mt-8 flex flex-wrap items-center gap-4">
-            <Link href="/book?service=trademark" className="btn-primary shimmer-badge !py-3.5 !px-7 text-sm">
+            <Link href="/book?service=trademark" className="btn-primary shimmer-badge !py-3.5 !px-7 text-sm shadow-xl hover:shadow-amber-500/20">
               <span>Book IP Consultation</span>
               <ArrowRight size={16} />
             </Link>
@@ -225,7 +230,7 @@ export default function TrademarkPage() {
               href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent("Hello Adv. Shareen, I need brand clearance and trademark registration guidance for my business.")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-whatsapp !py-3.5 !px-7 text-sm"
+              className="btn-whatsapp !py-3.5 !px-7 text-sm shadow-xl"
             >
               <Phone size={16} />
               <span>WhatsApp Brand Clearance</span>
@@ -237,7 +242,7 @@ export default function TrademarkPage() {
       </section>
 
       {/* ============ 4 Comprehensive Practice Tracks ============ */}
-      <section className="py-20 bg-white border-b border-[var(--border)]">
+      <section className="py-20 bg-gradient-to-b from-white via-zinc-50/50 to-white border-b border-[var(--border)]">
         <div className="container">
           <div className="max-w-2xl mb-12">
             <span className="eyebrow">PRACTICE PATHWAYS</span>
@@ -250,68 +255,97 @@ export default function TrademarkPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {tracks.map((track) => (
-              <div
-                key={track.title}
-                className="relative rounded-2xl border border-[var(--border)] bg-[var(--paper)] p-7 sm:p-8 flex flex-col justify-between hover:shadow-xl transition-all duration-300"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <span
-                      className={`text-[11px] font-mono font-bold tracking-wider uppercase px-3 py-1 rounded-full border ${track.badgeColor}`}
-                    >
-                      {track.badge}
-                    </span>
-                    <span className="text-xs font-mono font-semibold text-[var(--ink-muted)]">
-                      {track.timeline}
-                    </span>
-                  </div>
+            {tracks.map((track, idx) => {
+              // Custom luxurious styling per track
+              const cardAccents = [
+                {
+                  border: "hover:border-[#cba758]/60 hover:shadow-amber-500/10",
+                  topBar: "from-amber-400 to-[#cba758]",
+                  badge: "bg-amber-50 text-amber-900 border-amber-300",
+                },
+                {
+                  border: "hover:border-purple-400/60 hover:shadow-purple-500/10",
+                  topBar: "from-purple-500 to-indigo-600",
+                  badge: "bg-purple-50 text-purple-900 border-purple-300",
+                },
+                {
+                  border: "hover:border-blue-400/60 hover:shadow-blue-500/10",
+                  topBar: "from-blue-500 to-cyan-600",
+                  badge: "bg-blue-50 text-blue-900 border-blue-300",
+                },
+                {
+                  border: "hover:border-emerald-400/60 hover:shadow-emerald-500/10",
+                  topBar: "from-emerald-500 to-teal-600",
+                  badge: "bg-emerald-50 text-emerald-900 border-emerald-300",
+                },
+              ][idx % 4];
 
-                  <h3 className="text-2xl font-serif font-bold text-[var(--ink)] tracking-tight">
-                    {track.title}
-                  </h3>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--gold)] mt-1">
-                    {track.subtitle}
-                  </p>
+              return (
+                <div
+                  key={track.title}
+                  className={`group relative rounded-3xl border border-zinc-200/90 bg-white p-7 sm:p-9 flex flex-col justify-between shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5 overflow-hidden ${cardAccents.border}`}
+                >
+                  {/* Top glowing gradient stripe */}
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${cardAccents.topBar} opacity-90 group-hover:h-2 transition-all duration-300`} />
 
-                  <p className="mt-4 text-sm text-[var(--ink-soft)] leading-relaxed">
-                    {track.desc}
-                  </p>
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                      <span
+                        className={`text-[11px] font-mono font-bold tracking-wider uppercase px-3 py-1 rounded-full border shadow-2xs ${cardAccents.badge}`}
+                      >
+                        {track.badge}
+                      </span>
+                      <span className="text-xs font-mono font-semibold text-[var(--ink-muted)]">
+                        {track.timeline}
+                      </span>
+                    </div>
 
-                  <div className="mt-6 pt-5 border-t border-[var(--border)] space-y-2.5">
-                    <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold mb-2">
-                      Key Chamber Deliverables:
+                    <h3 className="text-2xl font-serif font-bold text-[var(--ink)] tracking-tight group-hover:text-[#9f7d32] transition-colors">
+                      {track.title}
+                    </h3>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--gold)] mt-1.5 font-mono">
+                      {track.subtitle}
                     </p>
-                    {track.highlights.map((h, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs sm:text-sm text-[var(--ink-soft)]">
-                        <CheckCircle2 size={16} className="text-[var(--gold)] mt-0.5 shrink-0" />
-                        <span className="leading-snug">{h}</span>
-                      </div>
-                    ))}
+
+                    <p className="mt-4 text-sm text-[var(--ink-soft)] leading-relaxed">
+                      {track.desc}
+                    </p>
+
+                    <div className="mt-6 pt-5 border-t border-zinc-100 space-y-2.5">
+                      <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink)] font-bold mb-2">
+                        Key Chamber Deliverables:
+                      </p>
+                      {track.highlights.map((h, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-xs sm:text-sm text-[var(--ink-soft)]">
+                          <CheckCircle2 size={16} className="text-[#9f7d32] mt-0.5 shrink-0" />
+                          <span className="leading-snug">{h}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-5 border-t border-zinc-100 flex flex-wrap items-center justify-between gap-3">
+                    <Link
+                      href={`/book?service=trademark&matter=${encodeURIComponent(track.title)}`}
+                      className="btn-pathway !text-xs !py-2.5 !px-5 !text-white shadow-md group-hover:shadow-lg"
+                    >
+                      <span style={{ color: "#ffffff", fontWeight: 700 }}>Schedule Case Review</span>
+                      <ArrowRight size={13} style={{ color: "#cba758" }} />
+                    </Link>
+
+                    <a
+                      href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I would like to inquire about ${track.title}.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-black transition-colors"
+                    >
+                      <span>Quick WhatsApp Desk</span>
+                      <ArrowUpRight size={13} className="text-[#9f7d32]" />
+                    </a>
                   </div>
                 </div>
-
-                <div className="mt-8 pt-5 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
-                  <Link
-                    href={`/book?service=trademark&matter=${encodeURIComponent(track.title)}`}
-                    className="btn-pathway !text-xs !py-2 !px-4 !text-white"
-                  >
-                    <span style={{ color: "#ffffff", fontWeight: 700 }}>Schedule Case Review</span>
-                    <ArrowRight size={13} style={{ color: "#cba758" }} />
-                  </Link>
-
-                  <a
-                    href={`https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(`Hello Adv. Shareen, I would like to inquire about ${track.title}.`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-black transition-colors"
-                  >
-                    <span>Quick WhatsApp Desk</span>
-                    <ArrowUpRight size={13} />
-                  </a>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
