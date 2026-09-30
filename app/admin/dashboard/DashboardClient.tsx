@@ -41,6 +41,8 @@ import {
   HelpCircle,
   Plus,
   CreditCard,
+  CalendarClock,
+  Trash2,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
@@ -221,6 +223,16 @@ export default function DashboardClient() {
   const [meetLinkInput, setMeetLinkInput] = useState("");
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Reschedule Modal States
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
+  const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
+  const [bookedSlotsForReschedule, setBookedSlotsForReschedule] = useState<string[]>([]);
+
 
   const todayStr = useMemo(() => todayInIndia(), []);
   const tomorrowStr = useMemo(() => {
@@ -508,6 +520,205 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
     setCustomMessage("");
     setCopied(false);
   };
+
+  // Discard / Decline Booking (Sets status to cancelled and frees up slot immediately)
+  const discardBooking = async (id: string) => {
+    if (
+      !window.confirm(
+        "Discard / decline this appointment? This will cancel the booking and immediately free up the time slot on the website for other clients."
+      )
+    ) {
+      return;
+    }
+    setUpdatingId(id);
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "cancelled", attendance: "no_show" }),
+      });
+      if (res.ok) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, status: "cancelled", attendance: "no_show" } : b))
+        );
+        if (selectedRecord && selectedRecord.data.id === id) {
+          setSelectedRecord((prev) =>
+            prev ? { ...prev, data: { ...prev.data, status: "cancelled", attendance: "no_show" } } : null
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to discard booking:", err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // Permanently Delete Booking (Removes test/dummy bookings completely)
+  const deleteBookingPermanently = async (id: string) => {
+    if (
+      !window.confirm(
+        "Permanently delete this booking record from the system? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`/api/admin/bookings?id=${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setBookings((prev) => prev.filter((b) => b.id !== id));
+        if (selectedRecord && selectedRecord.data.id === id) {
+          setSelectedRecord(null);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete booking:", err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // Fetch booked slots for a given date when rescheduling
+  const fetchBookedSlotsForDate = async (dateStr: string, currentBooking?: Booking) => {
+    try {
+      const res = await fetch(`/api/availability?date=${dateStr}&_t=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        const activeBooked = (data.bookedSlots || []).filter((s: string) => {
+          if (currentBooking && currentBooking.booking_date === dateStr && currentBooking.booking_time === s) {
+            return false;
+          }
+          return true;
+        });
+        setBookedSlotsForReschedule(activeBooked);
+      }
+    } catch {
+      setBookedSlotsForReschedule([]);
+    }
+  };
+
+  const openRescheduleModal = (b: Booking) => {
+    setRescheduleBooking(b);
+    setRescheduleDate(b.booking_date);
+    setRescheduleTime(b.booking_time);
+    setRescheduleError("");
+    setRescheduleSuccess(false);
+    fetchBookedSlotsForDate(b.booking_date, b);
+  };
+
+  const closeRescheduleModal = () => {
+    setRescheduleBooking(null);
+    setRescheduleError("");
+    setRescheduleSuccess(false);
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleBooking) return;
+    if (!rescheduleDate) {
+      setRescheduleError("Please select an appointment date.");
+      return;
+    }
+    if (!rescheduleTime) {
+      setRescheduleError("Please select a time slot.");
+      return;
+    }
+
+    setRescheduleLoading(true);
+    setRescheduleError("");
+
+    try {
+      const res = await fetch("/api/admin/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: rescheduleBooking.id,
+          booking_date: rescheduleDate,
+          booking_time: rescheduleTime,
+          status: "confirmed",
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        setRescheduleError(errData.error || "Failed to reschedule booking.");
+        setRescheduleLoading(false);
+        return;
+      }
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === rescheduleBooking.id
+            ? { ...b, booking_date: rescheduleDate, booking_time: rescheduleTime, status: "confirmed" }
+            : b
+        )
+      );
+
+      if (selectedRecord && selectedRecord.data.id === rescheduleBooking.id) {
+        setSelectedRecord((prev) =>
+          prev
+            ? {
+                ...prev,
+                data: {
+                  ...prev.data,
+                  booking_date: rescheduleDate,
+                  booking_time: rescheduleTime,
+                  status: "confirmed",
+                },
+              }
+            : null
+        );
+      }
+
+      setRescheduleSuccess(true);
+    } catch (err: any) {
+      setRescheduleError(err.message || "Failed to reschedule appointment.");
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const buildRescheduleWhatsAppMessage = useCallback((b: Booking, newDate: string, newTime: string) => {
+    const bookingId = b.booking_id || getBookingId(b);
+    const dateStr = formatDateLabel(newDate);
+    const timeStr = formatTime12(newTime);
+    const serviceTitle = b.sub_service
+      ? `${b.sub_service} (${serviceLabels[b.service] || b.service})`
+      : serviceLabels[b.service] || b.service;
+
+    if (b.consultation_mode === "offline") {
+      return `Hello ${b.name},
+
+Your Consultation Appointment with Adv. Shareen Hussain has been successfully RESCHEDULED as requested:
+
+🆔 Booking Reference ID: ${bookingId}
+🏛️ Office: True Legal Advice
+⚖️ Matter: ${serviceTitle}
+📅 New Scheduled Date: ${dateStr}
+⏰ New Time Slot: ${timeStr}
+📍 Address: Near Trisharan Square, Nagpur - 440027, Maharashtra
+📞 Chamber Desk: +91 83296 31199
+
+Please arrive 5 to 10 minutes prior with all relevant case documents. Adv. Shareen Hussain looks forward to meeting you.`;
+    } else {
+      const meetLink = b.meet_link || site.googleMeetRoom;
+      return `Hello ${b.name},
+
+Your Online Video Consultation with Adv. Shareen Hussain has been successfully RESCHEDULED as requested:
+
+🆔 Booking Reference ID: ${bookingId}
+⚖️ Matter: ${serviceTitle}
+📅 New Scheduled Date: ${dateStr}
+⏰ New Time Slot: ${timeStr}
+💻 Google Meet Video Link: ${meetLink}
+📞 Chamber Desk: +91 83296 31199
+
+Please join the Google Meet link above at your scheduled appointment time.`;
+    }
+  }, []);
+
 
   // Handler: Manual Booking / Block Slot Submission
   const handleCreateManualBooking = async (e: React.FormEvent) => {
@@ -1231,14 +1442,27 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                               </span>
                             )}
                           </div>
-                          {r.time && (
-                            <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
-                              {formatTime12(r.time)}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {r.time && (
+                              <p className="text-[11px] font-mono text-zinc-500">
+                                {formatTime12(r.time)}
+                              </p>
+                            )}
+                            {r.type === "booking" && r.status !== "cancelled" && (
+                              <button
+                                type="button"
+                                onClick={() => openRescheduleModal(r.raw as Booking)}
+                                className="inline-flex items-center gap-0.5 text-[10px] text-[#9f7d32] hover:text-black font-semibold hover:underline cursor-pointer"
+                                title="Change Date or Time Slot (Reschedule)"
+                              >
+                                <CalendarClock size={11} />
+                                <span>Reschedule</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
 
-                        {/* Column 6: Status & Quick Confirmation (First before attendance!) */}
+                        {/* Column 6: Status & Quick Actions */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
                             <span
@@ -1246,15 +1470,49 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                             >
                               {statusMeta.label}
                             </span>
-                            {r.type === "booking" && r.status === "pending" && (
-                              <button
-                                onClick={() => openConfirmModal(r.raw as Booking)}
-                                className="px-2.5 py-1 rounded-lg bg-black text-[#cba758] text-[10.5px] font-bold hover:bg-zinc-900 border border-[#cba758]/30 transition-all shadow-2xs cursor-pointer flex items-center gap-1"
-                                title="Confirm Appointment & Dispatch"
-                              >
-                                <CheckCircle2 size={12} />
-                                <span>Confirm Slot</span>
-                              </button>
+                            {r.type === "booking" && (
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {r.status === "pending" && (
+                                  <>
+                                    <button
+                                      onClick={() => openConfirmModal(r.raw as Booking)}
+                                      className="px-2 py-0.5 rounded-lg bg-black text-[#cba758] text-[10px] font-bold hover:bg-zinc-900 border border-[#cba758]/30 transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                                      title="Confirm Appointment & Dispatch"
+                                    >
+                                      <CheckCircle2 size={11} />
+                                      <span>Confirm</span>
+                                    </button>
+                                    <button
+                                      onClick={() => discardBooking(r.id)}
+                                      className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                                      title="Decline / Discard booking and free up time slot immediately on website"
+                                    >
+                                      <X size={11} />
+                                      <span>Decline</span>
+                                    </button>
+                                  </>
+                                )}
+                                {r.status === "confirmed" && (
+                                  <button
+                                    onClick={() => discardBooking(r.id)}
+                                    className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                                    title="Cancel / Discard booking and free up time slot immediately on website"
+                                  >
+                                    <X size={11} />
+                                    <span>Cancel</span>
+                                  </button>
+                                )}
+                                {r.status === "cancelled" && (
+                                  <button
+                                    onClick={() => updateBookingStatus(r.id, "confirmed")}
+                                    className="px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border border-zinc-300 text-[10px] font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                                    title="Reactivate and confirm this appointment"
+                                  >
+                                    <Check size={11} />
+                                    <span>Reactivate</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1265,12 +1523,15 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                             <div className="inline-flex items-center gap-1 justify-center">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={() => {
                                   updateAttendance(
                                     r.id,
                                     r.attendance === "attended" ? "scheduled" : "attended"
-                                  )
-                                }
+                                  );
+                                  if (r.status === "cancelled") {
+                                    updateBookingStatus(r.id, "confirmed");
+                                  }
+                                }}
                                 disabled={updatingId === r.id}
                                 className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                                   r.attendance === "attended"
@@ -1286,19 +1547,25 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                               {r.attendance !== "attended" && (
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    updateAttendance(
-                                      r.id,
-                                      r.attendance === "no_show" ? "scheduled" : "no_show"
-                                    )
-                                  }
+                                  onClick={() => {
+                                    if (r.attendance !== "no_show") {
+                                      updateAttendance(r.id, "no_show");
+                                      updateBookingStatus(r.id, "cancelled");
+                                    } else {
+                                      updateAttendance(r.id, "scheduled");
+                                    }
+                                  }}
                                   disabled={updatingId === r.id}
                                   className={`px-2 py-1 rounded-lg text-[10px] transition-all cursor-pointer border ${
                                     r.attendance === "no_show"
                                       ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
                                       : "bg-white text-slate-400 border-zinc-200 hover:text-rose-600"
                                   }`}
-                                  title="Mark No Show"
+                                  title={
+                                    r.attendance === "no_show"
+                                      ? "Marked No-Show (Time Slot Released on Website)"
+                                      : "Mark No-Show & Discard (Frees Slot on Website)"
+                                  }
                                 >
                                   {r.attendance === "no_show" ? "No-Show" : <X size={12} />}
                                 </button>
@@ -1309,9 +1576,21 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                           )}
                         </td>
 
-                        {/* Column 8: Direct Actions (Payment Check, WhatsApp, Call, View) */}
+                        {/* Column 8: Direct Actions (Payment Check, WhatsApp, Call, View, Reschedule) */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
+                            {/* Reschedule Button */}
+                            {r.type === "booking" && r.status !== "cancelled" && (
+                              <button
+                                type="button"
+                                onClick={() => openRescheduleModal(r.raw as Booking)}
+                                className="h-7 w-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-[#9f7d32] border border-amber-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                                title="Reschedule Date & Time Slot"
+                              >
+                                <CalendarClock size={13} />
+                              </button>
+                            )}
+
                             {/* Check Payment WhatsApp Button (₹1,000 UPI request) */}
                             {cleanPhone && r.type === "booking" && (
                               <a
@@ -1363,6 +1642,7 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                       </tr>
                     );
                   })}
+
                 </tbody>
               </table>
             </div>
@@ -1637,6 +1917,69 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                         <Copy size={12} />
                         <span>Copy ID</span>
                       </button>
+                    </div>
+                  )}
+
+                  {/* Slot Management & Reschedule Card */}
+                  {selectedRecord.type === "booking" && (
+                    <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#9f7d32]">
+                          Slot Management Actions
+                        </span>
+                        {selectedRecord.data.status === "cancelled" && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            Slot Released on Website
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {/* 1-Click Reschedule */}
+                        <button
+                          type="button"
+                          onClick={() => openRescheduleModal(selectedRecord.data)}
+                          className="flex-1 min-w-[130px] py-2 px-3 rounded-xl bg-black text-[#cba758] border border-[#cba758]/40 hover:bg-zinc-900 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          <CalendarClock size={14} />
+                          <span>Reschedule Slot</span>
+                        </button>
+
+                        {/* Discard / Cancel Booking */}
+                        {selectedRecord.data.status !== "cancelled" ? (
+                          <button
+                            type="button"
+                            onClick={() => discardBooking(selectedRecord.data.id)}
+                            className="flex-1 min-w-[130px] py-2 px-3 rounded-xl bg-white text-rose-700 border border-rose-300 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                            title="Cancels appointment and immediately frees up the time slot on the website"
+                          >
+                            <XCircle size={14} />
+                            <span>Discard / Free Slot</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => updateBookingStatus(selectedRecord.data.id, "confirmed")}
+                            className="flex-1 min-w-[130px] py-2 px-3 rounded-xl bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                          >
+                            <CheckCircle2 size={14} />
+                            <span>Restore Slot</span>
+                          </button>
+                        )}
+
+                        {/* Delete Record Permanently */}
+                        <button
+                          type="button"
+                          onClick={() => deleteBookingPermanently(selectedRecord.data.id)}
+                          className="py-2 px-3 rounded-xl bg-zinc-100 text-zinc-600 hover:text-rose-700 hover:bg-rose-50 border border-zinc-200 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          title="Permanently remove this booking"
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 font-mono">
+                        💡 Discarding or cancelling an appointment immediately frees that time slot on the website for other clients.
+                      </p>
                     </div>
                   )}
 
@@ -1987,6 +2330,208 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
         )}
       </AnimatePresence>
 
+      {/* ================= Reschedule Consultation Modal ================= */}
+      <AnimatePresence>
+        {rescheduleBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-zinc-200 space-y-4 my-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-black text-[#cba758] border border-[#cba758]/30 flex items-center justify-center font-bold">
+                    <CalendarClock size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-serif font-bold text-[#09090b]">
+                      Reschedule Consultation Slot
+                    </h3>
+                    <p className="text-[11px] font-mono text-zinc-500">
+                      Rearrange appointment timing according to client request
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeRescheduleModal}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Current Booking Info */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between flex-wrap gap-1">
+                  <span className="font-bold text-[#09090b] text-sm">
+                    {rescheduleBooking.name}
+                  </span>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold">
+                    {rescheduleBooking.booking_id || getBookingId(rescheduleBooking)}
+                  </span>
+                </div>
+                <p className="text-zinc-600">
+                  <strong>Currently Booked:</strong>{" "}
+                  <span className="text-amber-900 font-semibold">
+                    {formatDateLabel(rescheduleBooking.booking_date)} at {formatTime12(rescheduleBooking.booking_time)}
+                  </span>{" "}
+                  ({rescheduleBooking.consultation_mode === "offline" ? "Chamber Office Visit" : "Google Meet Video"})
+                </p>
+                {rescheduleBooking.phone && (
+                  <p className="text-zinc-500 font-mono text-[11px]">
+                    Phone: {rescheduleBooking.phone}
+                  </p>
+                )}
+              </div>
+
+              {rescheduleError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0" />
+                  <span>{rescheduleError}</span>
+                </div>
+              )}
+
+              {/* Reschedule Success State */}
+              {rescheduleSuccess ? (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-sm">Appointment Rescheduled Successfully!</h4>
+                      <p className="text-xs text-emerald-800 mt-0.5">
+                        New slot is confirmed for <strong>{formatDateLabel(rescheduleDate)}</strong> at{" "}
+                        <strong>{formatTime12(rescheduleTime)}</strong>. The previous slot has been released on the website.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-emerald-200 flex flex-wrap gap-2">
+                    {rescheduleBooking.phone && (
+                      <a
+                        href={`https://wa.me/${formatWhatsAppNumber(rescheduleBooking.phone)}?text=${encodeURIComponent(
+                          buildRescheduleWhatsAppMessage(rescheduleBooking, rescheduleDate, rescheduleTime)
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                      >
+                        <MessageCircle size={14} />
+                        <span>Send Reschedule Notice on WhatsApp</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={closeRescheduleModal}
+                      className="py-2 px-4 rounded-xl bg-white border border-emerald-300 text-emerald-950 text-xs font-bold hover:bg-emerald-100 cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Reschedule Selection Form */
+                <div className="space-y-4 text-xs">
+                  {/* Date Selector */}
+                  <div>
+                    <label className="font-bold text-zinc-900 block mb-1">
+                      Select New Appointment Date <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={rescheduleDate}
+                      min={todayStr}
+                      onChange={(e) => {
+                        setRescheduleDate(e.target.value);
+                        fetchBookedSlotsForDate(e.target.value, rescheduleBooking);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Slot Selector */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-bold text-zinc-900 block">
+                        Select New Time Slot <span className="text-rose-600">*</span>
+                      </label>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        Selected: <strong className="text-black">{formatTime12(rescheduleTime) || "None"}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 max-h-52 overflow-y-auto p-1 border border-zinc-200 rounded-2xl bg-zinc-50/50">
+                      {getAllDaySlots().map((slot) => {
+                        const isSelected = rescheduleTime === slot;
+                        const isCurrent =
+                          rescheduleBooking.booking_time === slot &&
+                          rescheduleBooking.booking_date === rescheduleDate;
+                        const isOccupied = bookedSlotsForReschedule.includes(slot) && !isCurrent;
+
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            disabled={isOccupied}
+                            onClick={() => setRescheduleTime(slot)}
+                            className={`p-2 rounded-xl text-center font-mono text-xs font-semibold border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-black text-[#cba758] border-[#cba758] shadow-xs"
+                                : isOccupied
+                                ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed line-through"
+                                : "bg-white text-zinc-800 border-zinc-200 hover:border-black"
+                            }`}
+                          >
+                            <span className="block text-xs">{formatTime12(slot)}</span>
+                            {isCurrent && (
+                              <span className="block text-[8px] text-amber-700 uppercase font-bold mt-0.5">
+                                Current
+                              </span>
+                            )}
+                            {isOccupied && (
+                              <span className="block text-[8px] text-rose-500 uppercase font-bold mt-0.5">
+                                Taken
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
+                    <button
+                      type="button"
+                      onClick={closeRescheduleModal}
+                      className="px-4 py-2 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={rescheduleLoading || !rescheduleDate || !rescheduleTime}
+                      onClick={handleConfirmReschedule}
+                      className="px-5 py-2 rounded-xl bg-black text-[#cba758] border border-[#cba758]/40 hover:bg-zinc-900 font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {rescheduleLoading ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <CalendarClock size={13} />
+                      )}
+                      <span>Confirm & Reschedule Slot</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ================= Manual Booking / Block Slot Modal ================= */}
       <AnimatePresence>
         {showManualModal && (
@@ -2128,11 +2673,20 @@ Nagpur, Maharashtra | Ph: +91 9371509246 / +91 83296 31199`;
                       onChange={(e) => setManualForm({ ...manualForm, bookingTime: e.target.value })}
                       className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
                     >
-                      {getAllDaySlots().map((s) => (
-                        <option key={s} value={s}>
-                          {formatTime12(s)} ({s})
-                        </option>
-                      ))}
+                      {getAllDaySlots().map((s) => {
+                        const isTaken = bookings.some(
+                          (b) =>
+                            b.booking_date === manualForm.bookingDate &&
+                            b.booking_time === s &&
+                            b.status !== "cancelled" &&
+                            b.attendance !== "no_show"
+                        );
+                        return (
+                          <option key={s} value={s}>
+                            {formatTime12(s)} ({s}){isTaken ? " — ⚠️ Already Booked" : " — Available"}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>

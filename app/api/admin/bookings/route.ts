@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionRole } from "@/lib/admin-session";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getLocalBookings, updateLocalBookingStatus, updateLocalBookingAttendance, BookingRecord, getBookingId } from "@/lib/bookings-store";
+import {
+  getLocalBookings,
+  updateLocalBookingStatus,
+  updateLocalBookingAttendance,
+  updateLocalBookingRecord,
+  deleteLocalBooking,
+  BookingRecord,
+  getBookingId,
+} from "@/lib/bookings-store";
 
 const MEETING_DURATION_MINUTES = 60;
 
@@ -87,10 +95,13 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, status, attendance } = await req.json();
+    const { id, status, attendance, booking_date, booking_time } = await req.json();
 
-    if (!id || (!status && !attendance)) {
-      return NextResponse.json({ error: "id and either status or attendance are required." }, { status: 400 });
+    if (!id || (!status && !attendance && !booking_date && !booking_time)) {
+      return NextResponse.json(
+        { error: "id and at least one field (status, attendance, booking_date, booking_time) are required." },
+        { status: 400 }
+      );
     }
 
     const updates: Record<string, any> = {};
@@ -111,22 +122,33 @@ export async function PATCH(req: NextRequest) {
       updates.attendance = attendance;
     }
 
+    if (booking_date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(booking_date)) {
+        return NextResponse.json({ error: "Invalid booking_date format (YYYY-MM-DD)." }, { status: 400 });
+      }
+      updates.booking_date = booking_date;
+    }
+
+    if (booking_time) {
+      if (!/^\d{2}:\d{2}$/.test(booking_time)) {
+        return NextResponse.json({ error: "Invalid booking_time format (HH:MM)." }, { status: 400 });
+      }
+      updates.booking_time = booking_time;
+    }
+
     // Try updating Supabase
     try {
       const supabase = supabaseServer();
       await supabase
         .from("bookings")
         .update(updates)
-        .eq("id", id);
-    } catch {}
+        .or(`id.eq.${id},booking_id.eq.${id}`);
+    } catch (sbErr) {
+      console.warn("Supabase update notice:", sbErr);
+    }
 
     // Update local store
-    if (updates.status) {
-      updateLocalBookingStatus(id, updates.status);
-    }
-    if (updates.attendance) {
-      updateLocalBookingAttendance(id, updates.attendance);
-    }
+    updateLocalBookingRecord(id, updates);
 
     return NextResponse.json({ success: true, booking: { id, ...updates } });
   } catch (err) {
@@ -134,3 +156,39 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const role = await getSessionRole();
+  if (!role) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "id query parameter is required." }, { status: 400 });
+    }
+
+    // Try deleting from Supabase
+    try {
+      const supabase = supabaseServer();
+      await supabase
+        .from("bookings")
+        .delete()
+        .or(`id.eq.${id},booking_id.eq.${id}`);
+    } catch (sbErr) {
+      console.warn("Supabase delete notice:", sbErr);
+    }
+
+    // Delete from local store
+    deleteLocalBooking(id);
+
+    return NextResponse.json({ success: true, id });
+  } catch (err) {
+    console.error("Admin bookings DELETE error:", err);
+    return NextResponse.json({ error: "Failed to delete booking." }, { status: 500 });
+  }
+}
+

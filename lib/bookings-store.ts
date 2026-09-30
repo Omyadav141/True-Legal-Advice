@@ -86,3 +86,20 @@ export function updateLocalBookingRecord(
     return false;
   }
 }
+
+export function deleteLocalBooking(id: string): boolean {
+  try {
+    ensureFileExists();
+    const existing = getLocalBookings();
+    const filtered = existing.filter((b) => b.id !== id && b.booking_id !== id);
+    if (filtered.length !== existing.length) {
+      fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Error deleting local booking:", err);
+    return false;
+  }
+}
+

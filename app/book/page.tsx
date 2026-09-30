@@ -256,7 +256,7 @@ function BookClient() {
     setSlotsLoading(true);
     setSelectedSlot(null);
     const dateKey = toDateKey(targetDate);
-    fetch(`/api/availability?date=${dateKey}`)
+    fetch(`/api/availability?date=${dateKey}&_t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data) {

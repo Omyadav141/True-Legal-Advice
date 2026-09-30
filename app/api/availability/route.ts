@@ -11,6 +11,9 @@ function getIndiaTime(): Date {
   return istTime;
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // In-memory booked slots fallback when Supabase credentials are not set
 const localBookedSlots: Record<string, string[]> = {};
 
@@ -26,16 +29,29 @@ export async function GET(req: NextRequest) {
     const requestedDate = new Date(y, m - 1, d);
 
     if (!isDateBookable(requestedDate, nowIndia)) {
-      return NextResponse.json({ date: dateParam, availableSlots: [] });
+      return NextResponse.json(
+        { date: dateParam, availableSlots: [] },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        }
+      );
     }
 
     let bookedTimes: string[] = localBookedSlots[dateParam] || [];
 
-    // Check local store
+    // Check local store: only include active pending/confirmed bookings that are NOT marked no_show or cancelled
     try {
       const localRecords = getLocalBookings();
       for (const b of localRecords) {
-        if (b.booking_date === dateParam && (b.status === "pending" || b.status === "confirmed")) {
+        if (
+          b.booking_date === dateParam &&
+          (b.status === "pending" || b.status === "confirmed") &&
+          b.attendance !== "no_show"
+        ) {
           bookedTimes.push(b.booking_time);
         }
       }
@@ -54,12 +70,15 @@ export async function GET(req: NextRequest) {
         const supabase = supabaseServer();
         const { data, error } = await supabase
           .from("bookings")
-          .select("booking_time")
+          .select("booking_time, status, attendance")
           .eq("booking_date", dateParam)
           .in("status", ["pending", "confirmed"]);
 
         if (!error && data) {
-          bookedTimes = Array.from(new Set([...bookedTimes, ...data.map((r) => r.booking_time as string)]));
+          const activeSlots = data
+            .filter((r) => r.attendance !== "no_show" && r.status !== "cancelled")
+            .map((r) => r.booking_time as string);
+          bookedTimes = Array.from(new Set([...bookedTimes, ...activeSlots]));
         }
       }
     } catch {
@@ -68,14 +87,24 @@ export async function GET(req: NextRequest) {
 
     const { availableSlots, bookedSlots, passedSlots, allSlots, slots } = getDetailedSlotsForDate(dateParam, bookedTimes, nowIndia);
 
-    return NextResponse.json({
-      date: dateParam,
-      availableSlots,
-      bookedSlots,
-      passedSlots,
-      allSlots,
-      slots,
-    });
+    return NextResponse.json(
+      {
+        date: dateParam,
+        availableSlots,
+        bookedSlots,
+        passedSlots,
+        allSlots,
+        slots,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
+
   } catch (err) {
     console.error("Availability API error:", err);
     // Graceful fallback to guarantee slots are never completely empty
