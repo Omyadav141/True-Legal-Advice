@@ -113,7 +113,7 @@ export async function setStaffSessionCookie(staff: StaffMember) {
 /** Backwards-compatible alias: sets an admin session. */
 export async function setAdminSessionCookie() {
   const adminEmail = process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com";
-  const existing = getStaffByEmail(adminEmail);
+  const existing = await getStaffByEmail(adminEmail);
   if (existing) {
     await setStaffSessionCookie(existing);
   } else {
@@ -164,8 +164,8 @@ export async function isAdminAuthenticated(): Promise<boolean> {
  * Checks credentials against all staff accounts (master admin & assistants).
  * Returns the matched staff member, or null when credentials are invalid.
  */
-export function verifyStaffCredentials(email: string, password: string): StaffMember | null {
-  const result = authenticateStaff(email, password);
+export async function verifyStaffCredentials(email: string, password: string): Promise<StaffMember | null> {
+  const result = await authenticateStaff(email, password);
   if (result.success && result.staff) {
     return result.staff;
   }
@@ -173,7 +173,7 @@ export function verifyStaffCredentials(email: string, password: string): StaffMe
 }
 
 /** Backwards-compatible boolean check for the admin account only. */
-export function verifyAdminCredentials(email: string, password: string): boolean {
-  const staff = verifyStaffCredentials(email, password);
+export async function verifyAdminCredentials(email: string, password: string): Promise<boolean> {
+  const staff = await verifyStaffCredentials(email, password);
   return staff?.role === "admin";
 }

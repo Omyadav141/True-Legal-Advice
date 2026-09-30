@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify current password
-    const authCheck = authenticateStaff(session.email, currentPassword);
+    const authCheck = await authenticateStaff(session.email, currentPassword);
     if (!authCheck.success) {
       return NextResponse.json(
         { error: "Current password entered is incorrect." },
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update password
-    const updateResult = updatePassword(session.email, newPassword);
+    const updateResult = await updatePassword(session.email, newPassword);
     if (!updateResult.success) {
       return NextResponse.json(
         { error: updateResult.error || "Failed to update password." },
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Refresh session cookie
-    const updatedStaff = getStaffByEmail(session.email);
+    const updatedStaff = await getStaffByEmail(session.email);
     if (updatedStaff) {
       await setStaffSessionCookie(updatedStaff);
     }

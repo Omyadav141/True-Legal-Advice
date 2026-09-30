@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const staff = getStaffByEmail(normalizedEmail);
+    const staff = await getStaffByEmail(normalizedEmail);
 
     if (!staff) {
       // Return ambiguous message for security or helpful hint
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Reset password
-      const updateResult = updatePassword(normalizedEmail, newPassword.trim());
+      const updateResult = await updatePassword(normalizedEmail, newPassword.trim());
       if (!updateResult.success) {
         return NextResponse.json(
           { error: updateResult.error || "Failed to update password." },

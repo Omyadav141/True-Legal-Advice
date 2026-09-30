@@ -61,6 +61,7 @@ import {
   EyeOff,
   Lock,
   CheckSquare,
+  Globe,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
@@ -206,9 +207,42 @@ export default function DashboardClient() {
   } | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
 
-  // Notification Center
+  // Notification Center with persistent local storage
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>([]);
+
+  // Load persisted dismissed notification IDs on client mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("tla_dismissed_notif_ids");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setDismissedNotifIds(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const handleDismissNotif = (id: string) => {
+    setDismissedNotifIds((prev) => {
+      const updated = Array.from(new Set([...prev, id]));
+      try {
+        localStorage.setItem("tla_dismissed_notif_ids", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleClearAllNotifs = (currentList: { id: string }[]) => {
+    const ids = currentList.map((n) => n.id);
+    setDismissedNotifIds((prev) => {
+      const updated = Array.from(new Set([...prev, ...ids]));
+      try {
+        localStorage.setItem("tla_dismissed_notif_ids", JSON.stringify(updated));
+        localStorage.setItem("tla_last_cleared_notifs_time", Date.now().toString());
+      } catch {}
+      return updated;
+    });
+  };
 
   // Profile dropdown in header
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -255,6 +289,8 @@ export default function DashboardClient() {
 
   // Dedicated Booking Filter Tab: Default to "today" as requested
   const [bookingTabFilter, setBookingTabFilter] = useState<"all" | "today" | "tomorrow" | "upcoming" | "pending" | "attended" | "completed" | "declined">("today");
+  // Sub-filter for Today's Slots: "remaining" (pending/confirmed consultations) vs "completed" (attended) vs "all"
+  const [todaySubFilter, setTodaySubFilter] = useState<"remaining" | "completed" | "all">("remaining");
 
   // Dedicated Contact Inquiries Filter:
   // "all" | "new" | "contacted" | "converted" | "closed"
@@ -394,19 +430,26 @@ export default function DashboardClient() {
       onClick?: () => void;
     }> = [];
 
-    // 1. Today's Slots Notification
-    const todaySlots = bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled");
-    if (todaySlots.length > 0) {
+    // 1. Today's Remaining Consultations
+    const todayRemaining = bookings.filter(
+      (b) =>
+        b.booking_date === todayStr &&
+        b.status !== "cancelled" &&
+        b.attendance !== "attended" &&
+        b.status !== "completed"
+    );
+    if (todayRemaining.length > 0) {
       list.push({
-        id: "today-bookings",
-        title: `${todaySlots.length} Appointment${todaySlots.length > 1 ? "s" : ""} Today`,
-        message: `Adv. Shareen has ${todaySlots.length} confirmed consultation${todaySlots.length > 1 ? "s" : ""} scheduled for today (${formatDateLabel(todayStr)}).`,
+        id: `today-remaining-${todayStr}`,
+        title: `${todayRemaining.length} Consultation${todayRemaining.length > 1 ? "s" : ""} Remaining Today`,
+        message: `Adv. Shareen has ${todayRemaining.length} consultation${todayRemaining.length > 1 ? "s" : ""} awaiting attendance today (${formatDateLabel(todayStr)}).`,
         time: "Today",
         type: "booking",
         actionLabel: "View Today's Slots",
         onClick: () => {
           setActiveNav("bookings");
           setBookingTabFilter("today");
+          setTodaySubFilter("remaining");
           setNotificationOpen(false);
         },
       });
@@ -448,21 +491,21 @@ export default function DashboardClient() {
       });
     }
 
-    // 4. Chamber Presence Real Notice
-    list.push({
-      id: "chamber-status-notif",
-      title: chamberStatus.isOfficeOpen ? "Chamber Office is OPEN" : "Chamber Office is AWAY",
-      message: chamberStatus.isOfficeOpen
-        ? "Nagpur chamber desk is actively accepting walk-ins and scheduled visitors."
-        : `Away notice: ${chamberStatus.awayReason || "Attending court proceedings"}. Estimated resume: ${chamberStatus.returnEstimate || "Later today"}.`,
-      time: "Presence",
-      type: "chamber",
-      actionLabel: "Manage Presence",
-      onClick: () => {
-        setActiveNav("chamber");
-        setNotificationOpen(false);
-      },
-    });
+    // 4. Chamber Away Alert (Only alert when Advocate is AWAY from Chamber)
+    if (!chamberStatus.isOfficeOpen) {
+      list.push({
+        id: `chamber-away-${chamberStatus.updatedAt || "notice"}`,
+        title: "Chamber Office is AWAY",
+        message: `Away notice: ${chamberStatus.awayReason || "Attending court proceedings"}. Estimated resume: ${chamberStatus.returnEstimate || "Later today"}.`,
+        time: "Away",
+        type: "chamber",
+        actionLabel: "Manage Presence",
+        onClick: () => {
+          setActiveNav("chamber");
+          setNotificationOpen(false);
+        },
+      });
+    }
 
     return list.filter((n) => !dismissedNotifIds.includes(n.id));
   }, [bookings, contacts, chamberStatus, todayStr, dismissedNotifIds]);
@@ -695,21 +738,48 @@ export default function DashboardClient() {
     }
   }
 
-  // Attendance Updater (Mark if customer came or not)
-  async function updateAttendance(id: string, attendance: "attended" | "no_show" | "scheduled") {
+  // Attendance Updater (Mark if customer came and completed)
+  async function updateAttendance(
+    id: string,
+    attendance: "attended" | "no_show" | "scheduled",
+    statusOverride?: Booking["status"]
+  ) {
     setUpdatingId(id);
+    const newStatus = statusOverride ?? (attendance === "attended" ? "completed" : attendance === "scheduled" ? "confirmed" : undefined);
+    const body: Record<string, any> = { id, attendance };
+    if (newStatus) body.status = newStatus;
+
     try {
       const res = await fetch("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, attendance }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setBookings((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, attendance } : b))
+          prev.map((b) =>
+            b.id === id
+              ? {
+                  ...b,
+                  attendance,
+                  ...(newStatus ? { status: newStatus } : {}),
+                }
+              : b
+          )
         );
         if (selectedRecord && selectedRecord.data.id === id) {
-          setSelectedRecord((prev) => prev ? { ...prev, data: { ...prev.data, attendance } } : null);
+          setSelectedRecord((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  data: {
+                    ...prev.data,
+                    attendance,
+                    ...(newStatus ? { status: newStatus } : {}),
+                  },
+                }
+              : null
+          );
         }
       }
     } finally {
@@ -1202,7 +1272,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
   // Specific Booking Metrics for "Bookings & Slots" View ONLY
   const bookingMetrics = useMemo(() => {
-    const todayCount = bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
+    const todayAll = bookings.filter((b) => b.booking_date === todayStr && b.status !== "cancelled" && b.attendance !== "no_show");
+    const todayCount = todayAll.length;
+    const todayRemainingCount = todayAll.filter((b) => b.attendance !== "attended" && b.status !== "completed").length;
+    const todayCompletedCount = todayAll.filter((b) => b.attendance === "attended" || b.status === "completed").length;
     const tomorrowCount = bookings.filter((b) => b.booking_date === tomorrowStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
     const upcomingCount = bookings.filter((b) => b.booking_date > tomorrowStr && b.status !== "cancelled" && b.attendance !== "no_show").length;
     const pendingCount = bookings.filter((b) => b.status === "pending").length;
@@ -1213,6 +1286,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
     return {
       todayCount,
+      todayRemainingCount,
+      todayCompletedCount,
       tomorrowCount,
       upcomingCount,
       pendingCount,
@@ -1304,7 +1379,23 @@ Please join the Google Meet link above at your scheduled appointment time.`;
     let list = [...bookings];
 
     if (bookingTabFilter === "today") {
-      list = list.filter((b) => b.booking_date === todayStr && b.status !== "cancelled");
+      if (todaySubFilter === "remaining") {
+        list = list.filter(
+          (b) =>
+            b.booking_date === todayStr &&
+            b.status !== "cancelled" &&
+            b.attendance !== "attended" &&
+            b.status !== "completed"
+        );
+      } else if (todaySubFilter === "completed") {
+        list = list.filter(
+          (b) =>
+            b.booking_date === todayStr &&
+            (b.attendance === "attended" || b.status === "completed")
+        );
+      } else {
+        list = list.filter((b) => b.booking_date === todayStr && b.status !== "cancelled");
+      }
     } else if (bookingTabFilter === "tomorrow") {
       list = list.filter((b) => b.booking_date === tomorrowStr && b.status !== "cancelled");
     } else if (bookingTabFilter === "upcoming") {
@@ -1345,7 +1436,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
       if (b.status === "pending" && a.status !== "pending") return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [bookings, bookingTabFilter, searchQuery, todayStr, tomorrowStr]);
+  }, [bookings, bookingTabFilter, todaySubFilter, searchQuery, todayStr, tomorrowStr]);
 
   // Filtered Contacts for the Dedicated Contact Inquiries View
   const filteredContacts = useMemo(() => {
@@ -1417,8 +1508,21 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           </div>
         </div>
 
-        {/* Right Controls: Chamber Status Badge, Notifications, Refresh, Profile */}
+        {/* Right Controls: Chamber Status Badge, View Website, Notifications, Refresh, Profile */}
         <div className="flex items-center gap-2 sm:gap-3 relative">
+          {/* Quick Link to Live Public Website */}
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-white/10 hover:bg-[#cba758]/20 text-slate-200 hover:text-[#cba758] border border-white/10 hover:border-[#cba758]/40 font-medium text-xs transition-all cursor-pointer shadow-xs"
+            title="Open live True Legal Advice website in a new tab"
+          >
+            <Globe size={13} className="text-[#cba758]" />
+            <span className="hidden md:inline font-semibold">View Website</span>
+            <ExternalLink size={11} className="opacity-70" />
+          </a>
+
           {/* Quick Chamber Away / Open Indicator */}
           {(!currentStaff || currentStaff.permissions?.canManageChamber !== false) && (
             <button
@@ -1473,9 +1577,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   {notificationsList.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setDismissedNotifIds(notificationsList.map((n) => n.id));
-                      }}
+                      onClick={() => handleClearAllNotifs(notificationsList)}
                       className="text-[10px] text-slate-400 hover:text-white transition-colors cursor-pointer"
                     >
                       Clear all
@@ -1523,8 +1625,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                             </button>
                             <button
                               type="button"
-                              onClick={() => setDismissedNotifIds((prev) => [...prev, notif.id])}
-                              className="text-[10px] text-slate-500 hover:text-slate-300"
+                              onClick={() => handleDismissNotif(notif.id)}
+                              className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
                             >
                               Dismiss
                             </button>
@@ -1817,8 +1919,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
           </nav>
 
-          {/* Quick CTA: Manual Booking / Block Slot Button */}
-          <div className="p-3.5 border-t border-[#2c3243]">
+          {/* Quick Shortcuts: View Website & Manual Booking */}
+          <div className="p-3.5 border-t border-[#2c3243] space-y-2">
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-[#cba758]/15 border border-white/10 hover:border-[#cba758]/30 text-slate-300 hover:text-[#cba758] font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+            >
+              <Globe size={14} className="text-[#cba758]" />
+              <span>View Live Website ↗</span>
+            </a>
+
             <button
               type="button"
               onClick={() => {
@@ -2423,7 +2535,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-zinc-100 text-xs no-scrollbar">
                   {[
                     { id: "all", label: "All Active", count: bookingMetrics.totalActive },
-                    { id: "today", label: "Today's Slots", count: bookingMetrics.todayCount },
+                    { id: "today", label: "Today's Slots", count: bookingMetrics.todayRemainingCount > 0 ? bookingMetrics.todayRemainingCount : bookingMetrics.todayCount },
                     { id: "tomorrow", label: "Tomorrow", count: bookingMetrics.tomorrowCount },
                     { id: "upcoming", label: "Upcoming", count: bookingMetrics.upcomingCount },
                     { id: "pending", label: "Awaiting Review", count: bookingMetrics.pendingCount },
@@ -2459,6 +2571,75 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     );
                   })}
                 </div>
+
+                {/* Sub-filter Selector for Today's Slots */}
+                {bookingTabFilter === "today" && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-100 text-xs">
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-100 border border-zinc-200">
+                      <button
+                        type="button"
+                        onClick={() => setTodaySubFilter("remaining")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          todaySubFilter === "remaining"
+                            ? "bg-white text-zinc-900 shadow-xs"
+                            : "text-zinc-600 hover:text-zinc-900"
+                        }`}
+                      >
+                        <span>⏳ Remaining Consultations</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                            todaySubFilter === "remaining"
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-zinc-200 text-zinc-600"
+                          }`}
+                        >
+                          {bookingMetrics.todayRemainingCount}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTodaySubFilter("completed")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          todaySubFilter === "completed"
+                            ? "bg-white text-emerald-800 shadow-xs"
+                            : "text-zinc-600 hover:text-zinc-900"
+                        }`}
+                      >
+                        <span>✓ Attended & Completed</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                            todaySubFilter === "completed"
+                              ? "bg-emerald-100 text-emerald-900"
+                              : "bg-zinc-200 text-zinc-600"
+                          }`}
+                        >
+                          {bookingMetrics.todayCompletedCount}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTodaySubFilter("all")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          todaySubFilter === "all"
+                            ? "bg-white text-zinc-900 shadow-xs"
+                            : "text-zinc-600 hover:text-zinc-900"
+                        }`}
+                      >
+                        <span>All Today ({bookingMetrics.todayCount})</span>
+                      </button>
+                    </div>
+
+                    <span className="text-[11px] font-mono text-zinc-500">
+                      {todaySubFilter === "remaining"
+                        ? `${bookingMetrics.todayRemainingCount} slot${bookingMetrics.todayRemainingCount === 1 ? "" : "s"} awaiting attendance today`
+                        : todaySubFilter === "completed"
+                        ? `${bookingMetrics.todayCompletedCount} client${bookingMetrics.todayCompletedCount === 1 ? "" : "s"} attended today`
+                        : `Total ${bookingMetrics.todayCount} consultation slot${bookingMetrics.todayCount === 1 ? "" : "s"} scheduled today`}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Bookings Container */}
@@ -2472,23 +2653,43 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   </div>
                 ) : filteredBookings.length === 0 ? (
                   <div className="py-16 px-6 text-center max-w-sm mx-auto">
-                    <Calendar size={32} className="text-zinc-400 mx-auto mb-2" />
-                    <h4 className="font-bold text-sm text-zinc-900">No Appointments Found</h4>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      {searchQuery
-                        ? `No bookings match "${searchQuery}".`
-                        : "No appointments match this timing tab."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setBookingTabFilter("all");
-                      }}
-                      className="mt-3 px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-bold"
-                    >
-                      Show All Active Slots
-                    </button>
+                    {bookingTabFilter === "today" && todaySubFilter === "remaining" && bookingMetrics.todayCompletedCount > 0 ? (
+                      <>
+                        <CheckCircle2 size={36} className="text-emerald-500 mx-auto mb-2" />
+                        <h4 className="font-bold text-sm text-zinc-900">All Today's Consultations Completed! 🎉</h4>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          All {bookingMetrics.todayCompletedCount} client consultation{bookingMetrics.todayCompletedCount === 1 ? "" : "s"} scheduled for today have been attended.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setTodaySubFilter("completed")}
+                          className="mt-3.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Check size={12} strokeWidth={2.5} />
+                          <span>View Completed Consultations ({bookingMetrics.todayCompletedCount})</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={32} className="text-zinc-400 mx-auto mb-2" />
+                        <h4 className="font-bold text-sm text-zinc-900">No Appointments Found</h4>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {searchQuery
+                            ? `No bookings match "${searchQuery}".`
+                            : "No appointments match this timing tab."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setBookingTabFilter("all");
+                          }}
+                          className="mt-3 px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-bold cursor-pointer"
+                        >
+                          Show All Active Slots
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <>

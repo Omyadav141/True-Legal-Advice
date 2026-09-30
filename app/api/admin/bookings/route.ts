@@ -54,10 +54,13 @@ export async function GET() {
       const { data, error } = await supabase
         .from("bookings")
         .select("*")
+        .neq("status", "system_staff_store")
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        supabaseList = data as BookingRecord[];
+        supabaseList = (data as any[]).filter(
+          (b) => String(b.status) !== "system_staff_store" && b.service !== "__SYSTEM_CONFIG__"
+        ) as BookingRecord[];
       }
     }
   } catch (err) {
@@ -67,6 +70,7 @@ export async function GET() {
   // Merge and de-duplicate by ID
   const map = new Map<string, BookingRecord>();
   for (const b of [...supabaseList, ...localList]) {
+    if (String(b.status) === "system_staff_store" || b.service === "__SYSTEM_CONFIG__") continue;
     const bookingWithId: BookingRecord = {
       ...b,
       booking_id: b.booking_id || getBookingId(b),

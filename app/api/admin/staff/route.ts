@@ -14,7 +14,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
-    const allStaff = getAllStaff().map((s) => ({
+    const staffList = await getAllStaff();
+    const allStaff = staffList.map((s) => ({
       id: s.id,
       name: s.name,
       email: s.email,
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = addStaffMember({
+    const result = await addStaffMember({
       name,
       email,
       password,
@@ -107,7 +108,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Staff id and permissions are required." }, { status: 400 });
     }
 
-    const result = updateStaffPermissions(id, permissions);
+    const result = await updateStaffPermissions(id, permissions);
     if (!result.success || !result.staff) {
       return NextResponse.json({ error: result.error || "Failed to update permissions." }, { status: 400 });
     }
@@ -145,7 +146,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Staff id is required." }, { status: 400 });
     }
 
-    const result = deleteStaffMember(id);
+    const result = await deleteStaffMember(id);
     if (!result.success) {
       return NextResponse.json({ error: result.error || "Failed to remove staff." }, { status: 400 });
     }
