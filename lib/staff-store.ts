@@ -92,8 +92,8 @@ function ensureFileExists(): StaffMember[] {
   // 1. If running on serverless, attempt to read from writable /tmp location
   if (isServerless) {
     try {
-      if (fs.existsSync(writableFile)) {
-        const raw = fs.readFileSync(writableFile, "utf-8");
+      if (fs.existsSync(/*turbopackIgnore: true*/ writableFile)) {
+        const raw = fs.readFileSync(/*turbopackIgnore: true*/ writableFile, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           memoryStaff = parsed;
@@ -107,8 +107,8 @@ function ensureFileExists(): StaffMember[] {
 
   // 2. Try to read from bundled staff.json in project
   try {
-    if (fs.existsSync(bundledFile)) {
-      const raw = fs.readFileSync(bundledFile, "utf-8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ bundledFile)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ bundledFile, "utf-8");
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         memoryStaff = parsed;
