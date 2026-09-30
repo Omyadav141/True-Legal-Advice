@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 export interface ContactInquiry {
   id: string;
@@ -13,82 +14,98 @@ export interface ContactInquiry {
   created_at: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT
+);
+
+const DATA_DIR = isServerless ? path.join(os.tmpdir(), "tla_data") : path.join(process.cwd(), "data");
 const CONTACTS_FILE = path.join(DATA_DIR, "contacts.json");
+const BUNDLED_FILE = path.join(process.cwd(), "data", "contacts.json");
+
+let memoryContacts: ContactInquiry[] | null = null;
 
 function ensureFileExists() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (memoryContacts && memoryContacts.length > 0) return;
+
+  try {
+    if (fs.existsSync(CONTACTS_FILE)) {
+      const raw = fs.readFileSync(CONTACTS_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryContacts = parsed;
+        return;
+      }
+    }
+    if (fs.existsSync(BUNDLED_FILE)) {
+      const raw = fs.readFileSync(BUNDLED_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryContacts = parsed;
+        return;
+      }
+    }
+  } catch (err) {
+    console.error("Notice reading contacts file:", err);
   }
-  if (!fs.existsSync(CONTACTS_FILE)) {
-    fs.writeFileSync(CONTACTS_FILE, JSON.stringify([], null, 2), "utf-8");
+
+  memoryContacts = [];
+}
+
+function writeContactsToFile(contacts: ContactInquiry[]) {
+  memoryContacts = contacts;
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(CONTACTS_FILE, JSON.stringify(contacts, null, 2), "utf-8");
+  } catch (err: any) {
+    console.warn("Notice: could not write contacts file in serverless:", err?.message || err);
   }
 }
 
 export function getLocalContacts(): ContactInquiry[] {
-  try {
-    ensureFileExists();
-    const raw = fs.readFileSync(CONTACTS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error("Error reading local contacts:", err);
-    return [];
-  }
+  ensureFileExists();
+  return memoryContacts || [];
 }
 
 export function saveLocalContact(record: ContactInquiry): ContactInquiry {
-  try {
-    ensureFileExists();
-    const existing = getLocalContacts();
-    const filtered = existing.filter((c) => c.id !== record.id);
-    const updated = [record, ...filtered];
-    fs.writeFileSync(CONTACTS_FILE, JSON.stringify(updated, null, 2), "utf-8");
-    return record;
-  } catch (err) {
-    console.error("Error saving local contact:", err);
-    return record;
-  }
+  ensureFileExists();
+  const existing = memoryContacts || [];
+  const filtered = existing.filter((c) => c.id !== record.id);
+  const updated = [record, ...filtered];
+  writeContactsToFile(updated);
+  return record;
 }
 
 export function updateLocalContactStatus(
   id: string,
   status: ContactInquiry["status"]
 ): boolean {
-  try {
-    ensureFileExists();
-    const existing = getLocalContacts();
-    let found = false;
-    const updated = existing.map((c) => {
-      if (c.id === id) {
-        found = true;
-        return { ...c, status };
-      }
-      return c;
-    });
-    if (found) {
-      fs.writeFileSync(CONTACTS_FILE, JSON.stringify(updated, null, 2), "utf-8");
+  ensureFileExists();
+  const existing = memoryContacts || [];
+  let found = false;
+  const updated = existing.map((c) => {
+    if (c.id === id) {
+      found = true;
+      return { ...c, status };
     }
-    return found;
-  } catch (err) {
-    console.error("Error updating local contact status:", err);
-    return false;
+    return c;
+  });
+  if (found) {
+    writeContactsToFile(updated);
   }
+  return found;
 }
 
 export function deleteLocalContact(id: string): boolean {
-  try {
-    ensureFileExists();
-    const existing = getLocalContacts();
-    const filtered = existing.filter((c) => c.id !== id);
-    if (filtered.length !== existing.length) {
-      fs.writeFileSync(CONTACTS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
-      return true;
-    }
-    return false;
-  } catch (err) {
-    console.error("Error deleting local contact:", err);
-    return false;
+  ensureFileExists();
+  const existing = memoryContacts || [];
+  const filtered = existing.filter((c) => c.id !== id);
+  if (filtered.length !== existing.length) {
+    writeContactsToFile(filtered);
+    return true;
   }
+  return false;
 }
-

@@ -1,54 +1,83 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import { BookingRecord, getBookingId } from "./booking-utils";
 
 export * from "./booking-utils";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT
+);
+
+const DATA_DIR = isServerless ? path.join(os.tmpdir(), "tla_data") : path.join(process.cwd(), "data");
 const BOOKINGS_FILE = path.join(DATA_DIR, "bookings.json");
+const BUNDLED_FILE = path.join(process.cwd(), "data", "bookings.json");
+
+let memoryBookings: BookingRecord[] | null = null;
 
 function ensureFileExists() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (memoryBookings && memoryBookings.length > 0) return;
+
+  try {
+    if (fs.existsSync(BOOKINGS_FILE)) {
+      const raw = fs.readFileSync(BOOKINGS_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryBookings = parsed.map((b) => ({
+          ...b,
+          booking_id: b.booking_id || getBookingId(b),
+        }));
+        return;
+      }
+    }
+    if (fs.existsSync(BUNDLED_FILE)) {
+      const raw = fs.readFileSync(BUNDLED_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryBookings = parsed.map((b) => ({
+          ...b,
+          booking_id: b.booking_id || getBookingId(b),
+        }));
+        return;
+      }
+    }
+  } catch (err) {
+    console.error("Notice reading local bookings:", err);
   }
-  if (!fs.existsSync(BOOKINGS_FILE)) {
-    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify([], null, 2), "utf-8");
+
+  memoryBookings = [];
+}
+
+function writeBookingsToFile(bookings: BookingRecord[]) {
+  memoryBookings = bookings;
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(bookings, null, 2), "utf-8");
+  } catch (err: any) {
+    console.warn("Notice: could not write bookings file in serverless:", err?.message || err);
   }
 }
 
 export function getLocalBookings(): BookingRecord[] {
-  try {
-    ensureFileExists();
-    const raw = fs.readFileSync(BOOKINGS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((b) => ({
-      ...b,
-      booking_id: b.booking_id || getBookingId(b),
-    }));
-  } catch (err) {
-    console.error("Error reading local bookings:", err);
-    return [];
-  }
+  ensureFileExists();
+  return memoryBookings || [];
 }
 
 export function saveLocalBooking(record: BookingRecord): BookingRecord {
-  try {
-    ensureFileExists();
-    const existing = getLocalBookings();
-    const ensuredRecord: BookingRecord = {
-      ...record,
-      booking_id: record.booking_id || getBookingId(record),
-    };
-    // Check if duplicate ID exists
-    const filtered = existing.filter((b) => b.id !== ensuredRecord.id);
-    const updated = [ensuredRecord, ...filtered];
-    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
-    return ensuredRecord;
-  } catch (err) {
-    console.error("Error saving local booking:", err);
-    return record;
-  }
+  ensureFileExists();
+  const existing = memoryBookings || [];
+  const ensuredRecord: BookingRecord = {
+    ...record,
+    booking_id: record.booking_id || getBookingId(record),
+  };
+  const filtered = existing.filter((b) => b.id !== ensuredRecord.id);
+  const updated = [ensuredRecord, ...filtered];
+  writeBookingsToFile(updated);
+  return ensuredRecord;
 }
 
 export function updateLocalBookingStatus(id: string, status: BookingRecord["status"]): boolean {
@@ -66,40 +95,29 @@ export function updateLocalBookingRecord(
   id: string,
   updates: Partial<BookingRecord>
 ): boolean {
-  try {
-    ensureFileExists();
-    const existing = getLocalBookings();
-    let found = false;
-    const updated = existing.map((b) => {
-      if (b.id === id) {
-        found = true;
-        return { ...b, ...updates };
-      }
-      return b;
-    });
-    if (found) {
-      fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
+  ensureFileExists();
+  const existing = memoryBookings || [];
+  let found = false;
+  const updated = existing.map((b) => {
+    if (b.id === id) {
+      found = true;
+      return { ...b, ...updates };
     }
-    return found;
-  } catch (err) {
-    console.error("Error updating local booking record:", err);
-    return false;
+    return b;
+  });
+  if (found) {
+    writeBookingsToFile(updated);
   }
+  return found;
 }
 
 export function deleteLocalBooking(id: string): boolean {
-  try {
-    ensureFileExists();
-    const existing = getLocalBookings();
-    const filtered = existing.filter((b) => b.id !== id && b.booking_id !== id);
-    if (filtered.length !== existing.length) {
-      fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(filtered, null, 2), "utf-8");
-      return true;
-    }
-    return false;
-  } catch (err) {
-    console.error("Error deleting local booking:", err);
-    return false;
+  ensureFileExists();
+  const existing = memoryBookings || [];
+  const filtered = existing.filter((b) => b.id !== id && b.booking_id !== id);
+  if (filtered.length !== existing.length) {
+    writeBookingsToFile(filtered);
+    return true;
   }
+  return false;
 }
-
