@@ -7,7 +7,7 @@ import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
 import { saveLocalBooking, BookingRecord, generateBookingId } from "@/lib/bookings-store";
 
-import { getChamberStatus } from "@/lib/chamber-status";
+import { getChamberStatus, isDateInChamberLeave } from "@/lib/chamber-status";
 
 // Postgres unique_violation error code
 const UNIQUE_VIOLATION = "23505";
@@ -31,9 +31,20 @@ export async function POST(req: NextRequest) {
 
     const mode: "online" | "offline" = consultationMode === "online" ? "online" : "offline";
 
-    // Validate live chamber status for today
+    // Validate live chamber status for today or multi-day leave
     const chamber = getChamberStatus();
     const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    // Check multi-day scheduled leave / holiday
+    if (isDateInChamberLeave(bookingDate, chamber, mode)) {
+      return NextResponse.json(
+        {
+          error: `Advocate Shareen Hussain is on scheduled chamber leave during this period (${chamber.leaveReason || "Chamber Leave / Recess"}). Consultations resume on ${chamber.leaveEndDate}. Please select an upcoming date after her return.`,
+        },
+        { status: 400 }
+      );
+    }
+
     if (bookingDate === todayStr) {
       if (mode === "offline" && !chamber.isOfficeOpen) {
         return NextResponse.json(

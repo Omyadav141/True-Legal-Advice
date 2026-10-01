@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getAvailableSlotsForDate, getDetailedSlotsForDate, isDateBookable } from "@/lib/availability";
-
+import { getAllDaySlots, getDetailedSlotsForDate, isDateBookable } from "@/lib/availability";
+import { getChamberStatus, isDateInChamberLeave } from "@/lib/chamber-status";
 import { getLocalBookings } from "@/lib/bookings-store";
 
 // Convert UTC to India Standard Time (IST, UTC+5:30)
@@ -20,6 +20,7 @@ const localBookedSlots: Record<string, string[]> = {};
 export async function GET(req: NextRequest) {
   try {
     const dateParam = req.nextUrl.searchParams.get("date");
+    const modeParam = req.nextUrl.searchParams.get("mode") as "offline" | "online" | null;
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json({ error: "A valid date (YYYY-MM-DD) is required." }, { status: 400 });
     }
@@ -31,6 +32,32 @@ export async function GET(req: NextRequest) {
     if (!isDateBookable(requestedDate, nowIndia)) {
       return NextResponse.json(
         { date: dateParam, availableSlots: [] },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        }
+      );
+    }
+
+    // Check if the chamber is on multi-day scheduled leave / holiday for this date
+    const chamber = getChamberStatus();
+    if (isDateInChamberLeave(dateParam, chamber, modeParam)) {
+      const allSlots = getAllDaySlots();
+      return NextResponse.json(
+        {
+          date: dateParam,
+          availableSlots: [],
+          bookedSlots: allSlots,
+          passedSlots: [],
+          allSlots,
+          onLeave: true,
+          leaveReason: chamber.leaveReason || "Scheduled Chamber Leave / Holiday",
+          leaveStartDate: chamber.leaveStartDate,
+          leaveEndDate: chamber.leaveEndDate,
+        },
         {
           headers: {
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

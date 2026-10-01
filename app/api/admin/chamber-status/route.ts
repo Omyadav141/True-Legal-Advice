@@ -18,6 +18,11 @@ export async function POST(req: NextRequest) {
       returnEstimate: body.returnEstimate,
       returnTime: body.returnTime,
       notice: body.notice,
+      onLeave: body.onLeave,
+      leaveStartDate: body.leaveStartDate,
+      leaveEndDate: body.leaveEndDate,
+      leaveReason: body.leaveReason,
+      leaveChannelsAffected: body.leaveChannelsAffected,
     });
     return NextResponse.json({ success: true, status: updated });
   } catch (err) {

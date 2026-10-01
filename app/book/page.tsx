@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -35,10 +35,9 @@ import {
   FileText,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { getAllDaySlots, isDateBookable, toDateKey, BOOKING_WINDOW_DAYS } from "@/lib/availability";
 import { services, site } from "@/lib/site-config";
-import type { ChamberStatus } from "@/lib/chamber-status";
+import { type ChamberStatus, isDateInChamberLeave } from "@/lib/chamber-status";
 
 function formatSlotLabel(slot: string) {
   const [h, m] = slot.split(":").map(Number);
@@ -224,29 +223,51 @@ function BookClient() {
       .catch(() => {});
   }, [today]);
 
-  // Determine if today is disabled for the selected mode
-  const isTodayDisabledForMode = useMemo(() => {
-    if (consultationMode === "offline" && !chamberStatus.isOfficeOpen) return true;
-    if (consultationMode === "online" && !chamberStatus.isOnlineOpen) return true;
-    if (!chamberStatus.isOfficeOpen && !chamberStatus.isOnlineOpen) return true;
-    return false;
-  }, [consultationMode, chamberStatus]);
+  // Determine if a date is disabled for the selected mode (either today closed or scheduled multi-day leave)
+  const isDateDisabledForMode = useCallback(
+    (d: Date, mode: "offline" | "online" | null) => {
+      const dKey = toDateKey(d);
+      const isTodayDate = dKey === toDateKey(today);
 
-  // If today is disabled and user has targetDate as today, push to tomorrow
+      if (isTodayDate) {
+        if (mode === "offline" && !chamberStatus.isOfficeOpen) return true;
+        if (mode === "online" && !chamberStatus.isOnlineOpen) return true;
+        if (!chamberStatus.isOfficeOpen && !chamberStatus.isOnlineOpen) return true;
+      }
+
+      if (isDateInChamberLeave(dKey, chamberStatus, mode)) {
+        return true;
+      }
+
+      return false;
+    },
+    [chamberStatus, today]
+  );
+
+  const isTodayDisabledForMode = useMemo(() => {
+    return isDateDisabledForMode(today, consultationMode);
+  }, [isDateDisabledForMode, today, consultationMode]);
+
+  // If targetDate is disabled (either today closed or on holiday leave), auto-advance to next available date
   useEffect(() => {
-    if (isTodayDisabledForMode && toDateKey(targetDate) === toDateKey(today)) {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      setTargetDate(tomorrow);
+    if (isDateDisabledForMode(targetDate, consultationMode)) {
+      for (let i = 1; i <= 21; i++) {
+        const nextD = new Date(today);
+        nextD.setDate(nextD.getDate() + i);
+        if (!isDateDisabledForMode(nextD, consultationMode)) {
+          setTargetDate(nextD);
+          break;
+        }
+      }
     }
-  }, [isTodayDisabledForMode, targetDate, today]);
+  }, [consultationMode, isDateDisabledForMode, targetDate, today]);
 
   // Fetch available and booked slots when on Step 2
   useEffect(() => {
     if (!showModal || step !== "slots") return;
 
-    // If today is disabled for this mode, do not allow slots for today
-    if (toDateKey(targetDate) === toDateKey(today) && isTodayDisabledForMode) {
+    // If target date is disabled for this mode, do not allow slots
+    if (isDateDisabledForMode(targetDate, consultationMode)) {
       setAvailableSlots([]);
       setBookedSlots(allSlots);
       setPassedSlots([]);
@@ -256,7 +277,7 @@ function BookClient() {
     setSlotsLoading(true);
     setSelectedSlot(null);
     const dateKey = toDateKey(targetDate);
-    fetch(`/api/availability?date=${dateKey}&_t=${Date.now()}`, { cache: "no-store" })
+    fetch(`/api/availability?date=${dateKey}&mode=${consultationMode || ""}&_t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -275,7 +296,7 @@ function BookClient() {
         setPassedSlots([]);
       })
       .finally(() => setSlotsLoading(false));
-  }, [showModal, step, targetDate, allSlots, today, isTodayDisabledForMode]);
+  }, [showModal, step, targetDate, allSlots, today, isDateDisabledForMode, consultationMode]);
 
   // Lock body scroll while modal is open
   useEffect(() => {
@@ -900,6 +921,27 @@ function BookClient() {
                     >
                       {/* Date Horizontal Picker */}
                       <div>
+                        {/* Multi-Day Holiday / Chamber Leave Banner */}
+                        {chamberStatus.onLeave && chamberStatus.leaveStartDate && chamberStatus.leaveEndDate && (
+                          <div className="mb-3 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5 shadow-sm">
+                            <Calendar className="shrink-0 text-amber-400 mt-0.5" size={15} />
+                            <div>
+                              <p className="font-bold text-amber-300">
+                                Chamber Scheduled Leave Notice
+                              </p>
+                              <p className="text-[11px] text-amber-200/90 mt-0.5 leading-relaxed">
+                                Adv. Shareen Hussain is on scheduled leave from{" "}
+                                <strong className="text-white font-mono">{chamberStatus.leaveStartDate}</strong> to{" "}
+                                <strong className="text-white font-mono">{chamberStatus.leaveEndDate}</strong>
+                                {chamberStatus.leaveReason ? ` (${chamberStatus.leaveReason})` : ""}.
+                                {chamberStatus.leaveChannelsAffected === "office_only"
+                                  ? " In-person chamber visits are paused; online video consultations remain open."
+                                  : " Dates during this period are unavailable for bookings."}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#cba758]">
                             Select Consultation Date
@@ -911,9 +953,11 @@ function BookClient() {
                           {Array.from({ length: 7 }, (_, i) => {
                             const d = new Date(today);
                             d.setDate(d.getDate() + i);
-                            const isSelected = toDateKey(d) === toDateKey(targetDate);
+                            const dKey = toDateKey(d);
+                            const isSelected = dKey === toDateKey(targetDate);
                             const isTodayDate = i === 0;
-                            const isDateDisabled = isTodayDate && isTodayDisabledForMode;
+                            const isOnLeave = isDateInChamberLeave(dKey, chamberStatus, consultationMode);
+                            const isDateDisabled = isDateDisabledForMode(d, consultationMode);
 
                             return (
                               <button
@@ -931,14 +975,20 @@ function BookClient() {
                               >
                                 <span
                                   className={`text-[10px] font-mono uppercase ${
-                                    isDateDisabled
+                                    isOnLeave
+                                      ? "text-amber-400 font-bold"
+                                      : isDateDisabled
                                       ? "text-rose-400 line-through"
                                       : isSelected
                                       ? "text-[#cba758] font-bold"
                                       : "text-slate-400"
                                   }`}
                                 >
-                                  {isTodayDate ? (isDateDisabled ? "Closed" : "Today") : d.toLocaleDateString("en-IN", { weekday: "short" })}
+                                  {isOnLeave
+                                    ? "Leave"
+                                    : isTodayDate
+                                    ? (isDateDisabled ? "Closed" : "Today")
+                                    : d.toLocaleDateString("en-IN", { weekday: "short" })}
                                 </span>
                                 <span className="text-base font-bold my-0.5 text-white">
                                   {d.getDate()}
@@ -951,7 +1001,14 @@ function BookClient() {
                           })}
                         </div>
 
-                        {isTodayDisabledForMode && toDateKey(targetDate) === toDateKey(today) && (
+                        {isDateInChamberLeave(toDateKey(targetDate), chamberStatus, consultationMode) ? (
+                          <p className="mt-2 text-xs text-amber-300 flex items-center gap-1.5 bg-amber-950/30 p-2 rounded-xl border border-amber-500/30">
+                            <Lock size={12} className="shrink-0" />
+                            <span>
+                              Advocate Shareen Hussain is on leave on this date ({chamberStatus.leaveReason || "Chamber Leave"}). Bookings resume after {chamberStatus.leaveEndDate}.
+                            </span>
+                          </p>
+                        ) : isTodayDisabledForMode && toDateKey(targetDate) === toDateKey(today) && (
                           <p className="mt-2 text-xs text-rose-300 flex items-center gap-1.5">
                             <Lock size={12} />
                             <span>
@@ -964,7 +1021,7 @@ function BookClient() {
                       {/* Time Slots Grid */}
                       <div>
                         <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#cba758] block mb-2">
-                          Select One-Hour Consultation Slot
+                          Select Consultation Slot
                         </label>
 
                         {slotsLoading ? (
@@ -974,9 +1031,15 @@ function BookClient() {
                           </div>
                         ) : (availableSlots || []).length === 0 ? (
                           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center text-xs text-slate-300 space-y-1">
-                            <p className="font-bold text-white">No Slots Available for this Date</p>
+                            <p className="font-bold text-white">
+                              {isDateInChamberLeave(toDateKey(targetDate), chamberStatus, consultationMode)
+                                ? "Chamber On Scheduled Leave"
+                                : "No Slots Available for this Date"}
+                            </p>
                             <p className="text-[11px] text-slate-400">
-                              Please select another date above (e.g. tomorrow) or request a direct callback.
+                              {isDateInChamberLeave(toDateKey(targetDate), chamberStatus, consultationMode)
+                                ? `Advocate Shareen Hussain is on leave (${chamberStatus.leaveReason || "Chamber Leave"}). Please select an upcoming date after ${chamberStatus.leaveEndDate} or request a callback.`
+                                : "Please select another date above (e.g. tomorrow) or request a direct callback."}
                             </p>
                           </div>
                         ) : (

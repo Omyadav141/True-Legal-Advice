@@ -386,6 +386,13 @@ export default function DashboardClient() {
   const [statusModalOnlineOpen, setStatusModalOnlineOpen] = useState(true);
   const [statusSaving, setStatusSaving] = useState(false);
 
+  // Multi-Day Chamber Leave / Holiday Planner States
+  const [leaveActive, setLeaveActive] = useState(false);
+  const [leaveStartDate, setLeaveStartDate] = useState("");
+  const [leaveEndDate, setLeaveEndDate] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveChannelsAffected, setLeaveChannelsAffected] = useState<"both" | "office_only" | "online_only">("both");
+
   // Selected Item for Detail Slide-Over / Modal
   const [selectedRecord, setSelectedRecord] = useState<{ type: "booking" | "contact"; data: any } | null>(null);
 
@@ -449,6 +456,11 @@ export default function DashboardClient() {
           setStatusModalOnlineOpen(statusData.isOnlineOpen);
           setStatusModalReason(statusData.awayReason || "");
           setStatusModalEstimate(statusData.returnEstimate || "");
+          setLeaveActive(Boolean(statusData.onLeave));
+          setLeaveStartDate(statusData.leaveStartDate || "");
+          setLeaveEndDate(statusData.leaveEndDate || "");
+          setLeaveReason(statusData.leaveReason || "");
+          setLeaveChannelsAffected(statusData.leaveChannelsAffected || "both");
         }
       }
 
@@ -735,20 +747,37 @@ export default function DashboardClient() {
 
   // Chamber Status Saver
   const saveChamberAvailability = async (preset?: {
-    isOfficeOpen: boolean;
-    isOnlineOpen: boolean;
-    awayReason: string;
-    returnEstimate: string;
+    isOfficeOpen?: boolean;
+    isOnlineOpen?: boolean;
+    awayReason?: string;
+    returnEstimate?: string;
+    onLeave?: boolean;
+    leaveStartDate?: string;
+    leaveEndDate?: string;
+    leaveReason?: string;
+    leaveChannelsAffected?: "both" | "office_only" | "online_only";
   }) => {
     setStatusSaving(true);
     try {
-      const officeOpen = preset ? preset.isOfficeOpen : statusModalOfficeOpen;
-      const onlineOpen = preset ? preset.isOnlineOpen : statusModalOnlineOpen;
-      const reason = preset ? preset.awayReason : statusModalReason.trim();
-      const estimate = preset ? preset.returnEstimate : statusModalEstimate.trim();
+      const officeOpen = preset && typeof preset.isOfficeOpen === "boolean" ? preset.isOfficeOpen : statusModalOfficeOpen;
+      const onlineOpen = preset && typeof preset.isOnlineOpen === "boolean" ? preset.isOnlineOpen : statusModalOnlineOpen;
+      const reason = preset && preset.awayReason !== undefined ? preset.awayReason : statusModalReason.trim();
+      const estimate = preset && preset.returnEstimate !== undefined ? preset.returnEstimate : statusModalEstimate.trim();
+
+      const onLeave = preset && typeof preset.onLeave === "boolean" ? preset.onLeave : leaveActive;
+      const lStart = preset && preset.leaveStartDate !== undefined ? preset.leaveStartDate : leaveStartDate;
+      const lEnd = preset && preset.leaveEndDate !== undefined ? preset.leaveEndDate : leaveEndDate;
+      const lReason = preset && preset.leaveReason !== undefined ? preset.leaveReason : leaveReason.trim();
+      const lChannels = preset && preset.leaveChannelsAffected ? preset.leaveChannelsAffected : leaveChannelsAffected;
 
       let noticeText = "";
-      if (officeOpen && onlineOpen) {
+      if (onLeave && lStart && lEnd) {
+        noticeText = `Advocate Shareen Hussain is on scheduled chamber leave from ${lStart} to ${lEnd}${lReason ? ` (${lReason})` : ""}. ${
+          lChannels === "office_only"
+            ? "In-person visits are paused; online video consultations remain open."
+            : "Chamber consultations will resume on the next business day."
+        }`;
+      } else if (officeOpen && onlineOpen) {
         noticeText = "Office visits are active at Trisharan Square, Nagpur. Online video consultations are also open.";
       } else if (!officeOpen && onlineOpen) {
         noticeText = `Advocate Shareen Hussain is currently away attending ${reason || "court hearings"}. Office visits will resume in approximately ${estimate || "1–2 hours"}. Online Google Meet video consultations remain available.`;
@@ -762,11 +791,16 @@ export default function DashboardClient() {
         body: JSON.stringify({
           isOfficeOpen: officeOpen,
           isOnlineOpen: onlineOpen,
-          status: officeOpen ? "available" : "away",
-          channelsAffected: !officeOpen && !onlineOpen ? "both" : !officeOpen ? "office_only" : "none",
+          status: onLeave ? "on_leave" : officeOpen ? "available" : "away",
+          channelsAffected: onLeave ? lChannels : !officeOpen && !onlineOpen ? "both" : !officeOpen ? "office_only" : "none",
           awayReason: reason,
           returnEstimate: estimate,
           notice: noticeText,
+          onLeave,
+          leaveStartDate: lStart,
+          leaveEndDate: lEnd,
+          leaveReason: lReason,
+          leaveChannelsAffected: lChannels,
         }),
       });
 
@@ -3876,6 +3910,263 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     >
                       {statusSaving && <Loader2 size={13} className="animate-spin" />}
                       <span>Save Status & Publish Notice</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ================= MULTI-DAY CHAMBER LEAVE & HOLIDAY PLANNER ================= */}
+              <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-2xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-[#cba758]/20 text-[#8f6d23] border border-[#cba758]/40">
+                        Chamber Calendar
+                      </span>
+                      <h3 className="font-serif font-bold text-base text-zinc-900">
+                        Multi-Day Chamber Leave & Holiday Planner
+                      </h3>
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Schedule 3 to 4 days (or custom period) chamber vacation, court recess, or personal leave. Dates are automatically blocked on the public booking calendar.
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold border self-start sm:self-center ${
+                      chamberStatus.onLeave
+                        ? "bg-amber-100 text-amber-900 border-amber-400 font-mono shadow-xs"
+                        : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                    }`}
+                  >
+                    {chamberStatus.onLeave
+                      ? `🏖️ On Leave: ${chamberStatus.leaveStartDate} to ${chamberStatus.leaveEndDate}`
+                      : "🏛️ No Active Leave"}
+                  </span>
+                </div>
+
+                {/* Quick Multi-Day Presets */}
+                <div>
+                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-600 block mb-2">
+                    Quick Leave Presets
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                    {/* 3 Days Leave */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const start = todayStr;
+                        const endDate = new Date(Date.now() + 3 * 86400000 + 5.5 * 3600000);
+                        const end = endDate.toISOString().split("T")[0];
+                        setLeaveActive(true);
+                        setLeaveStartDate(start);
+                        setLeaveEndDate(end);
+                        setLeaveReason("Chamber Vacation / Leave");
+                        setLeaveChannelsAffected("both");
+                        saveChamberAvailability({
+                          onLeave: true,
+                          leaveStartDate: start,
+                          leaveEndDate: end,
+                          leaveReason: "Chamber Vacation / Leave",
+                          leaveChannelsAffected: "both",
+                          isOfficeOpen: false,
+                          isOnlineOpen: false,
+                        });
+                      }}
+                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                    >
+                      <span className="font-bold text-xs text-amber-950 block">🌴 3 Days Leave</span>
+                      <span className="text-[11px] text-amber-800 block mt-0.5">
+                        Blocks today through next 3 days on calendar.
+                      </span>
+                    </button>
+
+                    {/* 4 Days Leave */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const start = todayStr;
+                        const endDate = new Date(Date.now() + 4 * 86400000 + 5.5 * 3600000);
+                        const end = endDate.toISOString().split("T")[0];
+                        setLeaveActive(true);
+                        setLeaveStartDate(start);
+                        setLeaveEndDate(end);
+                        setLeaveReason("Out of Station / Hearing Trip");
+                        setLeaveChannelsAffected("both");
+                        saveChamberAvailability({
+                          onLeave: true,
+                          leaveStartDate: start,
+                          leaveEndDate: end,
+                          leaveReason: "Out of Station / Hearing Trip",
+                          leaveChannelsAffected: "both",
+                          isOfficeOpen: false,
+                          isOnlineOpen: false,
+                        });
+                      }}
+                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                    >
+                      <span className="font-bold text-xs text-amber-950 block">🌴 4 Days Leave</span>
+                      <span className="text-[11px] text-amber-800 block mt-0.5">
+                        Blocks today through next 4 days on calendar.
+                      </span>
+                    </button>
+
+                    {/* 1 Week Court Recess */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const start = todayStr;
+                        const endDate = new Date(Date.now() + 7 * 86400000 + 5.5 * 3600000);
+                        const end = endDate.toISOString().split("T")[0];
+                        setLeaveActive(true);
+                        setLeaveStartDate(start);
+                        setLeaveEndDate(end);
+                        setLeaveReason("High Court Recess / Vacation");
+                        setLeaveChannelsAffected("both");
+                        saveChamberAvailability({
+                          onLeave: true,
+                          leaveStartDate: start,
+                          leaveEndDate: end,
+                          leaveReason: "High Court Recess / Vacation",
+                          leaveChannelsAffected: "both",
+                          isOfficeOpen: false,
+                          isOnlineOpen: false,
+                        });
+                      }}
+                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                    >
+                      <span className="font-bold text-xs text-amber-950 block">⚖️ 1 Week Vacation</span>
+                      <span className="text-[11px] text-amber-800 block mt-0.5">
+                        High Court vacation / annual leave.
+                      </span>
+                    </button>
+
+                    {/* Clear Leave / Back to Chamber */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLeaveActive(false);
+                        setLeaveStartDate("");
+                        setLeaveEndDate("");
+                        setLeaveReason("");
+                        saveChamberAvailability({
+                          onLeave: false,
+                          leaveStartDate: "",
+                          leaveEndDate: "",
+                          leaveReason: "",
+                          isOfficeOpen: true,
+                          isOnlineOpen: true,
+                        });
+                      }}
+                      className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                    >
+                      <span className="font-bold text-xs text-emerald-950 block">🏛️ Back to Chamber</span>
+                      <span className="text-[11px] text-emerald-800 block mt-0.5">
+                        End leave & resume normal booking slots immediately.
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Leave Dates & Settings */}
+                <div className="space-y-4 pt-3 border-t border-zinc-100 text-xs">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-zinc-900 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={leaveActive}
+                        onChange={(e) => setLeaveActive(e.target.checked)}
+                        className="h-4 w-4 rounded accent-black"
+                      />
+                      <span>Enable Scheduled Chamber Leave</span>
+                    </label>
+                  </div>
+
+                  {leaveActive && (
+                    <div className="space-y-3 bg-zinc-50 p-4 rounded-xl border border-zinc-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="font-bold text-zinc-800 block mb-1">
+                            Leave Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={leaveStartDate}
+                            onChange={(e) => setLeaveStartDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-zinc-800 block mb-1">
+                            Leave End Date (Return Day)
+                          </label>
+                          <input
+                            type="date"
+                            value={leaveEndDate}
+                            onChange={(e) => setLeaveEndDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 font-mono focus:border-black focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-zinc-800 block mb-1">
+                            Reason / Occasion
+                          </label>
+                          <input
+                            type="text"
+                            value={leaveReason}
+                            onChange={(e) => setLeaveReason(e.target.value)}
+                            placeholder="e.g. Diwali Vacation, Court Recess, Personal"
+                            className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-zinc-900 focus:border-black focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Channels affected */}
+                      <div>
+                        <label className="font-bold text-zinc-800 block mb-1.5">
+                          Consultation Channels Affected During Leave
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setLeaveChannelsAffected("both")}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                              leaveChannelsAffected === "both"
+                                ? "bg-black text-[#cba758] border-[#cba758] shadow-xs"
+                                : "bg-white text-zinc-700 border-zinc-200"
+                            }`}
+                          >
+                            <span className="font-bold text-xs block">Full Chamber Closure</span>
+                            <span className="text-[11px] opacity-80 block">Both office visits & online video consultations paused.</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setLeaveChannelsAffected("office_only")}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                              leaveChannelsAffected === "office_only"
+                                ? "bg-black text-[#cba758] border-[#cba758] shadow-xs"
+                                : "bg-white text-zinc-700 border-zinc-200"
+                            }`}
+                          >
+                            <span className="font-bold text-xs block">In-Person Office Visits Only</span>
+                            <span className="text-[11px] opacity-80 block">Office visits paused; Google Meet video consultations stay open.</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={statusSaving}
+                      onClick={() => saveChamberAvailability()}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {statusSaving && <Loader2 size={13} className="animate-spin" />}
+                      <span>Save Chamber Leave & Publish Notice</span>
                     </button>
                   </div>
                 </div>
