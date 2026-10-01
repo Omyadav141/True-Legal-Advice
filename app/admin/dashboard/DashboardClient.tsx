@@ -67,6 +67,7 @@ import { site } from "@/lib/site-config";
 import { getAllDaySlots } from "@/lib/availability";
 import { type BookingRecord, getBookingId } from "@/lib/booking-utils";
 import type { ChamberStatus } from "@/lib/chamber-utils";
+import type { ContactInquiry } from "@/lib/contacts-store";
 
 export type Booking = BookingRecord;
 
