@@ -537,6 +537,9 @@ export default function DashboardClient() {
   const [statusModalOfficeOpen, setStatusModalOfficeOpen] = useState(true);
   const [statusModalOnlineOpen, setStatusModalOnlineOpen] = useState(true);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [presetFeedback, setPresetFeedback] = useState("");
+  const [statusSaveSuccess, setStatusSaveSuccess] = useState("");
+  const [activePresetKey, setActivePresetKey] = useState<string | null>(null);
 
   // Multi-Day Chamber Leave / Holiday Planner States
   const [leaveActive, setLeaveActive] = useState(false);
@@ -948,30 +951,52 @@ export default function DashboardClient() {
     }
   };
 
-  // Chamber Status Saver
-  const saveChamberAvailability = async (preset?: {
-    isOfficeOpen?: boolean;
-    isOnlineOpen?: boolean;
-    awayReason?: string;
-    returnEstimate?: string;
-    onLeave?: boolean;
-    leaveStartDate?: string;
-    leaveEndDate?: string;
-    leaveReason?: string;
-    leaveChannelsAffected?: "both" | "office_only" | "online_only";
+  // Quick Presets Populator (Populates inputs for user review, does NOT auto-submit)
+  const applyQuickPreset = (preset: {
+    key: string;
+    isOfficeOpen: boolean;
+    isOnlineOpen: boolean;
+    awayReason: string;
+    returnEstimate: string;
+    label: string;
   }) => {
-    setStatusSaving(true);
-    try {
-      const officeOpen = preset && typeof preset.isOfficeOpen === "boolean" ? preset.isOfficeOpen : statusModalOfficeOpen;
-      const onlineOpen = preset && typeof preset.isOnlineOpen === "boolean" ? preset.isOnlineOpen : statusModalOnlineOpen;
-      const reason = preset && preset.awayReason !== undefined ? preset.awayReason : statusModalReason.trim();
-      const estimate = preset && preset.returnEstimate !== undefined ? preset.returnEstimate : statusModalEstimate.trim();
+    setActivePresetKey(preset.key);
+    setStatusModalOfficeOpen(preset.isOfficeOpen);
+    setStatusModalOnlineOpen(preset.isOnlineOpen);
+    setStatusModalReason(preset.awayReason);
+    setStatusModalEstimate(preset.returnEstimate);
+    setPresetFeedback(`Loaded preset: "${preset.label}". Review details below, adjust if needed, and click "Save Status & Publish Notice" to publish live.`);
+  };
 
-      const onLeave = preset && typeof preset.onLeave === "boolean" ? preset.onLeave : leaveActive;
-      const lStart = preset && preset.leaveStartDate !== undefined ? preset.leaveStartDate : leaveStartDate;
-      const lEnd = preset && preset.leaveEndDate !== undefined ? preset.leaveEndDate : leaveEndDate;
-      const lReason = preset && preset.leaveReason !== undefined ? preset.leaveReason : leaveReason.trim();
-      const lChannels = preset && preset.leaveChannelsAffected ? preset.leaveChannelsAffected : leaveChannelsAffected;
+  // Quick Multi-Day Leave Populator
+  const applyLeavePreset = (days: number, reason: string, label: string) => {
+    setActivePresetKey(`leave_${days}`);
+    const start = todayStr;
+    const endDate = new Date(Date.now() + days * 86400000 + 5.5 * 3600000);
+    const end = endDate.toISOString().split("T")[0];
+    setLeaveActive(true);
+    setLeaveStartDate(start);
+    setLeaveEndDate(end);
+    setLeaveReason(reason);
+    setLeaveChannelsAffected("both");
+    setPresetFeedback(`Loaded ${label} (${start} to ${end}). Review inputs below and click "Save Chamber Leave & Publish Notice" to activate.`);
+  };
+
+  // Chamber Status Saver (Explicitly fired by the Save button)
+  const saveChamberAvailability = async () => {
+    setStatusSaving(true);
+    setPresetFeedback("");
+    try {
+      const officeOpen = statusModalOfficeOpen;
+      const onlineOpen = statusModalOnlineOpen;
+      const reason = statusModalReason.trim();
+      const estimate = statusModalEstimate.trim();
+
+      const onLeave = leaveActive;
+      const lStart = leaveStartDate;
+      const lEnd = leaveEndDate;
+      const lReason = leaveReason.trim();
+      const lChannels = leaveChannelsAffected;
 
       let noticeText = "";
       if (onLeave && lStart && lEnd) {
@@ -985,7 +1010,7 @@ export default function DashboardClient() {
       } else if (!officeOpen && onlineOpen) {
         noticeText = `Advocate Shareen Hussain is currently away attending ${reason || "court hearings"}. Office visits will resume in approximately ${estimate || "1–2 hours"}. Online Google Meet video consultations remain available.`;
       } else {
-        noticeText = `Advocate Shareen Hussain's chamber is currently closed (${reason || "Court sessions / Leave"}). Resuming at ${estimate || "the next scheduled session"}.`;
+        noticeText = `Advocate Shareen Hussain's chamber is currently closed (${reason || "Chamber Closed Today"}). Resuming: ${estimate || "Tomorrow 9:30 AM"}.`;
       }
 
       const res = await fetch("/api/admin/chamber-status", {
@@ -1010,6 +1035,8 @@ export default function DashboardClient() {
       if (res.ok) {
         const data = await res.json();
         setChamberStatus(data.status);
+        setStatusSaveSuccess("Status saved & published live to the website successfully!");
+        setTimeout(() => setStatusSaveSuccess(""), 6000);
         setShowStatusModal(false);
       }
     } catch (err) {
@@ -3985,22 +4012,32 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
 
                 {/* Quick Presets */}
-                <div>
-                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-600 block mb-2">
-                    Quick Status Presets
-                  </label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-600 block">
+                      Quick Status Presets (Click to load into form)
+                    </label>
+                    <span className="text-[11px] text-zinc-400 font-mono">Select preset & review below</span>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={() =>
-                        saveChamberAvailability({
+                        applyQuickPreset({
+                          key: "open",
                           isOfficeOpen: true,
                           isOnlineOpen: true,
                           awayReason: "",
                           returnEstimate: "",
+                          label: "In Chamber (Active & Open)",
                         })
                       }
-                      className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-left transition-all cursor-pointer"
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        activePresetKey === "open"
+                          ? "border-emerald-600 bg-emerald-100 ring-2 ring-emerald-500/30"
+                          : "border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50"
+                      }`}
                     >
                       <span className="font-bold text-xs text-emerald-900 block">
                         🏛️ In Chamber (Active & Open)
@@ -4013,14 +4050,20 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <button
                       type="button"
                       onClick={() =>
-                        saveChamberAvailability({
+                        applyQuickPreset({
+                          key: "high_court",
                           isOfficeOpen: false,
                           isOnlineOpen: true,
                           awayReason: "High Court Hearings",
                           returnEstimate: "1–2 Hours",
+                          label: "Attending High Court Hearings",
                         })
                       }
-                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/50 hover:bg-amber-50 text-left transition-all cursor-pointer"
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        activePresetKey === "high_court"
+                          ? "border-amber-600 bg-amber-100 ring-2 ring-amber-500/30"
+                          : "border-amber-300 bg-amber-50/50 hover:bg-amber-50"
+                      }`}
                     >
                       <span className="font-bold text-xs text-amber-900 block">
                         ⚖️ Attending High Court Hearings
@@ -4033,14 +4076,20 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <button
                       type="button"
                       onClick={() =>
-                        saveChamberAvailability({
+                        applyQuickPreset({
+                          key: "district_court",
                           isOfficeOpen: false,
                           isOnlineOpen: true,
                           awayReason: "District Court & Registry",
                           returnEstimate: "3:00 PM",
+                          label: "District Court & Marriage Registrar",
                         })
                       }
-                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/50 hover:bg-amber-50 text-left transition-all cursor-pointer"
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        activePresetKey === "district_court"
+                          ? "border-amber-600 bg-amber-100 ring-2 ring-amber-500/30"
+                          : "border-amber-300 bg-amber-50/50 hover:bg-amber-50"
+                      }`}
                     >
                       <span className="font-bold text-xs text-amber-900 block">
                         📑 District Court & Marriage Registrar
@@ -4053,23 +4102,36 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <button
                       type="button"
                       onClick={() =>
-                        saveChamberAvailability({
+                        applyQuickPreset({
+                          key: "closed",
                           isOfficeOpen: false,
                           isOnlineOpen: false,
-                          awayReason: "Chamber Leave / Closed Today",
-                          returnEstimate: "Tomorrow 10:00 AM",
+                          awayReason: "Chamber Closed Today",
+                          returnEstimate: "Tomorrow 9:30 AM",
+                          label: "Chamber Closed Today",
                         })
                       }
-                      className="p-3 rounded-xl border border-rose-300 bg-rose-50/50 hover:bg-rose-50 text-left transition-all cursor-pointer"
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        activePresetKey === "closed"
+                          ? "border-rose-600 bg-rose-100 ring-2 ring-rose-500/30"
+                          : "border-rose-300 bg-rose-50/50 hover:bg-rose-50"
+                      }`}
                     >
                       <span className="font-bold text-xs text-rose-900 block">
-                        🛑 Chamber Closed
+                        🛑 Chamber Closed Today
                       </span>
                       <span className="text-[11px] text-rose-700 block mt-0.5">
                         All in-person and video consultations suspended until next session.
                       </span>
                     </button>
                   </div>
+
+                  {presetFeedback && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium flex items-center gap-2">
+                      <Sparkles size={14} className="text-amber-600 shrink-0" />
+                      <span>{presetFeedback}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Custom Configuration Inputs */}
@@ -4123,7 +4185,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     </label>
                   </div>
 
-                  <div className="pt-2 flex justify-end">
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    {statusSaveSuccess ? (
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-300 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className="text-emerald-600" />
+                        <span>{statusSaveSuccess}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-zinc-500 font-mono">
+                        Clicking save will publish the live notice instantly across website.
+                      </span>
+                    )}
+
                     <button
                       type="button"
                       disabled={statusSaving}
@@ -4175,26 +4248,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     {/* 3 Days Leave */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const start = todayStr;
-                        const endDate = new Date(Date.now() + 3 * 86400000 + 5.5 * 3600000);
-                        const end = endDate.toISOString().split("T")[0];
-                        setLeaveActive(true);
-                        setLeaveStartDate(start);
-                        setLeaveEndDate(end);
-                        setLeaveReason("Chamber Vacation / Leave");
-                        setLeaveChannelsAffected("both");
-                        saveChamberAvailability({
-                          onLeave: true,
-                          leaveStartDate: start,
-                          leaveEndDate: end,
-                          leaveReason: "Chamber Vacation / Leave",
-                          leaveChannelsAffected: "both",
-                          isOfficeOpen: false,
-                          isOnlineOpen: false,
-                        });
-                      }}
-                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                      onClick={() => applyLeavePreset(3, "Chamber Vacation / Leave", "3 Days Leave")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs ${
+                        activePresetKey === "leave_3"
+                          ? "border-amber-600 bg-amber-100 ring-2 ring-amber-500/30"
+                          : "border-amber-300 bg-amber-50/60 hover:bg-amber-100/70"
+                      }`}
                     >
                       <span className="font-bold text-xs text-amber-950 block">🌴 3 Days Leave</span>
                       <span className="text-[11px] text-amber-800 block mt-0.5">
@@ -4205,26 +4264,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     {/* 4 Days Leave */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const start = todayStr;
-                        const endDate = new Date(Date.now() + 4 * 86400000 + 5.5 * 3600000);
-                        const end = endDate.toISOString().split("T")[0];
-                        setLeaveActive(true);
-                        setLeaveStartDate(start);
-                        setLeaveEndDate(end);
-                        setLeaveReason("Out of Station / Hearing Trip");
-                        setLeaveChannelsAffected("both");
-                        saveChamberAvailability({
-                          onLeave: true,
-                          leaveStartDate: start,
-                          leaveEndDate: end,
-                          leaveReason: "Out of Station / Hearing Trip",
-                          leaveChannelsAffected: "both",
-                          isOfficeOpen: false,
-                          isOnlineOpen: false,
-                        });
-                      }}
-                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                      onClick={() => applyLeavePreset(4, "Out of Station / Hearing Trip", "4 Days Leave")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs ${
+                        activePresetKey === "leave_4"
+                          ? "border-amber-600 bg-amber-100 ring-2 ring-amber-500/30"
+                          : "border-amber-300 bg-amber-50/60 hover:bg-amber-100/70"
+                      }`}
                     >
                       <span className="font-bold text-xs text-amber-950 block">🌴 4 Days Leave</span>
                       <span className="text-[11px] text-amber-800 block mt-0.5">
@@ -4235,26 +4280,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     {/* 1 Week Court Recess */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const start = todayStr;
-                        const endDate = new Date(Date.now() + 7 * 86400000 + 5.5 * 3600000);
-                        const end = endDate.toISOString().split("T")[0];
-                        setLeaveActive(true);
-                        setLeaveStartDate(start);
-                        setLeaveEndDate(end);
-                        setLeaveReason("High Court Recess / Vacation");
-                        setLeaveChannelsAffected("both");
-                        saveChamberAvailability({
-                          onLeave: true,
-                          leaveStartDate: start,
-                          leaveEndDate: end,
-                          leaveReason: "High Court Recess / Vacation",
-                          leaveChannelsAffected: "both",
-                          isOfficeOpen: false,
-                          isOnlineOpen: false,
-                        });
-                      }}
-                      className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                      onClick={() => applyLeavePreset(7, "High Court Recess / Vacation", "1 Week Court Recess")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs ${
+                        activePresetKey === "leave_7"
+                          ? "border-amber-600 bg-amber-100 ring-2 ring-amber-500/30"
+                          : "border-amber-300 bg-amber-50/60 hover:bg-amber-100/70"
+                      }`}
                     >
                       <span className="font-bold text-xs text-amber-950 block">⚖️ 1 Week Vacation</span>
                       <span className="text-[11px] text-amber-800 block mt-0.5">
@@ -4266,20 +4297,22 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <button
                       type="button"
                       onClick={() => {
+                        setActivePresetKey("back_to_chamber");
                         setLeaveActive(false);
                         setLeaveStartDate("");
                         setLeaveEndDate("");
                         setLeaveReason("");
-                        saveChamberAvailability({
-                          onLeave: false,
-                          leaveStartDate: "",
-                          leaveEndDate: "",
-                          leaveReason: "",
-                          isOfficeOpen: true,
-                          isOnlineOpen: true,
-                        });
+                        setStatusModalOfficeOpen(true);
+                        setStatusModalOnlineOpen(true);
+                        setStatusModalReason("");
+                        setStatusModalEstimate("");
+                        setPresetFeedback("Reset to Active Chamber. Click 'Save Chamber Leave & Publish Notice' below to publish.");
                       }}
-                      className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 text-left transition-all cursor-pointer shadow-2xs"
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer shadow-2xs ${
+                        activePresetKey === "back_to_chamber"
+                          ? "border-emerald-600 bg-emerald-100 ring-2 ring-emerald-500/30"
+                          : "border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70"
+                      }`}
                     >
                       <span className="font-bold text-xs text-emerald-950 block">🏛️ Back to Chamber</span>
                       <span className="text-[11px] text-emerald-800 block mt-0.5">

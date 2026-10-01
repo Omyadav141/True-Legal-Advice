@@ -39,12 +39,47 @@ export function isDateBookable(date: Date, today: Date = new Date()): boolean {
 }
 
 /**
- * Convert UTC to India Standard Time (IST, UTC+5:30)
+ * Accurately extracts real-time India Standard Time (IST, UTC+5:30) values
+ * regardless of whether the hosting environment/browser is UTC, US, or India.
  */
+export function getIndiaNow(): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  dateKey: string;
+  totalMinutes: number;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date());
+  let year = 0, month = 0, day = 0, hour = 0, minute = 0;
+  for (const p of parts) {
+    if (p.type === "year") year = parseInt(p.value, 10);
+    if (p.type === "month") month = parseInt(p.value, 10);
+    if (p.type === "day") day = parseInt(p.value, 10);
+    if (p.type === "hour") hour = parseInt(p.value, 10);
+    if (p.type === "minute") minute = parseInt(p.value, 10);
+  }
+  if (hour === 24) hour = 0;
+  const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const totalMinutes = hour * 60 + minute;
+  return { year, month, day, hour, minute, dateKey, totalMinutes };
+}
+
+/** Legacy helper returning a Date in IST */
 export function getIndiaTime(): Date {
-  const utcNow = new Date();
-  const istTime = new Date(utcNow.getTime() + 5.5 * 60 * 60 * 1000);
-  return istTime;
+  const ist = getIndiaNow();
+  return new Date(ist.year, ist.month - 1, ist.day, ist.hour, ist.minute, 0, 0);
 }
 
 export interface SlotDetail {
@@ -59,7 +94,7 @@ export interface SlotDetail {
 export function getDetailedSlotsForDate(
   dateKey: string,
   bookedTimes: string[],
-  now: Date = getIndiaTime()
+  nowIST = getIndiaNow()
 ): {
   allSlots: string[];
   availableSlots: string[];
@@ -69,8 +104,7 @@ export function getDetailedSlotsForDate(
 } {
   const all = getAllDaySlots();
   const bookedSet = new Set(bookedTimes);
-  const todayKey = toDateKey(now);
-  const isToday = dateKey === todayKey;
+  const isToday = dateKey === nowIST.dateKey;
 
   const bookedSlots: string[] = [];
   const passedSlots: string[] = [];
@@ -83,8 +117,9 @@ export function getDetailedSlotsForDate(
     }
     if (isToday) {
       const [h, m] = slot.split(":").map(Number);
-      const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
-      if (slotTime <= now) {
+      const slotMinutes = h * 60 + m;
+      // Slot has only passed if current IST minute is past the slot time
+      if (slotMinutes <= nowIST.totalMinutes) {
         passedSlots.push(slot);
         return { time: slot, status: "passed" };
       }
@@ -105,16 +140,7 @@ export function getDetailedSlotsForDate(
 /**
  * Given a date key and booked times, returns which of the day's slots are still available.
  */
-export function getAvailableSlotsForDate(dateKey: string, bookedTimes: string[], now: Date = getIndiaTime()): string[] {
-  const { availableSlots, bookedSlots } = getDetailedSlotsForDate(dateKey, bookedTimes, now);
-  const bookedSet = new Set(bookedSlots);
-  const todayKey = toDateKey(now);
-  const isToday = dateKey === todayKey;
-
-  // If today is selected but all standard daytime slots passed, provide the evening chamber slots if not booked
-  if (isToday && availableSlots.length === 0) {
-    return ["18:00", "18:30", "19:00", "19:30", "20:00", "20:30"].filter((s) => !bookedSet.has(s));
-  }
-
+export function getAvailableSlotsForDate(dateKey: string, bookedTimes: string[]): string[] {
+  const { availableSlots } = getDetailedSlotsForDate(dateKey, bookedTimes);
   return availableSlots;
 }

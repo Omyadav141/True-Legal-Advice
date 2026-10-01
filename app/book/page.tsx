@@ -534,7 +534,7 @@ function BookClient() {
 
   // Fetch live chamber status
   useEffect(() => {
-    fetch("/api/admin/chamber-status")
+    fetch(`/api/admin/chamber-status?t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((d: ChamberStatus) => {
         if (d && typeof d.isOfficeOpen === "boolean") {
@@ -807,10 +807,10 @@ function BookClient() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#cba758]">
-                        CHAMBER NOTICE: {chamberStatus.awayReason ? chamberStatus.awayReason.toUpperCase() : "ADVOCATE UNAVAILABLE"}
+                        CHAMBER NOTICE: {isBothClosed ? "CHAMBER CLOSED TODAY" : chamberStatus.awayReason ? chamberStatus.awayReason.toUpperCase() : "ADVOCATE UNAVAILABLE"}
                       </span>
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 font-bold uppercase">
-                        {chamberStatus.returnEstimate ? `RESUMING: ${chamberStatus.returnEstimate}` : "AWAY"}
+                        {chamberStatus.returnEstimate ? `RESUMING: ${chamberStatus.returnEstimate}` : isBothClosed ? "CLOSED TODAY" : "AWAY"}
                       </span>
                     </div>
                     <p className="mt-1.5 text-xs sm:text-sm text-slate-200 leading-relaxed">
@@ -1401,17 +1401,45 @@ function BookClient() {
                             <span>Checking live chamber schedule...</span>
                           </div>
                         ) : (availableSlots || []).length === 0 ? (
-                          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center text-xs text-slate-300 space-y-1">
-                            <p className="font-bold text-white">
+                          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-center text-xs text-slate-300 space-y-2">
+                            <p className="font-bold text-white text-sm">
                               {isDateInChamberLeave(toDateKey(targetDate), chamberStatus, consultationMode)
                                 ? "Chamber On Scheduled Leave"
+                                : toDateKey(targetDate) === toDateKey(today) && isBothClosed
+                                ? "🛑 Chamber Closed Today"
+                                : toDateKey(targetDate) === toDateKey(today)
+                                ? "🌙 Today's Consultation Sessions Have Concluded"
                                 : "No Slots Available for this Date"}
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
                               {isDateInChamberLeave(toDateKey(targetDate), chamberStatus, consultationMode)
                                 ? `Advocate Shareen Hussain is on leave (${chamberStatus.leaveReason || "Chamber Leave"}). Please select an upcoming date after ${chamberStatus.leaveEndDate} or request a callback.`
+                                : toDateKey(targetDate) === toDateKey(today) && isBothClosed
+                                ? `Chamber is currently closed today (${chamberStatus.awayReason || "Closed"}). Resuming: ${chamberStatus.returnEstimate || "Tomorrow 9:30 AM"}. You can book your consultation for tomorrow or request a callback.`
+                                : toDateKey(targetDate) === toDateKey(today)
+                                ? "Today's sessions (9:30–11:00 AM & 5:30–8:30 PM) have completed for today. Please reserve a slot for tomorrow or request a direct callback."
                                 : "Please select another date above (e.g. tomorrow) or request a direct callback."}
                             </p>
+                            <div className="pt-1.5 flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const tom = new Date(today);
+                                  tom.setDate(tom.getDate() + 1);
+                                  setTargetDate(tom);
+                                }}
+                                className="px-3.5 py-1.5 rounded-xl bg-[#cba758] text-black font-bold text-xs hover:bg-[#dfbe73] transition-colors cursor-pointer"
+                              >
+                                Select Tomorrow 📅
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowCallbackModal(true)}
+                                className="px-3.5 py-1.5 rounded-xl bg-white/10 text-white font-semibold text-xs hover:bg-white/20 transition-colors border border-white/20 cursor-pointer"
+                              >
+                                Request Callback 📞
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

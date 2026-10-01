@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const mode: "online" | "offline" = consultationMode === "online" ? "online" : "offline";
 
     // Validate live chamber status for today or multi-day leave
-    const chamber = getChamberStatus();
+    const chamber = await getChamberStatus();
     const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     // Check multi-day scheduled leave / holiday

@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getAllDaySlots, getDetailedSlotsForDate, isDateBookable } from "@/lib/availability";
+import { getAllDaySlots, getDetailedSlotsForDate, isDateBookable, getIndiaNow } from "@/lib/availability";
 import { getChamberStatus, isDateInChamberLeave } from "@/lib/chamber-status";
 import { getLocalBookings } from "@/lib/bookings-store";
-
-// Convert UTC to India Standard Time (IST, UTC+5:30)
-function getIndiaTime(): Date {
-  const now = new Date();
-  const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  return istTime;
-}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,13 +18,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "A valid date (YYYY-MM-DD) is required." }, { status: 400 });
     }
 
-    const nowIndia = getIndiaTime();
+    const nowIST = getIndiaNow();
     const [y, m, d] = dateParam.split("-").map(Number);
     const requestedDate = new Date(y, m - 1, d);
+    const todayISTDate = new Date(nowIST.year, nowIST.month - 1, nowIST.day);
 
-    if (!isDateBookable(requestedDate, nowIndia)) {
+    if (!isDateBookable(requestedDate, todayISTDate)) {
       return NextResponse.json(
-        { date: dateParam, availableSlots: [] },
+        { date: dateParam, availableSlots: [], allSlots: getAllDaySlots(), bookedSlots: [], passedSlots: [] },
         {
           headers: {
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -43,7 +37,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if the chamber is on multi-day scheduled leave / holiday for this date
-    const chamber = getChamberStatus();
+    const chamber = await getChamberStatus();
     if (isDateInChamberLeave(dateParam, chamber, modeParam)) {
       const allSlots = getAllDaySlots();
       return NextResponse.json(
@@ -57,6 +51,8 @@ export async function GET(req: NextRequest) {
           leaveReason: chamber.leaveReason || "Scheduled Chamber Leave / Holiday",
           leaveStartDate: chamber.leaveStartDate,
           leaveEndDate: chamber.leaveEndDate,
+          isOfficeOpen: chamber.isOfficeOpen,
+          isOnlineOpen: chamber.isOnlineOpen,
         },
         {
           headers: {
@@ -112,7 +108,7 @@ export async function GET(req: NextRequest) {
       // Supabase not configured in local environment; fallback to memory
     }
 
-    const { availableSlots, bookedSlots, passedSlots, allSlots, slots } = getDetailedSlotsForDate(dateParam, bookedTimes, nowIndia);
+    const { availableSlots, bookedSlots, passedSlots, allSlots, slots } = getDetailedSlotsForDate(dateParam, bookedTimes, nowIST);
 
     return NextResponse.json(
       {
@@ -122,6 +118,11 @@ export async function GET(req: NextRequest) {
         passedSlots,
         allSlots,
         slots,
+        isOfficeOpen: chamber.isOfficeOpen,
+        isOnlineOpen: chamber.isOnlineOpen,
+        awayReason: chamber.awayReason,
+        returnEstimate: chamber.returnEstimate,
+        onLeave: chamber.onLeave,
       },
       {
         headers: {
@@ -137,10 +138,10 @@ export async function GET(req: NextRequest) {
     // Graceful fallback to guarantee slots are never completely empty
     return NextResponse.json({
       date: req.nextUrl.searchParams.get("date") || "today",
-      availableSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"],
+      availableSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"],
       bookedSlots: [],
       passedSlots: [],
-      allSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"],
+      allSlots: ["10:00", "10:30", "11:00", "11:30", "12:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"],
     });
   }
 }

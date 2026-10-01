@@ -29,7 +29,9 @@ export async function GET() {
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        supabaseContacts = data as ContactInquiry[];
+        supabaseContacts = (data as ContactInquiry[]).filter(
+          (c) => c.id !== "system_chamber_status" && !c.id.startsWith("system_")
+        );
       }
     }
   } catch (err) {

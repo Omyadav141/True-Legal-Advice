@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { ChamberStatus } from "./chamber-utils";
+import { supabaseServer } from "./supabase-server";
 
 export * from "./chamber-utils";
 
@@ -23,7 +24,7 @@ const defaultStatus: ChamberStatus = {
   awayReason: "",
   returnEstimate: "",
   returnTime: "",
-  notice: "Advocate Shareen Hussain is present in chamber at Trisharan Square, Nagpur. Consultations are active.",
+  notice: "Office visits are active at Trisharan Square, Nagpur. Online video consultations are also open.",
   updatedAt: new Date().toISOString(),
   onLeave: false,
   leaveStartDate: "",
@@ -33,13 +34,80 @@ const defaultStatus: ChamberStatus = {
 };
 
 let memoryStatus: ChamberStatus | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL_MS = 3000; // 3 seconds in-memory cache to keep reads instantaneous while respecting updates
 
-export function getChamberStatus(): ChamberStatus {
+export function getChamberStatusSync(): ChamberStatus {
   if (memoryStatus) return memoryStatus;
 
   try {
-    if (fs.existsSync(/*turbopackIgnore: true*/ statusFilePath)) {
-      const raw = fs.readFileSync(/*turbopackIgnore: true*/ statusFilePath, "utf-8");
+    if (fs.existsSync(statusFilePath)) {
+      const raw = fs.readFileSync(statusFilePath, "utf-8");
+      return JSON.parse(raw);
+    }
+    if (fs.existsSync(bundledFilePath)) {
+      const raw = fs.readFileSync(bundledFilePath, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch {}
+
+  return defaultStatus;
+}
+
+export async function getChamberStatus(): Promise<ChamberStatus> {
+  const now = Date.now();
+  if (memoryStatus && now - lastFetchTime < CACHE_TTL_MS) {
+    return memoryStatus;
+  }
+
+  // 1. Try Supabase first (source of truth across all serverless instances and cold starts)
+  try {
+    const hasSupabase =
+      Boolean(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      Boolean(
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+    if (hasSupabase) {
+      const supabase = supabaseServer();
+      const { data, error } = await supabase
+        .from("contact_inquiries")
+        .select("message")
+        .eq("id", "system_chamber_status")
+        .single();
+
+      if (!error && data && data.message) {
+        const parsed = JSON.parse(data.message);
+        memoryStatus = {
+          isOfficeOpen: typeof parsed.isOfficeOpen === "boolean" ? parsed.isOfficeOpen : true,
+          isOnlineOpen: typeof parsed.isOnlineOpen === "boolean" ? parsed.isOnlineOpen : true,
+          status: parsed.status || (parsed.isOfficeOpen === false ? "away" : "available"),
+          channelsAffected: parsed.channelsAffected || (parsed.isOfficeOpen === false ? "office_only" : "none"),
+          awayReason: parsed.awayReason || "",
+          returnEstimate: parsed.returnEstimate || "",
+          returnTime: parsed.returnTime || "",
+          notice: parsed.notice || defaultStatus.notice,
+          updatedAt: parsed.updatedAt || new Date().toISOString(),
+          onLeave: Boolean(parsed.onLeave),
+          leaveStartDate: parsed.leaveStartDate || "",
+          leaveEndDate: parsed.leaveEndDate || "",
+          leaveReason: parsed.leaveReason || "",
+          leaveChannelsAffected: parsed.leaveChannelsAffected || "both",
+        };
+        lastFetchTime = now;
+        return memoryStatus;
+      }
+    }
+  } catch (err) {
+    console.warn("Notice: could not query Supabase for chamber status, checking disk fallback:", err);
+  }
+
+  // 2. Disk fallback (local development or when Supabase is temporarily unreachable)
+  try {
+    if (fs.existsSync(statusFilePath)) {
+      const raw = fs.readFileSync(statusFilePath, "utf-8");
       const parsed = JSON.parse(raw);
       memoryStatus = {
         isOfficeOpen: typeof parsed.isOfficeOpen === "boolean" ? parsed.isOfficeOpen : true,
@@ -57,11 +125,12 @@ export function getChamberStatus(): ChamberStatus {
         leaveReason: parsed.leaveReason || "",
         leaveChannelsAffected: parsed.leaveChannelsAffected || "both",
       };
+      lastFetchTime = now;
       return memoryStatus;
     }
 
-    if (fs.existsSync(/*turbopackIgnore: true*/ bundledFilePath)) {
-      const raw = fs.readFileSync(/*turbopackIgnore: true*/ bundledFilePath, "utf-8");
+    if (fs.existsSync(bundledFilePath)) {
+      const raw = fs.readFileSync(bundledFilePath, "utf-8");
       const parsed = JSON.parse(raw);
       memoryStatus = {
         isOfficeOpen: typeof parsed.isOfficeOpen === "boolean" ? parsed.isOfficeOpen : true,
@@ -79,6 +148,7 @@ export function getChamberStatus(): ChamberStatus {
         leaveReason: parsed.leaveReason || "",
         leaveChannelsAffected: parsed.leaveChannelsAffected || "both",
       };
+      lastFetchTime = now;
       return memoryStatus;
     }
   } catch (err) {
@@ -88,8 +158,8 @@ export function getChamberStatus(): ChamberStatus {
   return defaultStatus;
 }
 
-export function saveChamberStatus(update: Partial<ChamberStatus>): ChamberStatus {
-  const current = getChamberStatus();
+export async function saveChamberStatus(update: Partial<ChamberStatus>): Promise<ChamberStatus> {
+  const current = await getChamberStatus();
   const updated: ChamberStatus = {
     isOfficeOpen: typeof update.isOfficeOpen === "boolean" ? update.isOfficeOpen : current.isOfficeOpen,
     isOnlineOpen: typeof update.isOnlineOpen === "boolean" ? update.isOnlineOpen : current.isOnlineOpen,
@@ -108,14 +178,45 @@ export function saveChamberStatus(update: Partial<ChamberStatus>): ChamberStatus
   };
 
   memoryStatus = updated;
+  lastFetchTime = Date.now();
 
+  // 1. Persist to Supabase so it's live across ALL Vercel serverless containers and clients
   try {
-    if (!fs.existsSync(/*turbopackIgnore: true*/ dataDir)) {
-      fs.mkdirSync(/*turbopackIgnore: true*/ dataDir, { recursive: true });
+    const hasSupabase =
+      Boolean(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      Boolean(
+        process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+    if (hasSupabase) {
+      const supabase = supabaseServer();
+      const { error } = await supabase.from("contact_inquiries").upsert({
+        id: "system_chamber_status",
+        name: "System Chamber Status Config",
+        phone: "0000000000",
+        service: "system_chamber_status",
+        message: JSON.stringify(updated),
+        status: "new",
+        created_at: new Date().toISOString(),
+      });
+      if (error) {
+        console.warn("Notice: could not upsert chamber status in Supabase:", error.message);
+      }
     }
-    fs.writeFileSync(/*turbopackIgnore: true*/ statusFilePath, JSON.stringify(updated, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Notice: Supabase upsert error:", err);
+  }
+
+  // 2. Persist to disk as local fallback
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(statusFilePath, JSON.stringify(updated, null, 2), "utf-8");
   } catch (err: any) {
-    console.warn("Notice: could not write chamber-status in serverless:", err?.message || err);
+    console.warn("Notice: could not write chamber-status to disk:", err?.message || err);
   }
 
   return updated;
