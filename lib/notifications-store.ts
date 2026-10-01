@@ -38,8 +38,8 @@ function readLocalDiskPayload(): NotificationsPayload | null {
 
   if (isServerless) {
     try {
-      if (fs.existsSync(writableFile)) {
-        const raw = fs.readFileSync(writableFile, "utf-8");
+      if (fs.existsSync(/*turbopackIgnore: true*/ writableFile)) {
+        const raw = fs.readFileSync(/*turbopackIgnore: true*/ writableFile, "utf-8");
         const parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.dismissedIds)) return parsed;
       }
@@ -49,8 +49,8 @@ function readLocalDiskPayload(): NotificationsPayload | null {
   }
 
   try {
-    if (fs.existsSync(bundledFile)) {
-      const raw = fs.readFileSync(bundledFile, "utf-8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ bundledFile)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ bundledFile, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.dismissedIds)) return parsed;
     }
@@ -64,10 +64,10 @@ function readLocalDiskPayload(): NotificationsPayload | null {
 function saveLocalDiskPayload(payload: NotificationsPayload) {
   const { writableDir, writableFile } = getStoragePaths();
   try {
-    if (!fs.existsSync(writableDir)) {
-      fs.mkdirSync(writableDir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ writableDir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ writableDir, { recursive: true });
     }
-    fs.writeFileSync(writableFile, JSON.stringify(payload, null, 2), "utf-8");
+    fs.writeFileSync(/*turbopackIgnore: true*/ writableFile, JSON.stringify(payload, null, 2), "utf-8");
   } catch (err: any) {
     console.warn("Notice: could not write dismissed-notifications to filesystem:", err?.message || err);
   }

@@ -1,24 +1,9 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { ChamberStatus } from "./chamber-utils";
 
-export type ChamberStatus = {
-  isOfficeOpen: boolean;
-  isOnlineOpen: boolean;
-  status: "available" | "away" | "closed_for_day" | "on_leave";
-  channelsAffected: "office_only" | "online_only" | "both" | "none";
-  awayReason: string;
-  returnEstimate: string;
-  returnTime?: string;
-  notice: string;
-  updatedAt: string;
-  // Multi-day Chamber Holiday / Vacation / Leave:
-  onLeave?: boolean;
-  leaveStartDate?: string; // "YYYY-MM-DD"
-  leaveEndDate?: string;   // "YYYY-MM-DD"
-  leaveReason?: string;    // e.g. "High Court Vacation", "Diwali Recess", "Personal Leave"
-  leaveChannelsAffected?: "office_only" | "online_only" | "both";
-};
+export * from "./chamber-utils";
 
 const isServerless = Boolean(
   process.env.VERCEL ||
@@ -53,8 +38,8 @@ export function getChamberStatus(): ChamberStatus {
   if (memoryStatus) return memoryStatus;
 
   try {
-    if (fs.existsSync(statusFilePath)) {
-      const raw = fs.readFileSync(statusFilePath, "utf-8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ statusFilePath)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ statusFilePath, "utf-8");
       const parsed = JSON.parse(raw);
       memoryStatus = {
         isOfficeOpen: typeof parsed.isOfficeOpen === "boolean" ? parsed.isOfficeOpen : true,
@@ -75,8 +60,8 @@ export function getChamberStatus(): ChamberStatus {
       return memoryStatus;
     }
 
-    if (fs.existsSync(bundledFilePath)) {
-      const raw = fs.readFileSync(bundledFilePath, "utf-8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ bundledFilePath)) {
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ bundledFilePath, "utf-8");
       const parsed = JSON.parse(raw);
       memoryStatus = {
         isOfficeOpen: typeof parsed.isOfficeOpen === "boolean" ? parsed.isOfficeOpen : true,
@@ -125,34 +110,13 @@ export function saveChamberStatus(update: Partial<ChamberStatus>): ChamberStatus
   memoryStatus = updated;
 
   try {
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dataDir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dataDir, { recursive: true });
     }
-    fs.writeFileSync(statusFilePath, JSON.stringify(updated, null, 2), "utf-8");
+    fs.writeFileSync(/*turbopackIgnore: true*/ statusFilePath, JSON.stringify(updated, null, 2), "utf-8");
   } catch (err: any) {
     console.warn("Notice: could not write chamber-status in serverless:", err?.message || err);
   }
 
   return updated;
-}
-
-/**
- * Checks if a given date string (YYYY-MM-DD) falls within the advocate's scheduled multi-day leave
- */
-export function isDateInChamberLeave(
-  dateStr: string,
-  chamber: ChamberStatus,
-  mode?: "offline" | "online" | null
-): boolean {
-  if (!chamber.onLeave || !chamber.leaveStartDate || !chamber.leaveEndDate) {
-    return false;
-  }
-  if (dateStr >= chamber.leaveStartDate && dateStr <= chamber.leaveEndDate) {
-    const channel = chamber.leaveChannelsAffected || "both";
-    if (channel === "both") return true;
-    if (mode === "offline" && channel === "office_only") return true;
-    if (mode === "online" && channel === "online_only") return true;
-    if (!mode) return true;
-  }
-  return false;
 }

@@ -36,8 +36,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { getAllDaySlots, isDateBookable, toDateKey, BOOKING_WINDOW_DAYS } from "@/lib/availability";
-import { services, site } from "@/lib/site-config";
-import { type ChamberStatus, isDateInChamberLeave } from "@/lib/chamber-status";
+import { type ChamberStatus, isDateInChamberLeave } from "@/lib/chamber-utils";
 
 function formatSlotLabel(slot: string) {
   const [h, m] = slot.split(":").map(Number);
