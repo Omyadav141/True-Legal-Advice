@@ -207,6 +207,59 @@ export default function DashboardClient() {
   } | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
 
+  // Helper to check capability against current staff permissions
+  const canAccess = useCallback(
+    (perm: "bookings" | "contacts" | "clients" | "chamber" | "team") => {
+      if (!currentStaff) return true;
+      if (currentStaff.role === "admin") return true;
+      if (!currentStaff.permissions) return true;
+      if (perm === "bookings") return currentStaff.permissions.canManageBookings !== false;
+      if (perm === "contacts") return currentStaff.permissions.canManageInquiries !== false;
+      if (perm === "clients") return currentStaff.permissions.canViewClients !== false;
+      if (perm === "chamber") return currentStaff.permissions.canManageChamber !== false;
+      if (perm === "team") return currentStaff.permissions.canManageStaff !== false;
+      return true;
+    },
+    [currentStaff]
+  );
+
+  // Automatic redirect if activeNav points to an unauthorized view
+  useEffect(() => {
+    if (!currentStaff) return;
+    if (activeNav === "bookings" && !canAccess("bookings")) {
+      setActiveNav("dashboard");
+    } else if (activeNav === "contacts" && !canAccess("contacts")) {
+      setActiveNav("dashboard");
+    } else if (activeNav === "clients" && !canAccess("clients")) {
+      setActiveNav("dashboard");
+    } else if (activeNav === "chamber" && !canAccess("chamber")) {
+      setActiveNav("dashboard");
+    } else if (activeNav === "team" && !canAccess("team")) {
+      setActiveNav("dashboard");
+    }
+  }, [currentStaff, activeNav, canAccess]);
+
+  const renderAccessRestricted = (title: string, message: string) => (
+    <div className="bg-white rounded-3xl border border-zinc-200 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-2xs space-y-4 my-8">
+      <div className="h-16 w-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mx-auto">
+        <ShieldAlert size={32} />
+      </div>
+      <div>
+        <h3 className="font-serif font-bold text-lg text-zinc-900">{title}</h3>
+        <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto leading-relaxed">
+          {message}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setActiveNav("dashboard")}
+        className="px-5 py-2.5 rounded-xl bg-black text-[#cba758] font-bold text-xs hover:bg-zinc-800 transition-all cursor-pointer shadow-sm"
+      >
+        Return to Dashboard Overview
+      </button>
+    </div>
+  );
+
   // Notification Center with persistent local storage
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>([]);
@@ -431,68 +484,74 @@ export default function DashboardClient() {
     }> = [];
 
     // 1. Today's Remaining Consultations
-    const todayRemaining = bookings.filter(
-      (b) =>
-        b.booking_date === todayStr &&
-        b.status !== "cancelled" &&
-        b.attendance !== "attended" &&
-        b.status !== "completed"
-    );
-    if (todayRemaining.length > 0) {
-      list.push({
-        id: `today-remaining-${todayStr}`,
-        title: `${todayRemaining.length} Consultation${todayRemaining.length > 1 ? "s" : ""} Remaining Today`,
-        message: `Adv. Shareen has ${todayRemaining.length} consultation${todayRemaining.length > 1 ? "s" : ""} awaiting attendance today (${formatDateLabel(todayStr)}).`,
-        time: "Today",
-        type: "booking",
-        actionLabel: "View Today's Slots",
-        onClick: () => {
-          setActiveNav("bookings");
-          setBookingTabFilter("today");
-          setTodaySubFilter("remaining");
-          setNotificationOpen(false);
-        },
-      });
+    if (canAccess("bookings")) {
+      const todayRemaining = bookings.filter(
+        (b) =>
+          b.booking_date === todayStr &&
+          b.status !== "cancelled" &&
+          b.attendance !== "attended" &&
+          b.status !== "completed"
+      );
+      if (todayRemaining.length > 0) {
+        list.push({
+          id: `today-remaining-${todayStr}`,
+          title: `${todayRemaining.length} Consultation${todayRemaining.length > 1 ? "s" : ""} Remaining Today`,
+          message: `Adv. Shareen has ${todayRemaining.length} consultation${todayRemaining.length > 1 ? "s" : ""} awaiting attendance today (${formatDateLabel(todayStr)}).`,
+          time: "Today",
+          type: "booking",
+          actionLabel: "View Today's Slots",
+          onClick: () => {
+            setActiveNav("bookings");
+            setBookingTabFilter("today");
+            setTodaySubFilter("remaining");
+            setNotificationOpen(false);
+          },
+        });
+      }
     }
 
     // 2. Pending Bookings Needing Confirmation
-    const pendingSlots = bookings.filter((b) => b.status === "pending");
-    if (pendingSlots.length > 0) {
-      list.push({
-        id: "pending-bookings",
-        title: `${pendingSlots.length} Booking${pendingSlots.length > 1 ? "s" : ""} Awaiting Review`,
-        message: `Clients are waiting for slot confirmation or Google Meet video link dispatch.`,
-        time: "Action Needed",
-        type: "alert",
-        actionLabel: "Review Requests",
-        onClick: () => {
-          setActiveNav("bookings");
-          setBookingTabFilter("pending");
-          setNotificationOpen(false);
-        },
-      });
+    if (canAccess("bookings")) {
+      const pendingSlots = bookings.filter((b) => b.status === "pending");
+      if (pendingSlots.length > 0) {
+        list.push({
+          id: "pending-bookings",
+          title: `${pendingSlots.length} Booking${pendingSlots.length > 1 ? "s" : ""} Awaiting Review`,
+          message: `Clients are waiting for slot confirmation or Google Meet video link dispatch.`,
+          time: "Action Needed",
+          type: "alert",
+          actionLabel: "Review Requests",
+          onClick: () => {
+            setActiveNav("bookings");
+            setBookingTabFilter("pending");
+            setNotificationOpen(false);
+          },
+        });
+      }
     }
 
     // 3. New Contact Inquiries
-    const newContacts = contacts.filter((c) => c.status === "new");
-    if (newContacts.length > 0) {
-      list.push({
-        id: "new-inquiries",
-        title: `${newContacts.length} New Contact Inquir${newContacts.length > 1 ? "ies" : "y"}`,
-        message: `Recent web consultation inquiries submitted through the True Legal Advice website.`,
-        time: "New Form",
-        type: "inquiry",
-        actionLabel: "Open Inquiries",
-        onClick: () => {
-          setActiveNav("contacts");
-          setContactStatusFilter("new");
-          setNotificationOpen(false);
-        },
-      });
+    if (canAccess("contacts")) {
+      const newContacts = contacts.filter((c) => c.status === "new");
+      if (newContacts.length > 0) {
+        list.push({
+          id: "new-inquiries",
+          title: `${newContacts.length} New Contact Inquir${newContacts.length > 1 ? "ies" : "y"}`,
+          message: `Recent web consultation inquiries submitted through the True Legal Advice website.`,
+          time: "New Form",
+          type: "inquiry",
+          actionLabel: "Open Inquiries",
+          onClick: () => {
+            setActiveNav("contacts");
+            setContactStatusFilter("new");
+            setNotificationOpen(false);
+          },
+        });
+      }
     }
 
     // 4. Chamber Away Alert (Only alert when Advocate is AWAY from Chamber)
-    if (!chamberStatus.isOfficeOpen) {
+    if (!chamberStatus.isOfficeOpen && canAccess("chamber")) {
       list.push({
         id: `chamber-away-${chamberStatus.updatedAt || "notice"}`,
         title: "Chamber Office is AWAY",
@@ -508,7 +567,7 @@ export default function DashboardClient() {
     }
 
     return list.filter((n) => !dismissedNotifIds.includes(n.id));
-  }, [bookings, contacts, chamberStatus, todayStr, dismissedNotifIds]);
+  }, [bookings, contacts, chamberStatus, todayStr, dismissedNotifIds, canAccess]);
 
   // Handle Change Password Form Submit
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -1524,7 +1583,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           </a>
 
           {/* Quick Chamber Away / Open Indicator */}
-          {(!currentStaff || currentStaff.permissions?.canManageChamber !== false) && (
+          {canAccess("chamber") && (
             <button
               type="button"
               onClick={() => setActiveNav("chamber")}
@@ -1707,7 +1766,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </button>
 
                 {/* Team & Assistants Option (if allowed) */}
-                {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+                {canAccess("team") && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1796,7 +1855,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             </button>
 
             {/* 2. Bookings & Slots (defaults to Today's Slots) */}
-            {(!currentStaff || currentStaff.permissions?.canManageBookings !== false) && (
+            {canAccess("bookings") && (
               <button
                 type="button"
                 onClick={() => {
@@ -1821,7 +1880,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
 
             {/* 3. Contact Inquiries */}
-            {(!currentStaff || currentStaff.permissions?.canManageInquiries !== false) && (
+            {canAccess("contacts") && (
               <button
                 type="button"
                 onClick={() => {
@@ -1845,7 +1904,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
 
             {/* 4. Clients Directory */}
-            {(!currentStaff || currentStaff.permissions?.canViewClients !== false) && (
+            {canAccess("clients") && (
               <button
                 type="button"
                 onClick={() => {
@@ -1869,7 +1928,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
 
             {/* 5. Chamber Status & Presence */}
-            {(!currentStaff || currentStaff.permissions?.canManageChamber !== false) && (
+            {canAccess("chamber") && (
               <button
                 type="button"
                 onClick={() => {
@@ -1895,7 +1954,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
 
             {/* 6. Team & Assistants (Master Admin & authorized staff) */}
-            {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+            {canAccess("team") && (
               <button
                 type="button"
                 onClick={() => {
@@ -2021,8 +2080,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
                 {/* Card 1: Total Clients */}
                 <div
-                  onClick={() => setActiveNav("clients")}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-[#2b6cb0]"
+                  onClick={() => {
+                    if (canAccess("clients")) setActiveNav("clients");
+                  }}
+                  className={`p-4 rounded-2xl bg-white border border-zinc-200 transition-all shadow-2xs ${
+                    canAccess("clients") ? "cursor-pointer hover:border-[#2b6cb0]" : "cursor-default opacity-90"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-zinc-500">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Total Clients</span>
@@ -2037,10 +2100,14 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 {/* Card 2: Consultations Booked */}
                 <div
                   onClick={() => {
-                    setActiveNav("bookings");
-                    setBookingTabFilter("all");
+                    if (canAccess("bookings")) {
+                      setActiveNav("bookings");
+                      setBookingTabFilter("all");
+                    }
                   }}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-[#2b6cb0]"
+                  className={`p-4 rounded-2xl bg-white border border-zinc-200 transition-all shadow-2xs ${
+                    canAccess("bookings") ? "cursor-pointer hover:border-[#2b6cb0]" : "cursor-default opacity-90"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-zinc-500">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Bookings</span>
@@ -2055,10 +2122,14 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 {/* Card 3: Attended / Came (Fixed light emerald theme) */}
                 <div
                   onClick={() => {
-                    setActiveNav("bookings");
-                    setBookingTabFilter("attended");
+                    if (canAccess("bookings")) {
+                      setActiveNav("bookings");
+                      setBookingTabFilter("attended");
+                    }
                   }}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-emerald-500"
+                  className={`p-4 rounded-2xl bg-white border border-zinc-200 transition-all shadow-2xs ${
+                    canAccess("bookings") ? "cursor-pointer hover:border-emerald-500" : "cursor-default opacity-90"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-800">
@@ -2074,8 +2145,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
                 {/* Card 4: Contact Inquiries */}
                 <div
-                  onClick={() => setActiveNav("contacts")}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-blue-500"
+                  onClick={() => {
+                    if (canAccess("contacts")) setActiveNav("contacts");
+                  }}
+                  className={`p-4 rounded-2xl bg-white border border-zinc-200 transition-all shadow-2xs ${
+                    canAccess("contacts") ? "cursor-pointer hover:border-blue-500" : "cursor-default opacity-90"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-blue-800">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Inquiries</span>
@@ -2090,10 +2165,14 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 {/* Card 5: Needs Action */}
                 <div
                   onClick={() => {
-                    setActiveNav("bookings");
-                    setBookingTabFilter("pending");
+                    if (canAccess("bookings")) {
+                      setActiveNav("bookings");
+                      setBookingTabFilter("pending");
+                    }
                   }}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200 transition-all cursor-pointer shadow-2xs hover:border-amber-500"
+                  className={`p-4 rounded-2xl bg-white border border-zinc-200 transition-all shadow-2xs ${
+                    canAccess("bookings") ? "cursor-pointer hover:border-amber-500" : "cursor-default opacity-90"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-amber-800">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Needs Action</span>
@@ -2286,17 +2365,19 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       Today&apos;s Chamber Schedule ({dashboardStats.todayBookings.length} Appointments)
                     </h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveNav("bookings");
-                      setBookingTabFilter("today");
-                    }}
-                    className="text-xs font-semibold text-[#2b6cb0] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>View Today in Bookings</span>
-                    <ChevronRight size={13} />
-                  </button>
+                  {canAccess("bookings") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveNav("bookings");
+                        setBookingTabFilter("today");
+                      }}
+                      className="text-xs font-semibold text-[#2b6cb0] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>View Today in Bookings</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  )}
                 </div>
 
                 {dashboardStats.todayBookings.length === 0 ? (
@@ -2368,7 +2449,8 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
           {/* ================= VIEW 2: DEDICATED BOOKINGS & SLOTS ONLY ================= */}
           {activeNav === "bookings" && (
-            <div className="space-y-4">
+            canAccess("bookings") ? (
+              <div className="space-y-4">
               {/* Dedicated Booking Metric Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {/* 1. Today's Slots */}
@@ -3038,11 +3120,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 )}
               </div>
             </div>
+            ) : (
+              renderAccessRestricted(
+                "Bookings Access Restricted",
+                "Your assistant profile does not have permission to view or manage consultation appointments. Please contact Adv. Shareen Hussain if you require access."
+              )
+            )
           )}
 
           {/* ================= VIEW 3: DEDICATED CONTACT INQUIRIES ONLY ================= */}
           {activeNav === "contacts" && (
-            <div className="space-y-4">
+            canAccess("contacts") ? (
+              <div className="space-y-4">
               {/* Dedicated Inquiries Counters */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div
@@ -3374,11 +3463,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 )}
               </div>
             </div>
+            ) : (
+              renderAccessRestricted(
+                "Contact Inquiries Access Restricted",
+                "Your assistant profile does not have permission to view or respond to website contact inquiries. Please contact Adv. Shareen Hussain if you require access."
+              )
+            )
           )}
 
           {/* ================= VIEW 4: DEDICATED CLIENTS DIRECTORY ONLY ================= */}
           {activeNav === "clients" && (
-            <div className="space-y-4">
+            canAccess("clients") ? (
+              <div className="space-y-4">
               <div className="bg-white rounded-2xl border border-zinc-200 p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="relative w-full sm:w-96">
                   <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
@@ -3552,11 +3648,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 )}
               </div>
             </div>
+            ) : (
+              renderAccessRestricted(
+                "Clients Directory Access Restricted",
+                "Your assistant profile does not have permission to browse or access the chamber clients directory. Please contact Adv. Shareen Hussain if you require access."
+              )
+            )
           )}
 
           {/* ================= VIEW 5: DEDICATED CHAMBER PRESENCE ONLY ================= */}
           {activeNav === "chamber" && (
-            <div className="max-w-3xl space-y-6">
+            canAccess("chamber") ? (
+              <div className="max-w-3xl space-y-6">
               <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-2xs space-y-5">
                 <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                   <div>
@@ -3731,11 +3834,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
               </div>
             </div>
+            ) : (
+              renderAccessRestricted(
+                "Chamber Presence Access Restricted",
+                "Your assistant profile does not have permission to modify live chamber presence or status notices. Please contact Adv. Shareen Hussain if you require access."
+              )
+            )
           )}
 
           {/* ================= VIEW 6: TEAM & ASSISTANTS MANAGEMENT ================= */}
           {activeNav === "team" && (
-            <div className="space-y-6">
+            canAccess("team") ? (
+              <div className="space-y-6">
               {/* Executive Overview Header */}
               <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-6 sm:p-7 rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -3985,11 +4095,18 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                 </div>
               </div>
             </div>
+            ) : (
+              renderAccessRestricted(
+                "Team & Staff Access Restricted",
+                "Only the Master Advocate (Adv. Shareen Hussain) and authorized administrators can manage assistant accounts and permissions."
+              )
+            )
           )}
         </main>
 
         {/* ================= MOBILE BOTTOM NAVIGATION BAR (Fixed bottom for phone usability) ================= */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1b1f2b] border-t border-[#2d3243] px-1 py-1.5 flex items-center justify-around shadow-2xl backdrop-blur-md">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1b1f2b] border-t border-[#2d3243] px-2 py-1.5 flex items-center justify-around shadow-2xl backdrop-blur-md">
+          {/* 1. Overview (Always visible) */}
           <button
             type="button"
             onClick={() => setActiveNav("dashboard")}
@@ -4001,60 +4118,73 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             <span className="mt-0.5">Overview</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveNav("bookings");
-              setBookingTabFilter("today");
-            }}
-            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
-              activeNav === "bookings" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Calendar size={18} />
-            <span className="mt-0.5">Bookings</span>
-            {bookingMetrics.todayCount > 0 && (
-              <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            )}
-          </button>
+          {/* 2. Bookings & Slots */}
+          {canAccess("bookings") && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveNav("bookings");
+                setBookingTabFilter("today");
+              }}
+              className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
+                activeNav === "bookings" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Calendar size={18} />
+              <span className="mt-0.5">Bookings</span>
+              {bookingMetrics.todayCount > 0 && (
+                <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveNav("contacts")}
-            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
-              activeNav === "contacts" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <MessageSquare size={18} />
-            <span className="mt-0.5">Inquiries</span>
-            {contactMetrics.newCount > 0 && (
-              <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
-            )}
-          </button>
+          {/* 3. Contact Inquiries */}
+          {canAccess("contacts") && (
+            <button
+              type="button"
+              onClick={() => setActiveNav("contacts")}
+              className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all relative ${
+                activeNav === "contacts" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <MessageSquare size={18} />
+              <span className="mt-0.5">Inquiries</span>
+              {contactMetrics.newCount > 0 && (
+                <span className="absolute top-0.5 right-4 h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+              )}
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveNav("clients")}
-            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
-              activeNav === "clients" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Users size={18} />
-            <span className="mt-0.5">Clients</span>
-          </button>
+          {/* 4. Clients Directory */}
+          {canAccess("clients") && (
+            <button
+              type="button"
+              onClick={() => setActiveNav("clients")}
+              className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+                activeNav === "clients" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Users size={18} />
+              <span className="mt-0.5">Clients</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveNav("chamber")}
-            className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
-              activeNav === "chamber" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Building2 size={18} />
-            <span className="mt-0.5">Chamber</span>
-          </button>
+          {/* 5. Chamber Status & Presence */}
+          {canAccess("chamber") && (
+            <button
+              type="button"
+              onClick={() => setActiveNav("chamber")}
+              className={`flex-1 flex flex-col items-center py-1 rounded-xl text-[10px] font-semibold transition-all ${
+                activeNav === "chamber" ? "text-[#cba758] bg-white/5" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Building2 size={18} />
+              <span className="mt-0.5">Chamber</span>
+            </button>
+          )}
 
-          {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+          {/* 6. Team & Assistants */}
+          {canAccess("team") && (
             <button
               type="button"
               onClick={() => setActiveNav("team")}
