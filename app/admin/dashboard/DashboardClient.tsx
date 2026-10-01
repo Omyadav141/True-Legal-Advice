@@ -260,11 +260,11 @@ export default function DashboardClient() {
     </div>
   );
 
-  // Notification Center with persistent local storage
+  // Notification Center with persistent cross-device synchronization
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>([]);
 
-  // Load persisted dismissed notification IDs on client mount
+  // Load persisted dismissed notification IDs on client mount from local storage and server
   useEffect(() => {
     try {
       const stored = localStorage.getItem("tla_dismissed_notif_ids");
@@ -273,9 +273,26 @@ export default function DashboardClient() {
         if (Array.isArray(parsed)) setDismissedNotifIds(parsed);
       }
     } catch {}
+
+    // Fetch initial dismissed IDs from server for instant cross-device sync
+    fetch(`/api/admin/notifications?_t=${Date.now()}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.dismissedIds)) {
+          setDismissedNotifIds((prev) => {
+            const merged = Array.from(new Set([...prev, ...data.dismissedIds]));
+            try {
+              localStorage.setItem("tla_dismissed_notif_ids", JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const handleDismissNotif = (id: string) => {
+  const handleDismissNotif = async (id: string) => {
+    // 1. Optimistic local update
     setDismissedNotifIds((prev) => {
       const updated = Array.from(new Set([...prev, id]));
       try {
@@ -283,10 +300,30 @@ export default function DashboardClient() {
       } catch {}
       return updated;
     });
+
+    // 2. Persist to server for instant cross-device sync across mobile & laptop
+    try {
+      const res = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.dismissedIds)) {
+          setDismissedNotifIds(data.dismissedIds);
+        }
+      }
+    } catch (err) {
+      console.warn("Notice: could not sync dismissed notification to server:", err);
+    }
   };
 
-  const handleClearAllNotifs = (currentList: { id: string }[]) => {
+  const handleClearAllNotifs = async (currentList: { id: string }[]) => {
     const ids = currentList.map((n) => n.id);
+    if (ids.length === 0) return;
+
+    // 1. Optimistic local update
     setDismissedNotifIds((prev) => {
       const updated = Array.from(new Set([...prev, ...ids]));
       try {
@@ -295,6 +332,23 @@ export default function DashboardClient() {
       } catch {}
       return updated;
     });
+
+    // 2. Persist to server so clearing on laptop clears mobile and vice-versa
+    try {
+      const res = await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.dismissedIds)) {
+          setDismissedNotifIds(data.dismissedIds);
+        }
+      }
+    } catch (err) {
+      console.warn("Notice: could not sync cleared notifications to server:", err);
+    }
   };
 
   // Profile dropdown in header
@@ -425,11 +479,12 @@ export default function DashboardClient() {
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const [bookRes, contRes, statusRes, staffRes] = await Promise.all([
+      const [bookRes, contRes, statusRes, staffRes, notifRes] = await Promise.all([
         fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/contacts?_t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/chamber-status?_t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/staff?_t=${Date.now()}`, { cache: "no-store" }),
+        fetch(`/api/admin/notifications?_t=${Date.now()}`, { cache: "no-store" }),
       ]);
 
       if (bookRes.status === 401) {
@@ -474,6 +529,19 @@ export default function DashboardClient() {
           setStaffList(staffData.staff);
         }
       }
+
+      if (notifRes && notifRes.ok) {
+        const notifData = await notifRes.json();
+        if (Array.isArray(notifData.dismissedIds)) {
+          setDismissedNotifIds((prev) => {
+            const merged = Array.from(new Set([...prev, ...notifData.dismissedIds]));
+            try {
+              localStorage.setItem("tla_dismissed_notif_ids", JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
@@ -490,7 +558,7 @@ export default function DashboardClient() {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Live Notifications Computed from System Data
+  // Live Notifications Computed from System Data (Accurate individual notifications & cross-device synced)
   const notificationsList = useMemo(() => {
     const list: Array<{
       id: string;
@@ -502,87 +570,124 @@ export default function DashboardClient() {
       onClick?: () => void;
     }> = [];
 
-    // 1. Today's Remaining Consultations
+    // 1. Individual Live Bookings (Recent, Pending, and Today's Consultations)
     if (canAccess("bookings")) {
-      const todayRemaining = bookings.filter(
-        (b) =>
-          b.booking_date === todayStr &&
-          b.status !== "cancelled" &&
-          b.attendance !== "attended" &&
-          b.status !== "completed"
-      );
-      if (todayRemaining.length > 0) {
-        list.push({
-          id: `today-remaining-${todayStr}`,
-          title: `${todayRemaining.length} Consultation${todayRemaining.length > 1 ? "s" : ""} Remaining Today`,
-          message: `Adv. Shareen has ${todayRemaining.length} consultation${todayRemaining.length > 1 ? "s" : ""} awaiting attendance today (${formatDateLabel(todayStr)}).`,
-          time: "Today",
-          type: "booking",
-          actionLabel: "View Today's Slots",
-          onClick: () => {
-            setActiveNav("bookings");
-            setBookingTabFilter("today");
-            setTodaySubFilter("remaining");
-            setNotificationOpen(false);
-          },
-        });
+      const nowMs = Date.now();
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+      // Sort bookings so newest are evaluated first
+      const sortedBookings = [...bookings].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      for (const b of sortedBookings) {
+        if (b.status === "cancelled") continue;
+
+        const isToday = b.booking_date === todayStr;
+        const isPending = b.status === "pending";
+        const createdMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+        const isRecentlyCreated = createdMs > 0 && (nowMs - createdMs) < SEVEN_DAYS_MS;
+        const isUpcoming = b.booking_date >= todayStr;
+
+        // Show individual notification for every booking that is pending review, scheduled for today, upcoming, or created in last 7 days
+        if (isPending || isToday || isRecentlyCreated || isUpcoming) {
+          const serviceTitle = serviceLabels[b.service] || b.service || "Legal Consultation";
+          const modeLabel = b.consultation_mode === "online" ? "Online Video Meet" : "In-Chamber Visit";
+          const formattedSlot = formatTime12(b.booking_time);
+          const dateLabel = isToday ? "Today" : formatDateLabel(b.booking_date);
+
+          let title = "";
+          let badgeTime = dateLabel;
+          let notifType: "booking" | "alert" = "booking";
+          let message = "";
+
+          if (isToday) {
+            title = `Today's Session: ${b.name}`;
+            message = `${formattedSlot} (${modeLabel}) · ${serviceTitle}${b.sub_service ? ` — ${b.sub_service}` : ""}`;
+            badgeTime = `Today ${formattedSlot}`;
+            notifType = "alert";
+          } else if (isPending) {
+            title = `Pending Review: ${b.name}`;
+            message = `Requested for ${dateLabel} at ${formattedSlot} (${modeLabel}) · ${serviceTitle}`;
+            badgeTime = "Pending";
+            notifType = "alert";
+          } else {
+            title = `New Booking: ${b.name}`;
+            message = `Scheduled for ${dateLabel} at ${formattedSlot} (${modeLabel}) · ${serviceTitle}`;
+            badgeTime = dateLabel;
+            notifType = "booking";
+          }
+
+          list.push({
+            id: `booking-${b.id}`,
+            title,
+            message,
+            time: badgeTime,
+            type: notifType,
+            actionLabel: "View Booking",
+            onClick: () => {
+              setActiveNav("bookings");
+              setSearchQuery(b.booking_id || b.name);
+              setBookingTabFilter("all");
+              setNotificationOpen(false);
+            },
+          });
+        }
       }
     }
 
-    // 2. Pending Bookings Needing Confirmation
-    if (canAccess("bookings")) {
-      const pendingSlots = bookings.filter((b) => b.status === "pending");
-      if (pendingSlots.length > 0) {
-        list.push({
-          id: "pending-bookings",
-          title: `${pendingSlots.length} Booking${pendingSlots.length > 1 ? "s" : ""} Awaiting Review`,
-          message: `Clients are waiting for slot confirmation or Google Meet video link dispatch.`,
-          time: "Action Needed",
-          type: "alert",
-          actionLabel: "Review Requests",
-          onClick: () => {
-            setActiveNav("bookings");
-            setBookingTabFilter("pending");
-            setNotificationOpen(false);
-          },
-        });
-      }
-    }
-
-    // 3. New Contact Inquiries
+    // 2. Individual New Contact Inquiries
     if (canAccess("contacts")) {
       const newContacts = contacts.filter((c) => c.status === "new");
-      if (newContacts.length > 0) {
+      for (const c of newContacts) {
         list.push({
-          id: "new-inquiries",
-          title: `${newContacts.length} New Contact Inquir${newContacts.length > 1 ? "ies" : "y"}`,
-          message: `Recent web consultation inquiries submitted through the True Legal Advice website.`,
-          time: "New Form",
+          id: `inquiry-${c.id}`,
+          title: `New Inquiry: ${c.name}`,
+          message: `${c.service || "General Inquiry"}${c.message ? ` — "${c.message.slice(0, 65)}..."` : ""}`,
+          time: "New",
           type: "inquiry",
-          actionLabel: "Open Inquiries",
+          actionLabel: "Open Inquiry",
           onClick: () => {
             setActiveNav("contacts");
             setContactStatusFilter("new");
+            setSearchQuery(c.name);
             setNotificationOpen(false);
           },
         });
       }
     }
 
-    // 4. Chamber Away Alert (Only alert when Advocate is AWAY from Chamber)
-    if (!chamberStatus.isOfficeOpen && canAccess("chamber")) {
-      list.push({
-        id: `chamber-away-${chamberStatus.updatedAt || "notice"}`,
-        title: "Chamber Office is AWAY",
-        message: `Away notice: ${chamberStatus.awayReason || "Attending court proceedings"}. Estimated resume: ${chamberStatus.returnEstimate || "Later today"}.`,
-        time: "Away",
-        type: "chamber",
-        actionLabel: "Manage Presence",
-        onClick: () => {
-          setActiveNav("chamber");
-          setNotificationOpen(false);
-        },
-      });
+    // 3. Chamber Presence & Scheduled Vacation / Recess Notice
+    if (canAccess("chamber")) {
+      if (chamberStatus.onLeave) {
+        list.push({
+          id: `chamber-leave-${chamberStatus.leaveStartDate}-${chamberStatus.leaveEndDate}`,
+          title: "Chamber Recess / Scheduled Leave",
+          message: `Advocate Shareen Hussain is on leave (${chamberStatus.leaveReason || "Scheduled Leave"}) until ${formatDateLabel(chamberStatus.leaveEndDate || "")}.`,
+          time: "Recess",
+          type: "chamber",
+          actionLabel: "Chamber Planner",
+          onClick: () => {
+            setActiveNav("chamber");
+            setNotificationOpen(false);
+          },
+        });
+      } else if (!chamberStatus.isOfficeOpen) {
+        list.push({
+          id: `chamber-away-${chamberStatus.updatedAt || "away"}`,
+          title: "Chamber Office is AWAY",
+          message: `Away notice: ${chamberStatus.awayReason || "Attending court proceedings"}. Estimated resume: ${chamberStatus.returnEstimate || "Later today"}.`,
+          time: "Away",
+          type: "chamber",
+          actionLabel: "Manage Presence",
+          onClick: () => {
+            setActiveNav("chamber");
+            setNotificationOpen(false);
+          },
+        });
+      }
     }
 
     return list.filter((n) => !dismissedNotifIds.includes(n.id));
@@ -1706,9 +1811,22 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                             {notif.type === "chamber" && <Building2 size={12} className="text-emerald-400" />}
                             <span>{notif.title}</span>
                           </h4>
-                          <span className="text-[9.5px] font-mono text-[#cba758] bg-[#cba758]/10 px-1.5 py-0.5 rounded">
-                            {notif.time}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[9.5px] font-mono text-[#cba758] bg-[#cba758]/10 px-1.5 py-0.5 rounded">
+                              {notif.time}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDismissNotif(notif.id);
+                              }}
+                              className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                              title="Dismiss notification"
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-slate-300 text-[11px] leading-relaxed">
                           {notif.message}
@@ -1725,7 +1843,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDismissNotif(notif.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDismissNotif(notif.id);
+                              }}
                               className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
                             >
                               Dismiss

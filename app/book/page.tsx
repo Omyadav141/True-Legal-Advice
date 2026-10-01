@@ -1484,41 +1484,14 @@ ${
                               onClick={downloadIcs}
                               className="py-2.5 px-3 rounded-xl border border-white/20 text-xs font-semibold text-slate-200 hover:bg-white/10 flex items-center justify-center gap-2 cursor-pointer transition-all"
                             >
-                              <Download size={14} className="text-[#cba758]" />
-                              <span>{downloadedIcs ? "Added to Calendar!" : "Apple / Outlook (.ics)"}</span>
+                              <Calendar size={15} className="text-[#cba758]" />
+                              <span>{downloadedIcs ? "Added to Calendar!" : "Apple / Outlook Calendar"}</span>
                             </button>
                           </div>
                         </div>
 
-                        {/* WhatsApp Pass & Notification Section */}
-                        <div className="space-y-2 pt-1 text-left">
-                          <span className="text-[10.5px] font-mono font-bold uppercase tracking-wider text-[#25D366] block">
-                            💬 WhatsApp Pass & Confirmation:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <a
-                              href={chamberWaUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-[#25D366] hover:bg-[#1ebe5d] transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer no-underline"
-                            >
-                              <MessageCircle size={15} />
-                              <span>Chamber WhatsApp</span>
-                            </a>
-
-                            {cleanClientPhone && (
-                              <a
-                                href={clientWaUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="py-2.5 px-3 rounded-xl border border-[#25D366]/40 text-xs font-semibold text-[#25D366] hover:bg-[#25D366]/10 flex items-center justify-center gap-2 cursor-pointer no-underline"
-                              >
-                                <Share2 size={14} />
-                                <span>Send to My WhatsApp</span>
-                              </a>
-                            )}
-                          </div>
-
+                        {/* Copy Full Pass Details Action */}
+                        <div className="pt-1">
                           <button
                             type="button"
                             onClick={() => {
@@ -1526,10 +1499,10 @@ ${
                               setCopiedPass(true);
                               setTimeout(() => setCopiedPass(false), 2000);
                             }}
-                            className="w-full py-2 rounded-xl border border-white/15 text-xs font-medium text-slate-300 hover:bg-white/10 flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                            className="w-full py-2.5 rounded-xl border border-[#cba758]/35 bg-[#cba758]/10 hover:bg-[#cba758]/20 text-xs font-semibold text-[#cba758] flex items-center justify-center gap-2 cursor-pointer transition-all"
                           >
-                            {copiedPass ? <Check size={13} className="text-[#cba758]" /> : <Copy size={13} />}
-                            <span>{copiedPass ? "Pass Copied to Clipboard!" : "Copy Full Pass Details"}</span>
+                            {copiedPass ? <Check size={14} className="text-[#cba758]" /> : <Copy size={14} />}
+                            <span>{copiedPass ? "Pass Details Copied to Clipboard!" : "Copy Full Pass Details"}</span>
                           </button>
                         </div>
                       </motion.div>
