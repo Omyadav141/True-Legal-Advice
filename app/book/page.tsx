@@ -784,11 +784,12 @@ function BookClient() {
   const currentStepNum = step === "mode" ? 1 : step === "slots" ? 2 : step === "details" ? 3 : 4;
 
   return (
-    <div className="min-h-screen bg-[#fcfbfa] text-[var(--ink)]">
-      {/* ============ Top Hero & Advocate Chamber Desk (The "First Screen") ============ */}
-      <section className="relative py-12 lg:py-20 bg-black text-white overflow-hidden">
-        <div className="pointer-events-none absolute -top-24 right-10 h-80 w-80 rounded-full bg-[var(--gold)]/15 blur-[100px]" />
-        <div className="pointer-events-none absolute -bottom-24 left-10 h-80 w-80 rounded-full bg-white/5 blur-[110px]" />
+    <div className="min-h-screen bg-[#faf8f5] text-zinc-900">
+      {/* ============ Top Hero & Advocate Chamber Desk on Clean Light Background ============ */}
+      <section className="relative py-10 lg:py-16 overflow-hidden">
+        {/* Subtle decorative background gradient accents */}
+        <div className="pointer-events-none absolute -top-24 right-10 h-96 w-96 rounded-full bg-[#cba758]/10 blur-[120px]" />
+        <div className="pointer-events-none absolute bottom-0 left-10 h-80 w-80 rounded-full bg-amber-500/5 blur-[100px]" />
 
         <div className="container relative z-10 max-w-4xl space-y-6">
           {/* Prominent Chamber Alert Notice Banner (When Advocate is Away or Closed) */}
@@ -796,11 +797,11 @@ function BookClient() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-amber-400/50 bg-[#18181b] p-5 sm:p-6 text-amber-100 shadow-xl"
+              className="rounded-3xl border border-amber-500/40 bg-[#14151a] p-5 sm:p-6 text-amber-100 shadow-xl"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
-                  <div className="h-11 w-11 rounded-xl bg-[#cba758] text-black flex items-center justify-center shrink-0 font-bold shadow-md">
+                  <div className="h-11 w-11 rounded-2xl bg-[#cba758] text-black flex items-center justify-center shrink-0 font-bold shadow-md">
                     <Scale size={22} />
                   </div>
                   <div>
@@ -844,12 +845,12 @@ function BookClient() {
             </motion.div>
           )}
 
-          {/* Clean Advocate Chamber Card */}
-          <div className="rounded-3xl border border-white/15 bg-white/5 backdrop-blur-md p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+          {/* Clean Executive Black Advocate Chamber Card */}
+          <div className="rounded-3xl border border-[#cba758]/35 bg-[#09090b] p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl text-white">
             <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5">
-              <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border-2 border-[var(--gold)]/40 shadow-lg shrink-0 bg-[#0d1c16]">
+              <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden border-2 border-[#cba758]/50 shadow-lg shrink-0 bg-[#121214]">
                 <Image
-                  src="/images/shareen-portrait.jpg"
+                  src={site.advocateDeskPhoto || "/images/advocate-portrait.png"}
                   alt="Adv. Shareen Hussain"
                   fill
                   className="object-cover object-top"
@@ -859,7 +860,7 @@ function BookClient() {
               </div>
 
               <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)]/30 text-[var(--gold-light)] text-[10px] font-mono font-bold uppercase tracking-wider">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#cba758]/20 border border-[#cba758]/30 text-[#cba758] text-[10px] font-mono font-bold uppercase tracking-wider">
                   <Scale size={12} />
                   <span>BOMBAY HIGH COURT (NAGPUR BENCH) & DISTRICT COURTS</span>
                 </div>
@@ -874,11 +875,11 @@ function BookClient() {
 
                 <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-slate-300 font-mono">
                   <span className="flex items-center gap-1.5">
-                    <MapPin size={13} className="text-[var(--gold)]" />
+                    <MapPin size={13} className="text-[#cba758]" />
                     <span>Trisharan Square, Nagpur</span>
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Clock size={13} className="text-[var(--gold)]" />
+                    <Clock size={13} className="text-[#cba758]" />
                     <span>9:30–11:00 AM & 5:30–8:30 PM</span>
                   </span>
                 </div>
@@ -895,13 +896,13 @@ function BookClient() {
                 <span>Book Consultation Appointment</span>
               </button>
 
-              <span className="text-[11px] font-mono text-slate-300 text-center">
+              <span className="text-[11px] font-mono text-slate-400 text-center">
                 Click to open reservation desk · Instant pass delivery
               </span>
             </div>
           </div>
 
-          {/* Quick Practice Area Cards */}
+          {/* Quick Practice Area Cards in Luxury Black (NO GREEN!) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             {[
               {
@@ -927,19 +928,19 @@ function BookClient() {
               return (
                 <div
                   key={srv.id}
-                  className="rounded-2xl border border-white/10 bg-[#0d2218]/60 p-4 flex flex-col justify-between gap-3 text-left hover:border-[var(--gold)]/40 transition-colors"
+                  className="rounded-2xl border border-[#cba758]/25 bg-[#121214] hover:bg-[#18181b] p-5 flex flex-col justify-between gap-3 text-left hover:border-[#cba758]/60 transition-all shadow-md group"
                 >
                   <div className="space-y-1.5">
-                    <div className="h-8 w-8 rounded-lg bg-[var(--gold)]/20 border border-[var(--gold)]/30 text-[var(--gold)] flex items-center justify-center">
-                      <IconComp size={16} />
+                    <div className="h-9 w-9 rounded-xl bg-[#cba758]/15 border border-[#cba758]/30 text-[#cba758] flex items-center justify-center shadow-xs">
+                      <IconComp size={17} />
                     </div>
-                    <h3 className="text-sm font-serif font-bold text-white">{srv.title}</h3>
-                    <p className="text-xs text-slate-300 leading-snug">{srv.desc}</p>
+                    <h3 className="text-sm font-serif font-bold text-white group-hover:text-[#cba758] transition-colors">{srv.title}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">{srv.desc}</p>
                   </div>
 
                   <button
                     onClick={() => openBookingModal(srv.id)}
-                    className="text-xs font-bold text-[var(--gold-light)] hover:text-white flex items-center gap-1 cursor-pointer pt-1"
+                    className="text-xs font-bold text-[#cba758] hover:text-white flex items-center gap-1 cursor-pointer pt-2 border-t border-white/5 transition-colors"
                   >
                     <span>Book for this area</span>
                     <ChevronRight size={13} />
@@ -947,6 +948,39 @@ function BookClient() {
                 </div>
               );
             })}
+          </div>
+
+          {/* 3 Executive Trust & Verification Cards (Fills page completely) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="rounded-2xl bg-[#121214] border border-white/10 p-4.5 text-left text-white shadow-sm space-y-1">
+              <div className="flex items-center gap-2 text-[#cba758] font-bold text-xs font-mono uppercase tracking-wider">
+                <ShieldCheck size={14} />
+                <span>100% Confidential</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Direct client-advocate privilege protected under Section 126 of the Indian Evidence Act.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#121214] border border-white/10 p-4.5 text-left text-white shadow-sm space-y-1">
+              <div className="flex items-center gap-2 text-[#cba758] font-bold text-xs font-mono uppercase tracking-wider">
+                <Building2 size={14} />
+                <span>Nagpur Chambers</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Walk-in chamber near Trisharan Square, Nagpur or online Google Meet consultation.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#121214] border border-white/10 p-4.5 text-left text-white shadow-sm space-y-1">
+              <div className="flex items-center gap-2 text-[#cba758] font-bold text-xs font-mono uppercase tracking-wider">
+                <Sparkles size={14} />
+                <span>5.0★ Google Rated</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                179+ verified reviews from court marriage, trademark, and property clients across Maharashtra.
+              </p>
+            </div>
           </div>
         </div>
       </section>

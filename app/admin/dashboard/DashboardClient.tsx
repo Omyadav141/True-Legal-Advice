@@ -178,6 +178,181 @@ const AVATAR_COLORS = [
   "bg-zinc-700 text-white",
 ];
 
+const DAILY_INSPIRATION_QUOTES = [
+  {
+    quote: "Educate, Agitate, Organize. Cultivation of mind should be the ultimate aim of human existence.",
+    author: "Dr. B. R. Ambedkar",
+    role: "Architect of the Constitution of India",
+  },
+  {
+    quote: "Fight for the things that you care about, but do it in a way that will lead others to join you.",
+    author: "Justice Ruth Bader Ginsburg",
+    role: "Associate Justice, U.S. Supreme Court",
+  },
+  {
+    quote: "Be you never so high, the law is above you. Justice must be rooted in truth and unwavering courage.",
+    author: "Lord Denning",
+    role: "Master of the Rolls & Eminent Jurist",
+  },
+  {
+    quote: "Law is not a cloistered virtue; it must breathe the air of reality and serve the cause of justice.",
+    author: "Justice V. R. Krishna Iyer",
+    role: "Supreme Court Judge & Reformer",
+  },
+  {
+    quote: "The true measure of any society can be found in how it treats its most vulnerable members.",
+    author: "Mahatma Gandhi",
+    role: "Advocate & Father of the Nation",
+  },
+  {
+    quote: "Resolve to be honest at all events; and if in your own judgment you cannot be an honest lawyer, resolve to be honest without being a lawyer.",
+    author: "Abraham Lincoln",
+    role: "16th U.S. President & Trial Lawyer",
+  },
+  {
+    quote: "The safety of the people shall be the highest law (Salus populi suprema lex esto).",
+    author: "Marcus Tullius Cicero",
+    role: "Roman Statesman & Jurist",
+  },
+  {
+    quote: "Injustice anywhere is a threat to justice everywhere. We are caught in an inescapable network of mutuality.",
+    author: "Dr. Martin Luther King Jr.",
+    role: "Civil Rights Leader",
+  },
+  {
+    quote: "The poor and the underprivileged must have access to justice; procedural technicalities should never defeat substantive justice.",
+    author: "Justice P. N. Bhagwati",
+    role: "Former Chief Justice of India",
+  },
+  {
+    quote: "It always seems impossible until it's done. Diligence in every brief turns challenge into victory.",
+    author: "Nelson Mandela",
+    role: "Lawyer, Statesman & Nobel Laureate",
+  },
+  {
+    quote: "Words are the lawyer's tools of trade. When crafted with precision and integrity, they defend lives and honor.",
+    author: "Chamber Counsel Creed",
+    role: "True Legal Advice Chambers (Nagpur)",
+  },
+  {
+    quote: "Justice with clarity, patience, and unwavering empathy is the hallmark of true legal counsel.",
+    author: "Adv. Shareen Hussain",
+    role: "Trade Mark Attorney & Advocate",
+  },
+  {
+    quote: "To see what is right and not do it is a want of courage. Every client entrusts us with their truth.",
+    author: "Legal Heritage Axiom",
+    role: "Bar Council Tradition",
+  },
+];
+
+function DailyQuoteBanner({ currentStaffName, role }: { currentStaffName?: string; role: string }) {
+  const dayOfYear = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now.getTime() - start.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }, []);
+
+  const [quoteIdx, setQuoteIdx] = useState(dayOfYear % DAILY_INSPIRATION_QUOTES.length);
+  const [copied, setCopied] = useState(false);
+
+  const nextQuote = () => {
+    setQuoteIdx((prev) => (prev + 1) % DAILY_INSPIRATION_QUOTES.length);
+  };
+
+  const current = DAILY_INSPIRATION_QUOTES[quoteIdx];
+  const displayName = currentStaffName || (role === "admin" ? "Adv. Shareen Hussain" : "Chamber Secretary");
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+
+  const copyQuote = () => {
+    try {
+      navigator.clipboard.writeText(`"${current.quote}" — ${current.author} (${current.role})`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  return (
+    <div className="relative rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0d0f17] via-[#141724] to-[#090b10] border border-[#cba758]/35 p-5 sm:p-6 shadow-xl overflow-hidden text-white">
+      {/* Ambient background glows */}
+      <div className="pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full bg-[#cba758]/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-10 left-1/3 w-40 h-40 rounded-full bg-blue-500/10 blur-3xl" />
+
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-2 flex-1 min-w-0">
+          {/* Top Pill / Greeting */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758] border border-[#cba758]/40 flex items-center gap-1.5 shadow-2xs">
+              <Sparkles size={11} className="text-[#cba758]" />
+              <span>Daily Chamber Inspiration</span>
+            </span>
+            <span className="text-[11px] font-mono text-zinc-300">
+              {greeting}, <strong className="text-white font-semibold">{displayName}</strong>
+            </span>
+            <span className="text-[10px] font-mono text-zinc-500 hidden sm:inline">
+              · {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+            </span>
+          </div>
+
+          {/* Quote Content with Animation */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={quoteIdx}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+              className="flex items-start gap-3 pt-1"
+            >
+              <div className="h-8 w-8 rounded-xl bg-[#cba758]/20 border border-[#cba758]/35 text-[#cba758] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                <Quote size={16} />
+              </div>
+              <div className="min-w-0">
+                <blockquote className="text-xs sm:text-sm text-slate-100 font-serif italic leading-relaxed">
+                  "{current.quote}"
+                </blockquote>
+                <p className="text-[11px] font-mono text-[#cba758] mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold">{current.author}</span>
+                  <span className="text-zinc-500">·</span>
+                  <span className="text-zinc-400">{current.role}</span>
+                </p>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Action Controls: Copy & Next Thought */}
+        <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
+          <button
+            type="button"
+            onClick={copyQuote}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title={copied ? "Quote Copied!" : "Copy quote"}
+          >
+            {copied ? <Check size={14} className="text-[#cba758]" /> : <Copy size={14} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={nextQuote}
+            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-[#cba758]/20 border border-white/10 hover:border-[#cba758]/40 text-slate-200 hover:text-white text-xs font-mono font-medium flex items-center gap-2 transition-all cursor-pointer shadow-2xs active:scale-95"
+            title="Next inspirational quote"
+          >
+            <Sparkles size={13} className="text-[#cba758]" />
+            <span>Next Thought</span>
+            <span className="text-[10px] text-zinc-500 font-mono">
+              ({quoteIdx + 1}/{DAILY_INSPIRATION_QUOTES.length})
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const router = useRouter();
 
@@ -2184,6 +2359,9 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
         {/* ================= MAIN CONTENT VIEWPORT ================= */}
         <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 md:pb-8 min-h-0">
+          {/* ================= DAILY INSPIRING LEGAL THOUGHT BANNER ================= */}
+          <DailyQuoteBanner currentStaffName={currentStaff?.name} role={role} />
+
           {/* ================= EXECUTIVE DARK LUXURY HERO BANNER ================= */}
           <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
