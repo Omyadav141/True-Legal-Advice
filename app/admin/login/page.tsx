@@ -295,7 +295,12 @@ export default function AdminLoginPage() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="advocate@truelegaladvice.com"
-                        className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 text-white placeholder-slate-500 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
+                        style={{
+                          colorScheme: "dark",
+                          color: "#ffffff",
+                          WebkitTextFillColor: "#ffffff",
+                        }}
+                        className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
                       />
                     </div>
                   </div>
@@ -332,7 +337,12 @@ export default function AdminLoginPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 text-white placeholder-slate-500 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
+                        style={{
+                          colorScheme: "dark",
+                          color: "#ffffff",
+                          WebkitTextFillColor: "#ffffff",
+                        }}
+                        className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/70 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
                       />
                       <button
                         type="button"
@@ -456,7 +466,12 @@ export default function AdminLoginPage() {
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
                           placeholder="advocate@truelegaladvice.com"
-                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 text-white placeholder-slate-500 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
+                          style={{
+                            colorScheme: "dark",
+                            color: "#ffffff",
+                            WebkitTextFillColor: "#ffffff",
+                          }}
+                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
                         />
                       </div>
                     </div>
@@ -510,7 +525,12 @@ export default function AdminLoginPage() {
                         value={recoveryCode}
                         onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, ""))}
                         placeholder="123456"
-                        className="w-full px-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 text-white placeholder-slate-500 font-mono text-base tracking-widest text-center focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none"
+                        style={{
+                          colorScheme: "dark",
+                          color: "#ffffff",
+                          WebkitTextFillColor: "#ffffff",
+                        }}
+                        className="w-full px-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/60 font-mono text-base tracking-widest text-center focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none"
                       />
                     </div>
 
@@ -530,7 +550,12 @@ export default function AdminLoginPage() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="••••••••••••"
-                          className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 text-white placeholder-slate-500 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
+                          style={{
+                            colorScheme: "dark",
+                            color: "#ffffff",
+                            WebkitTextFillColor: "#ffffff",
+                          }}
+                          className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/70 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
                         />
                         <button
                           type="button"

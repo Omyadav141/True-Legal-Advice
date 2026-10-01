@@ -59,6 +59,33 @@
   color: #000000;
 }
 
+/* Password and Dark Inputs Styling: Ensure white password bullets and text */
+input[type="password"] {
+  color-scheme: dark;
+}
+
+input.bg-\[\#0e111a\],
+.bg-\[\#0e111a\] input,
+input[type="password"].text-white {
+  color-scheme: dark !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+input.bg-\[\#0e111a\]::placeholder,
+.bg-\[\#0e111a\] input::placeholder {
+  color: rgba(255, 255, 255, 0.65) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.65) !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--paper);
