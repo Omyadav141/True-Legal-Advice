@@ -414,9 +414,9 @@ export default function DashboardClient() {
     return `${y}-${m}-${d}`;
   }, []);
 
-  // Fetch Bookings & Contacts
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // Fetch Bookings & Contacts with optional silent background refresh
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const [bookRes, contRes, statusRes, staffRes] = await Promise.all([
         fetch(`/api/admin/bookings?_t=${Date.now()}`, { cache: "no-store" }),
@@ -444,10 +444,12 @@ export default function DashboardClient() {
       if (statusRes.ok) {
         const statusData = await statusRes.json();
         setChamberStatus(statusData);
-        setStatusModalOfficeOpen(statusData.isOfficeOpen);
-        setStatusModalOnlineOpen(statusData.isOnlineOpen);
-        setStatusModalReason(statusData.awayReason || "");
-        setStatusModalEstimate(statusData.returnEstimate || "");
+        if (!showStatusModal) {
+          setStatusModalOfficeOpen(statusData.isOfficeOpen);
+          setStatusModalOnlineOpen(statusData.isOnlineOpen);
+          setStatusModalReason(statusData.awayReason || "");
+          setStatusModalEstimate(statusData.returnEstimate || "");
+        }
       }
 
       if (staffRes && staffRes.ok) {
@@ -463,12 +465,17 @@ export default function DashboardClient() {
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  }, [router]);
+  }, [router, showStatusModal]);
 
   useEffect(() => {
-    loadData();
+    loadData(false);
+    // Background polling: automatically sync live bookings & inquiries every 10 seconds
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 10000);
+    return () => clearInterval(interval);
   }, [loadData]);
 
   // Live Notifications Computed from System Data
@@ -1537,9 +1544,9 @@ Please join the Google Meet link above at your scheduled appointment time.`;
   }, [clientsDirectory, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[#f1f3f7] text-[#09090b] flex flex-col antialiased">
+    <div className="h-screen max-h-screen bg-[#f1f3f7] text-[#09090b] flex flex-col antialiased overflow-hidden">
       {/* ================= TOP APPLICATION HEADER ================= */}
-      <header className="bg-[#1b1f2b] text-white border-b border-[#2d3243] sticky top-0 z-40 px-4 sm:px-6 py-2.5 flex items-center justify-between">
+      <header className="shrink-0 bg-[#1b1f2b] text-white border-b border-[#2d3243] sticky top-0 z-40 px-4 sm:px-6 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Mobile Menu Hamburger */}
           <button
@@ -1699,15 +1706,19 @@ Please join the Google Meet link above at your scheduled appointment time.`;
             )}
           </div>
 
-          {/* Refresh Button */}
+          {/* Refresh / Sync Button */}
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => loadData(false)}
             className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg bg-white/10 text-slate-200 hover:bg-white/15 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Refresh Live Data"
+            title="Auto-syncing every 10 seconds. Click to refresh live database now."
           >
-            <RefreshCw size={13} className={loading ? "animate-spin text-[#cba758]" : ""} />
-            <span className="hidden sm:inline">Sync</span>
+            <RefreshCw size={13} className={loading ? "animate-spin text-[#cba758]" : "text-emerald-400"} />
+            <span className="hidden sm:inline font-semibold">Sync</span>
+            <span className="inline-flex items-center gap-1 text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="hidden md:inline">Live 10s</span>
+            </span>
           </button>
 
           {/* User Profile Badge & Dropdown */}
@@ -1801,7 +1812,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
       </header>
 
       {/* ================= MAIN CONTAINER: SIDEBAR + CONTENT AREA ================= */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative min-h-0">
         {/* Mobile Backdrop Overlay */}
         {mobileMenuOpen && (
           <div
@@ -1812,12 +1823,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
         {/* ================= PERSISTENT DARK SIDEBAR ================= */}
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#1f2430] text-slate-300 transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 flex flex-col shrink-0 border-r border-[#2c3243] shadow-2xl md:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#1f2430] text-slate-300 transform transition-transform duration-200 ease-in-out md:static md:translate-x-0 flex flex-col shrink-0 border-r border-[#2c3243] shadow-2xl md:shadow-none h-full min-h-0 ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
           {/* Sidebar Header Title */}
-          <div className="px-5 py-4 border-b border-[#2c3243] flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-[#2c3243] flex items-center justify-between shrink-0">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
               Admin Portal
             </span>
@@ -1831,7 +1842,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+          <nav className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
             {/* 1. Dashboard Overview */}
             <button
               type="button"
@@ -1979,7 +1990,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           </nav>
 
           {/* Quick Shortcuts: View Website & Manual Booking */}
-          <div className="p-3.5 border-t border-[#2c3243] space-y-2">
+          <div className="shrink-0 p-3.5 border-t border-[#2c3243] space-y-2 bg-[#1f2430]">
             <a
               href="/"
               target="_blank"
@@ -2017,59 +2028,95 @@ Please join the Google Meet link above at your scheduled appointment time.`;
         </aside>
 
         {/* ================= MAIN CONTENT VIEWPORT ================= */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 md:pb-8">
-          {/* ================= SUB-HEADER: TITLE + DATE FILTERS ================= */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-zinc-200">
+        <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 md:pb-8 min-h-0">
+          {/* ================= EXECUTIVE DARK LUXURY HERO BANNER ================= */}
+          <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-serif font-bold text-zinc-900 capitalize flex items-center gap-2">
-                  <span>
-                    {activeNav === "dashboard" && "Dashboard Overview"}
-                    {activeNav === "bookings" && "Bookings & Consultations"}
-                    {activeNav === "contacts" && "Website Contact Inquiries"}
-                    {activeNav === "clients" && "Clients Directory"}
-                    {activeNav === "chamber" && "Chamber Status & Presence"}
-                    {activeNav === "team" && "Team & Assistant Management"}
-                  </span>
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#f6ad55] inline-block shadow-xs" />
-                </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758] border border-[#cba758]/40">
+                  {activeNav === "dashboard" && "Chamber Intelligence"}
+                  {activeNav === "bookings" && "Appointments Desk"}
+                  {activeNav === "contacts" && "Client Leads Inbox"}
+                  {activeNav === "clients" && "Chamber Directory"}
+                  {activeNav === "chamber" && "Chamber Presence"}
+                  {activeNav === "team" && "Chamber Administration"}
+                </span>
+                <span className="text-xs text-zinc-400 font-mono">
+                  {activeNav === "dashboard" && "Executive Analytics & Metrics"}
+                  {activeNav === "bookings" && "Real-Time Consultation Schedule"}
+                  {activeNav === "contacts" && "Direct Website Submissions"}
+                  {activeNav === "clients" && "Client Records & Matters"}
+                  {activeNav === "chamber" && "Live Office & Online Notice"}
+                  {activeNav === "team" && "Role-Based Access Control"}
+                </span>
               </div>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                {activeNav === "dashboard" && "Executive metrics, consultation volume, and practice breakdown."}
-                {activeNav === "bookings" && "Appointments desk: view by Today, Tomorrow, Upcoming, Attended, and Completed."}
-                {activeNav === "contacts" && "Inquiries inbox: website messages with instant WhatsApp reply drafts."}
-                {activeNav === "clients" && "Client directory: unique client records and past consultation histories."}
-                {activeNav === "chamber" && "Availability manager: office visits, hearings, and client notice banners."}
+              <h1 className="text-xl sm:text-2xl font-serif font-bold text-white mt-1.5 flex items-center gap-2">
+                <span>
+                  {activeNav === "dashboard" && "Dashboard Overview"}
+                  {activeNav === "bookings" && "Bookings & Consultations"}
+                  {activeNav === "contacts" && "Website Contact Inquiries"}
+                  {activeNav === "clients" && "Clients Directory"}
+                  {activeNav === "chamber" && "Chamber Status & Presence"}
+                  {activeNav === "team" && "Team & Assistant Management"}
+                </span>
+                <span className="h-2.5 w-2.5 rounded-full bg-[#f6ad55] inline-block shadow-xs animate-pulse" />
+              </h1>
+              <p className="text-xs text-zinc-300 mt-1 max-w-2xl leading-relaxed">
+                {activeNav === "dashboard" && "Executive metrics, consultation volume, practice breakdown, and today's schedule."}
+                {activeNav === "bookings" && "Appointments desk: view and manage bookings by Today, Tomorrow, Upcoming, Attended, and Completed."}
+                {activeNav === "contacts" && "Inquiries inbox: website client inquiries with instant one-click WhatsApp reply drafts."}
+                {activeNav === "clients" && "Client directory: unique client records, contact details, and past consultation histories."}
+                {activeNav === "chamber" && "Chamber availability manager: update in-person office visits and online consultation notice."}
                 {activeNav === "team" && "Assistant accounts: manage logins, assign role permissions, and customize dashboard access."}
               </p>
             </div>
 
-            {/* Top Period Selector Pills & Action */}
-            <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
-              <div className="flex items-center p-1 rounded-xl bg-white border border-zinc-200 shadow-2xs">
-                {(["month", "quarter", "year", "all"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPeriodFilter(p)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
-                      periodFilter === p
-                        ? "bg-[#2b6cb0] text-white shadow-xs"
-                        : "text-zinc-600 hover:text-zinc-900"
-                    }`}
-                  >
-                    {p === "all" ? "All Time" : p}
-                  </button>
-                ))}
-              </div>
+            {/* Right Controls in Hero Card */}
+            <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center shrink-0">
+              {/* Period selector for dashboard view */}
+              {activeNav === "dashboard" && (
+                <div className="flex items-center p-1 rounded-xl bg-black/50 border border-white/10 shadow-inner">
+                  {(["month", "quarter", "year", "all"] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPeriodFilter(p)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
+                        periodFilter === p
+                          ? "bg-gradient-to-r from-[#cba758] to-[#dfbf76] text-black font-bold shadow-xs"
+                          : "text-zinc-300 hover:text-white"
+                      }`}
+                    >
+                      {p === "all" ? "All Time" : p}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              {/* Month Dropdown Indicator */}
-              <div className="px-3 py-1.5 rounded-xl bg-white border border-zinc-200 text-xs font-mono font-medium text-zinc-700 shadow-2xs flex items-center gap-1.5">
+              {/* Month Dropdown / Date Pill */}
+              <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-xs font-mono font-medium text-zinc-200 shadow-inner flex items-center gap-1.5">
                 <CalendarDays size={13} className="text-[#cba758]" />
                 <span>
                   {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </span>
               </div>
+
+              {/* Team View Action: + Add Assistant */}
+              {activeNav === "team" && (!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStaffError("");
+                    setStaffSuccess("");
+                    setCreatedStaffCreds(null);
+                    setShowAddStaffModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                >
+                  <UserPlus size={15} strokeWidth={2.5} />
+                  <span>+ Add New Assistant</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -2606,10 +2653,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       setManualError("");
                       setShowManualModal(true);
                     }}
-                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer shrink-0 transition-all"
                   >
-                    <Plus size={14} strokeWidth={2.5} />
-                    <span>+ Add Walk-in / Block Slot</span>
+                    <Plus size={15} strokeWidth={2.5} />
+                    <span>Add Walk-in / Block Slot</span>
                   </button>
                 </div>
 
@@ -2766,7 +2813,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                             setSearchQuery("");
                             setBookingTabFilter("all");
                           }}
-                          className="mt-3 px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-bold cursor-pointer"
+                          className="mt-3 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black text-xs font-bold shadow-xs cursor-pointer"
                         >
                           Show All Active Slots
                         </button>
@@ -3262,7 +3309,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                         setSearchQuery("");
                         setContactStatusFilter("all");
                       }}
-                      className="mt-3 px-3.5 py-1.5 rounded-lg bg-black text-white text-xs font-bold"
+                      className="mt-3 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black text-xs font-bold shadow-xs cursor-pointer"
                     >
                       Clear Filters
                     </button>
@@ -3659,7 +3706,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           {/* ================= VIEW 5: DEDICATED CHAMBER PRESENCE ONLY ================= */}
           {activeNav === "chamber" && (
             canAccess("chamber") ? (
-              <div className="max-w-3xl space-y-6">
+              <div className="w-full space-y-6">
               <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-2xs space-y-5">
                 <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
                   <div>
@@ -3825,7 +3872,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       type="button"
                       disabled={statusSaving}
                       onClick={() => saveChamberAvailability()}
-                      className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
                     >
                       {statusSaving && <Loader2 size={13} className="animate-spin" />}
                       <span>Save Status & Publish Notice</span>
@@ -3846,40 +3893,6 @@ Please join the Google Meet link above at your scheduled appointment time.`;
           {activeNav === "team" && (
             canAccess("team") ? (
               <div className="space-y-6">
-              {/* Executive Overview Header */}
-              <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-6 sm:p-7 rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758] border border-[#cba758]/40">
-                      Chamber Administration
-                    </span>
-                    <span className="text-xs text-zinc-400 font-mono">Role-Based Access Control</span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-white mt-2">
-                    Team & Assistant Management
-                  </h2>
-                  <p className="text-xs text-zinc-300 mt-1 max-w-xl leading-relaxed">
-                    Create secure staff credentials for junior advocates, chamber clerks, and legal secretaries. Each assistant receives a tailored dashboard showing only their assigned capabilities.
-                  </p>
-                </div>
-
-                {(!currentStaff || currentStaff.permissions?.canManageStaff !== false) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStaffError("");
-                      setStaffSuccess("");
-                      setCreatedStaffCreds(null);
-                      setShowAddStaffModal(true);
-                    }}
-                    className="self-start md:self-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
-                  >
-                    <UserPlus size={15} strokeWidth={2.5} />
-                    <span>+ Add New Assistant</span>
-                  </button>
-                )}
-              </div>
-
               {/* Staff Stats Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xs">
@@ -4635,10 +4648,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       Cancel
                     </button>
                     <button
-                      type="button"
+                      type="submit"
                       disabled={rescheduleLoading || !rescheduleDate || !rescheduleTime}
                       onClick={handleConfirmReschedule}
-                      className="px-5 py-2 rounded-xl bg-black text-[#cba758] border border-[#cba758]/40 hover:bg-zinc-900 font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
                     >
                       {rescheduleLoading ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -4872,7 +4885,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   <button
                     type="submit"
                     disabled={manualLoading}
-                    className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md transition-all text-xs"
                   >
                     {manualLoading && <Loader2 size={13} className="animate-spin" />}
                     <span>Confirm & Block Slot</span>
@@ -4995,7 +5008,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   <button
                     type="submit"
                     disabled={passwordLoading}
-                    className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md transition-all text-xs"
                   >
                     {passwordLoading && <Loader2 size={13} className="animate-spin" />}
                     <span>Update Password</span>
@@ -5223,7 +5236,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     <button
                       type="submit"
                       disabled={staffSubmitting}
-                      className="px-5 py-2 rounded-xl bg-black text-[#cba758] hover:bg-zinc-900 border border-[#cba758]/30 font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#cba758] to-[#dfbf76] hover:from-[#b89547] hover:to-[#cba758] text-black font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-md transition-all text-xs"
                     >
                       {staffSubmitting && <Loader2 size={13} className="animate-spin" />}
                       <span>Create Assistant Account</span>
