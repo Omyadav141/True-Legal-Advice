@@ -280,7 +280,10 @@ export default function AdminLoginPage() {
                 <form onSubmit={handleLogin} className="space-y-4 text-xs">
                   {/* Email Input */}
                   <div>
-                    <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-bold block mb-1.5">
+                    <label
+                      style={{ color: "#e2e8f0" }}
+                      className="text-[11px] font-mono uppercase tracking-wider !text-slate-200 font-bold block mb-1.5"
+                    >
                       Email Address <span className="text-[#cba758]">*</span>
                     </label>
                     <div className="relative">
@@ -299,8 +302,9 @@ export default function AdminLoginPage() {
                           colorScheme: "dark",
                           color: "#ffffff",
                           WebkitTextFillColor: "#ffffff",
+                          caretColor: "#cba758",
                         }}
-                        className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
+                        className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
                       />
                     </div>
                   </div>
@@ -308,7 +312,10 @@ export default function AdminLoginPage() {
                   {/* Password Input with Show/Hide Toggle */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-bold">
+                      <label
+                        style={{ color: "#e2e8f0" }}
+                        className="text-[11px] font-mono uppercase tracking-wider !text-slate-200 font-bold"
+                      >
                         Password <span className="text-[#cba758]">*</span>
                       </label>
                       <button
@@ -341,8 +348,9 @@ export default function AdminLoginPage() {
                           colorScheme: "dark",
                           color: "#ffffff",
                           WebkitTextFillColor: "#ffffff",
+                          caretColor: "#cba758",
                         }}
-                        className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/70 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
+                        className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
                       />
                       <button
                         type="button"
@@ -377,7 +385,10 @@ export default function AdminLoginPage() {
 
                 {/* Quick 1-Click Credentials Tester */}
                 <div className="pt-4 border-t border-white/10 space-y-2">
-                  <span className="text-[10.5px] font-mono uppercase tracking-wider text-slate-400 block font-semibold">
+                  <span
+                    style={{ color: "#94a3b8" }}
+                    className="text-[10.5px] font-mono uppercase tracking-wider !text-slate-400 block font-semibold"
+                  >
                     Quick Sign-In Credentials:
                   </span>
                   <div className="flex flex-wrap gap-2 text-[11px]">
@@ -452,7 +463,10 @@ export default function AdminLoginPage() {
                 {forgotStep === "email" ? (
                   <form onSubmit={handleRequestCode} className="space-y-4 text-xs">
                     <div>
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-bold block mb-1.5">
+                      <label
+                        style={{ color: "#e2e8f0" }}
+                        className="text-[11px] font-mono uppercase tracking-wider !text-slate-200 font-bold block mb-1.5"
+                      >
                         Registered Email Address <span className="text-[#cba758]">*</span>
                       </label>
                       <div className="relative">
@@ -470,8 +484,9 @@ export default function AdminLoginPage() {
                             colorScheme: "dark",
                             color: "#ffffff",
                             WebkitTextFillColor: "#ffffff",
+                            caretColor: "#cba758",
                           }}
-                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
+                          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs"
                         />
                       </div>
                     </div>
@@ -515,7 +530,10 @@ export default function AdminLoginPage() {
                     )}
 
                     <div>
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-bold block mb-1.5">
+                      <label
+                        style={{ color: "#e2e8f0" }}
+                        className="text-[11px] font-mono uppercase tracking-wider !text-slate-200 font-bold block mb-1.5"
+                      >
                         6-Digit Verification Code <span className="text-[#cba758]">*</span>
                       </label>
                       <input
@@ -529,13 +547,17 @@ export default function AdminLoginPage() {
                           colorScheme: "dark",
                           color: "#ffffff",
                           WebkitTextFillColor: "#ffffff",
+                          caretColor: "#cba758",
                         }}
-                        className="w-full px-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/60 font-mono text-base tracking-widest text-center focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-slate-400 font-mono text-base tracking-widest text-center focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-bold block mb-1.5">
+                      <label
+                        style={{ color: "#e2e8f0" }}
+                        className="text-[11px] font-mono uppercase tracking-wider !text-slate-200 font-bold block mb-1.5"
+                      >
                         New Password (min 6 characters) <span className="text-[#cba758]">*</span>
                       </label>
                       <div className="relative">
@@ -554,8 +576,9 @@ export default function AdminLoginPage() {
                             colorScheme: "dark",
                             color: "#ffffff",
                             WebkitTextFillColor: "#ffffff",
+                            caretColor: "#cba758",
                           }}
-                          className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-white/70 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
+                          className="w-full pl-10 pr-11 py-3 rounded-2xl bg-[#0e111a] border border-white/10 !text-white placeholder:text-slate-400 focus:border-[#cba758] focus:ring-1 focus:ring-[#cba758]/30 focus:outline-none transition-all text-xs font-mono"
                         />
                         <button
                           type="button"

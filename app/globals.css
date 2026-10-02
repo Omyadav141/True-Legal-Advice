@@ -83,7 +83,19 @@ input:-webkit-autofill:hover,
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
   -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #0e111a inset !important;
   transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Ensure labels on dark cards and forms show crisp white/slate font */
+.bg-\[\#131722\] label,
+.bg-\[\#0e111a\] label,
+.bg-\[\#131620\] label,
+label.text-slate-200,
+label.text-slate-300,
+label.text-slate-400,
+label.text-white {
+  color: #e2e8f0 !important;
 }
 
 html {
@@ -379,7 +391,7 @@ a.card:hover,
   color: var(--ink-muted);
 }
 
-label {
+:where(label) {
   display: block;
   font-size: 13.5px;
   font-weight: 600;
