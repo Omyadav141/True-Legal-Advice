@@ -2309,8 +2309,10 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
         {/* ================= MAIN CONTENT VIEWPORT ================= */}
         <main className="flex-1 h-full overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-28 md:pb-8 min-h-0">
-          {/* ================= DAILY INSPIRING LEGAL THOUGHT BANNER ================= */}
-          <DailyQuoteBanner currentStaffName={currentStaff?.name} role={role} />
+          {/* ================= DAILY INSPIRING LEGAL THOUGHT BANNER (DASHBOARD ONLY) ================= */}
+          {activeNav === "dashboard" && (
+            <DailyQuoteBanner currentStaffName={currentStaff?.name} role={role} />
+          )}
 
           {/* ================= EXECUTIVE DARK LUXURY HERO BANNER ================= */}
           <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-black text-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#cba758]/30 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
