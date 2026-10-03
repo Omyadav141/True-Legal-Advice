@@ -27,8 +27,9 @@ export function toDateKey(d: Date): string {
 }
 
 /** True if the given date is bookable */
-export function isDateBookable(date: Date, today: Date = new Date()): boolean {
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+export function isDateBookable(date: Date, today?: Date): boolean {
+  const ref = today ?? getIndiaTime();
+  const start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
   const end = new Date(start);
   end.setDate(end.getDate() + BOOKING_WINDOW_DAYS);
 

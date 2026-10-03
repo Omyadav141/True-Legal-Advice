@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { sendBookingEmail } from "@/lib/notify-email";
 import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp, sendClientOfficeVisitWhatsApp } from "@/lib/notify-whatsapp";
-import { getAllDaySlots, isDateBookable } from "@/lib/availability";
+import { getAllDaySlots, isDateBookable, getIndiaNow } from "@/lib/availability";
 import { createGoogleMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
 import { saveLocalBooking, BookingRecord, generateBookingId } from "@/lib/bookings-store";
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     // Validate live chamber status for today or multi-day leave
     const chamber = await getChamberStatus();
-    const todayStr = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const todayStr = getIndiaNow().dateKey;
 
     // Check multi-day scheduled leave / holiday
     if (isDateInChamberLeave(bookingDate, chamber, mode)) {

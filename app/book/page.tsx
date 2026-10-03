@@ -35,7 +35,7 @@ import {
   FileText,
 } from "lucide-react";
 import Image from "next/image";
-import { getAllDaySlots, isDateBookable, toDateKey, BOOKING_WINDOW_DAYS } from "@/lib/availability";
+import { getAllDaySlots, isDateBookable, toDateKey, BOOKING_WINDOW_DAYS, getIndiaNow } from "@/lib/availability";
 import { type ChamberStatus, isDateInChamberLeave } from "@/lib/chamber-utils";
 import { site } from "@/lib/site-config";
 
@@ -451,11 +451,16 @@ ${
 function BookClient() {
   const searchParams = useSearchParams();
 
-  // India time (IST, UTC+5:30)
+  // Real-time India Standard Time (IST, UTC+5:30) date
   const today = useMemo(() => {
-    const utcNow = new Date();
-    const istNow = new Date(utcNow.getTime() + 5.5 * 60 * 60 * 1000);
-    return new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate());
+    const ist = getIndiaNow();
+    return new Date(ist.year, ist.month - 1, ist.day);
+  }, []);
+
+  // Check if today's last consultation slot (8:30 PM IST) has passed
+  const isPastLastSlotToday = useMemo(() => {
+    const ist = getIndiaNow();
+    return ist.totalMinutes >= 20 * 60 + 30; // 8:30 PM IST
   }, []);
 
   // Popup Modal Control: Starts CLOSED as requested
@@ -488,7 +493,16 @@ function BookClient() {
   const [selectedService, setSelectedService] = useState<string>("");
   const [selectedMatter, setSelectedMatter] = useState<string>("");
 
-  const [targetDate, setTargetDate] = useState<Date>(today);
+  const [targetDate, setTargetDate] = useState<Date>(() => {
+    const ist = getIndiaNow();
+    const d = new Date(ist.year, ist.month - 1, ist.day);
+    // If it's already past the last consultation slot for today (8:30 PM IST),
+    // default initial selection to Tomorrow so bookable slots are immediately visible
+    if (ist.totalMinutes >= 20 * 60 + 30) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
+  });
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[] | null>(null);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
@@ -1327,6 +1341,7 @@ function BookClient() {
                             const dKey = toDateKey(d);
                             const isSelected = dKey === toDateKey(targetDate);
                             const isTodayDate = i === 0;
+                            const isTomorrowDate = i === 1;
                             const isOnLeave = isDateInChamberLeave(dKey, chamberStatus, consultationMode);
                             const isDateDisabled = isDateDisabledForMode(d, consultationMode);
 
@@ -1336,7 +1351,7 @@ function BookClient() {
                                 type="button"
                                 disabled={isDateDisabled}
                                 onClick={() => setTargetDate(d)}
-                                className={`flex flex-col items-center justify-center min-w-[72px] py-2.5 px-2 rounded-2xl border text-center transition-all ${
+                                className={`flex flex-col items-center justify-center min-w-[76px] sm:min-w-[78px] py-2.5 px-2 rounded-2xl border text-center transition-all ${
                                   isDateDisabled
                                     ? "opacity-35 cursor-not-allowed border-dashed border-slate-700 bg-white/5"
                                     : isSelected
@@ -1345,7 +1360,7 @@ function BookClient() {
                                 }`}
                               >
                                 <span
-                                  className={`text-[10px] font-mono uppercase ${
+                                  className={`text-[10px] font-mono uppercase tracking-tight ${
                                     isOnLeave
                                       ? "text-amber-400 font-bold"
                                       : isDateDisabled
@@ -1357,8 +1372,12 @@ function BookClient() {
                                 >
                                   {isOnLeave
                                     ? "Leave"
+                                    : isDateDisabled
+                                    ? "Closed"
                                     : isTodayDate
-                                    ? (isDateDisabled ? "Closed" : "Today")
+                                    ? "Today"
+                                    : isTomorrowDate
+                                    ? "Tomorrow"
                                     : d.toLocaleDateString("en-IN", { weekday: "short" })}
                                 </span>
                                 <span className="text-base font-bold my-0.5 text-white">
