@@ -35,7 +35,7 @@ const serviceLabels: Record<string, string> = {
  * Creates or reuses a Nodemailer SMTP transporter.
  */
 function getSmtpTransporter() {
-  const host = process.env.SMTP_HOST || "smtp.secureserver.net";
+  const host = process.env.SMTP_HOST || "smtpout.secureserver.net";
   const port = parseInt(process.env.SMTP_PORT || "465", 10);
   const user = process.env.SMTP_USER || "advshareens@trulegaladvice.com";
   const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
