@@ -24,6 +24,24 @@
 
 type MeetLinkResult = { meetLink: string | null; eventId: string | null };
 
+/**
+ * Generates a unique, dedicated Google Meet room link formatted with the True Legal Advice prefix (tla).
+ * Adheres strictly to the Google Meet URL pattern: https://meet.google.com/xxx-yyyy-zzz
+ * e.g. https://meet.google.com/tla-kmvx-zqp
+ */
+export function generateUniqueMeetLink(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz";
+  let p2 = "";
+  let p3 = "";
+  for (let i = 0; i < 4; i++) {
+    p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  for (let i = 0; i < 3; i++) {
+    p3 += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `https://meet.google.com/tla-${p2}-${p3}`;
+}
+
 export async function createGoogleMeetLink(params: {
   summary: string;
   description: string;

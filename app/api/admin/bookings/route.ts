@@ -111,11 +111,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { id, status, attendance, booking_date, booking_time } = await req.json();
+    const { id, status, attendance, booking_date, booking_time, meet_link } = await req.json();
 
-    if (!id || (!status && !attendance && !booking_date && !booking_time)) {
+    if (!id || (!status && !attendance && !booking_date && !booking_time && !meet_link)) {
       return NextResponse.json(
-        { error: "id and at least one field (status, attendance, booking_date, booking_time) are required." },
+        { error: "id and at least one field (status, attendance, booking_date, booking_time, meet_link) are required." },
         { status: 400 }
       );
     }
@@ -150,6 +150,10 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Invalid booking_time format (HH:MM)." }, { status: 400 });
       }
       updates.booking_time = booking_time;
+    }
+
+    if (typeof meet_link === "string" && meet_link.trim()) {
+      updates.meet_link = meet_link.trim();
     }
 
     // Try updating Supabase

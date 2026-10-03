@@ -421,8 +421,28 @@ ${
         </div>
       </div>
 
-      {/* Copy Full Pass Details Action */}
-      <div className="pt-1">
+      {/* WhatsApp Share / Connect with Advocate */}
+      <div className="pt-1 space-y-2">
+        <a
+          href={`https://wa.me/918329631199?text=${encodeURIComponent(
+            `Hello Adv. Shareen Hussain, I have booked a legal consultation appointment on your website:\n\n` +
+            `*Booking Ref:* ${bookingId}\n` +
+            `*Client Name:* ${clientName}\n` +
+            `*Phone:* ${clientPhone}\n` +
+            `*Date:* ${dateFormatted}\n` +
+            `*Time:* ${timeFormatted} (IST)\n` +
+            `*Matter:* ${effectiveMatter}\n` +
+            `*Mode:* ${isOnline ? `Online Video Call\n*Google Meet Link:* ${meetUrl}` : "In-Person Chamber Visit (Trisharan Sq, Nagpur)"}\n\n` +
+            `Please confirm my priority session. Thank you!`
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer no-underline"
+        >
+          <MessageCircle size={15} />
+          <span>Connect with Advocate on WhatsApp (+91 83296 31199)</span>
+        </a>
+
         <button
           type="button"
           onClick={copyPassText}

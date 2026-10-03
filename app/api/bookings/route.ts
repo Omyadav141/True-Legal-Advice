@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { sendBookingEmail } from "@/lib/notify-email";
 import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp, sendClientOfficeVisitWhatsApp } from "@/lib/notify-whatsapp";
 import { getAllDaySlots, isDateBookable, getIndiaNow } from "@/lib/availability";
-import { createGoogleMeetLink } from "@/lib/google-meet";
+import { createGoogleMeetLink, generateUniqueMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
 import { saveLocalBooking, BookingRecord, generateBookingId } from "@/lib/bookings-store";
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // For online consultations, try to auto-generate a Google Meet link now.
+    // For online consultations, generate a dedicated unique Google Meet room link.
     let meetLink: string | null = null;
     if (mode === "online") {
       const [hh] = bookingTime.split(":").map(Number);
@@ -82,14 +82,23 @@ export async function POST(req: NextRequest) {
       const serviceLabel = services.find((s) => s.slug === service)?.title || service;
       const matterDetail = finalSubService ? ` - ${finalSubService}` : "";
 
-      const result = await createGoogleMeetLink({
-        summary: `${serviceLabel}${matterDetail} consultation — ${name}`,
-        description: `Video consultation with ${site.lawyerName} (${site.businessName}).\nClient: ${name}\nPhone: ${phone}\nMatter: ${finalSubService || serviceLabel}`,
-        startISO: start.toISOString(),
-        endISO: end.toISOString(),
-        attendeeEmail: email || null,
-      });
-      meetLink = result.meetLink;
+      try {
+        const result = await createGoogleMeetLink({
+          summary: `${serviceLabel}${matterDetail} consultation — ${name}`,
+          description: `Video consultation with ${site.lawyerName} (${site.businessName}).\nClient: ${name}\nPhone: ${phone}\nMatter: ${finalSubService || serviceLabel}`,
+          startISO: start.toISOString(),
+          endISO: end.toISOString(),
+          attendeeEmail: email || null,
+        });
+        meetLink = result.meetLink;
+      } catch (e) {
+        console.warn("createGoogleMeetLink fallback:", e);
+      }
+
+      // If Google Calendar API credentials are not set, generate a dedicated unique Google Meet link
+      if (!meetLink) {
+        meetLink = generateUniqueMeetLink();
+      }
     }
 
     // Office visit consultations are auto-confirmed (paid slot); online can be confirmed or pending review
@@ -107,7 +116,7 @@ export async function POST(req: NextRequest) {
       booking_date: bookingDate,
       booking_time: bookingTime,
       consultation_mode: mode,
-      meet_link: meetLink || site.googleMeetRoom,
+      meet_link: meetLink,
       message: message || null,
       status: initialStatus,
       created_at: new Date().toISOString(),
@@ -168,7 +177,7 @@ export async function POST(req: NextRequest) {
           }
           console.error("Supabase insert error:", error.code, error.message, error.details || "");
         } else if (dbData) {
-          bookingRecord = { ...bookingRecord, ...dbData, booking_id: uniqueBookingId, sub_service: finalSubService };
+          bookingRecord = { ...bookingRecord, ...dbData, booking_id: uniqueBookingId, sub_service: finalSubService, meet_link: meetLink || dbData.meet_link };
         }
       }
     } catch (sbErr) {

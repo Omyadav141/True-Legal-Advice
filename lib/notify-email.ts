@@ -68,11 +68,13 @@ async function dispatchEmail({
   subject,
   html,
   text,
+  replyTo,
 }: {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }) {
   const from =
     process.env.SMTP_FROM ||
@@ -85,6 +87,7 @@ async function dispatchEmail({
       const info = await transporter.sendMail({
         from,
         to,
+        replyTo: replyTo || process.env.SMTP_USER || "advshareens@trulegaladvice.com",
         subject,
         html,
         text,
@@ -105,6 +108,7 @@ async function dispatchEmail({
       const res = await resend.emails.send({
         from: from.includes("<") ? from : `True Legal Advice <${from}>`,
         to,
+        replyTo: replyTo || undefined,
         subject,
         html,
       });
@@ -128,11 +132,21 @@ async function dispatchEmail({
  * Sends automated booking confirmation to the CLIENT and an alert to the ADVOCATE CHAMBERS.
  */
 export async function sendBookingEmail(booking: BookingEmailPayload) {
-  const chamberEmail =
-    process.env.CONTACT_EMAIL_TO ||
-    process.env.NOTIFY_EMAIL_TO ||
-    site.email ||
-    "advshareens@trulegaladvice.com";
+  const rawChamberEmails = [
+    process.env.NOTIFY_EMAIL_TO,
+    process.env.CONTACT_EMAIL_TO,
+    site.email,
+    "advshareens@trulegaladvice.com",
+  ].filter(Boolean) as string[];
+
+  const chamberEmails = Array.from(
+    new Set(
+      rawChamberEmails
+        .flatMap((s) => s.split(","))
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s && s.includes("@"))
+    )
+  );
 
   const effectiveMatter =
     booking.sub_service ||
@@ -145,10 +159,9 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
   const bookingId = booking.booking_id || `TLA-${Date.now().toString().slice(-6)}`;
 
   // ==========================================
-  // 1. CLIENT CONFIRMATION EMAIL (if email exists)
+  // 1. CLIENT CONFIRMATION EMAIL TEMPLATE
   // ==========================================
-  if (booking.email && booking.email.includes("@")) {
-    const clientHtml = `
+  const clientHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -283,73 +296,97 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
 </html>
     `;
 
-    await dispatchEmail({
-      to: booking.email,
-      subject: `Confirmed: Consultation with Adv. Shareen Hussain [Ref: ${bookingId}]`,
-      html: clientHtml,
-      text: `Appointment Confirmed with Adv. Shareen Hussain\nBooking Ref: ${bookingId}\nDate: ${booking.booking_date}\nTime: ${booking.booking_time}\nMode: ${
-        isOnline ? `Online (Google Meet: ${meetUrl})` : "In-Person Office (Trisharan Sq, Nagpur)"
-      }\nHelpline: +91 83296 31199\nWebsite: https://trulegaladvice.com`,
-    });
+  const dispatches: Promise<any>[] = [];
+
+  // 1. CLIENT CONFIRMATION EMAIL (if email exists)
+  if (booking.email && booking.email.includes("@")) {
+    dispatches.push(
+      dispatchEmail({
+        to: booking.email,
+        replyTo: "advshareens@trulegaladvice.com",
+        subject: `Confirmed: Consultation with Adv. Shareen Hussain [Ref: ${bookingId}]`,
+        html: clientHtml,
+        text: `Appointment Confirmed with Adv. Shareen Hussain\nBooking Ref: ${bookingId}\nDate: ${booking.booking_date}\nTime: ${booking.booking_time}\nMode: ${
+          isOnline ? `Online (Google Meet: ${meetUrl})` : "In-Person Office (Trisharan Sq, Nagpur)"
+        }\nHelpline: +91 83296 31199\nWebsite: https://trulegaladvice.com`,
+      })
+    );
   }
 
   // ==========================================
   // 2. CHAMBER NOTIFICATION EMAIL
   // ==========================================
+  const cleanClientPhone = booking.phone.replace(/\D/g, "").slice(-10);
   const chamberHtml = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>New Consultation Booking</title>
+  <title>New Consultation Booking Alert</title>
 </head>
-<body style="font-family: sans-serif; background-color: #f4f4f5; padding: 20px; color: #18181b;">
-  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e4e4e7;">
-    <h2 style="color: #09090b; margin-top: 0; font-family: Georgia, serif;">
-      🚨 New Consultation Booking Alert
-    </h2>
-    <p style="font-size: 14px; color: #52525b;">
-      A client has booked a consultation through the True Legal Advice website.
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f5; padding: 20px; color: #18181b;">
+  <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 14px; padding: 24px; border: 1px solid #e4e4e7; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    
+    <div style="border-bottom: 2px solid #cba758; padding-bottom: 12px; margin-bottom: 16px;">
+      <span style="font-family: monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #854d0e; font-weight: bold; display: block;">
+        True Legal Advice · Chambers Alert
+      </span>
+      <h2 style="color: #09090b; margin: 4px 0 0 0; font-family: Georgia, serif; font-size: 20px;">
+        New Consultation Booking Received
+      </h2>
+    </div>
+
+    <p style="font-size: 13.5px; color: #52525b; line-height: 1.5; margin: 0 0 16px 0;">
+      A client has scheduled a consultation through the True Legal Advice website. Here are the client and meeting details:
     </p>
 
-    <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-size: 13px; margin: 16px 0;">
+    <table width="100%" cellpadding="9" cellspacing="0" style="border-collapse: collapse; font-size: 13px; margin: 0 0 20px 0; background-color: #fafafa; border: 1px solid #e4e4e7; border-radius: 8px;">
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold; width: 35%;">Booking Ref:</td>
-        <td style="font-family: monospace; color: #854d0e;">${bookingId}</td>
+        <td style="font-weight: bold; width: 34%; color: #71717a;">Booking Ref:</td>
+        <td style="font-family: monospace; color: #854d0e; font-weight: bold; font-size: 14px;">${bookingId}</td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Client Name:</td>
-        <td>${booking.name}</td>
+        <td style="font-weight: bold; color: #71717a;">Client Name:</td>
+        <td><strong style="color: #09090b; font-size: 14px;">${booking.name}</strong></td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Phone:</td>
+        <td style="font-weight: bold; color: #71717a;">Client Contact:</td>
         <td>
-          <a href="tel:${booking.phone}">${booking.phone}</a> &nbsp;|&nbsp;
-          <a href="https://wa.me/91${booking.phone.replace(/\D/g, "").slice(-10)}">WhatsApp</a>
+          <a href="tel:${booking.phone}" style="color: #09090b; font-weight: 600; text-decoration: none;">📞 ${booking.phone}</a> &nbsp;|&nbsp;
+          <a href="https://wa.me/91${cleanClientPhone}?text=${encodeURIComponent(
+            `Hello ${booking.name}, this is Adv. Shareen Hussain from True Legal Advice regarding your consultation on ${booking.booking_date} at ${booking.booking_time}.${isOnline ? ` Google Meet Link: ${meetUrl}` : ""}`
+          )}" target="_blank" style="color: #16a34a; font-weight: bold; text-decoration: none;">💬 WhatsApp Client</a>
         </td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Email:</td>
-        <td>${booking.email ? `<a href="mailto:${booking.email}">${booking.email}</a>` : "Not provided"}</td>
+        <td style="font-weight: bold; color: #71717a;">Email Address:</td>
+        <td>${booking.email ? `<a href="mailto:${booking.email}" style="color: #2563eb;">${booking.email}</a>` : '<span style="color: #a1a1aa;">Not provided</span>'}</td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Matter:</td>
-        <td>${effectiveMatter}</td>
+        <td style="font-weight: bold; color: #71717a;">Legal Matter:</td>
+        <td><strong style="color: #09090b;">${effectiveMatter}</strong></td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Date & Time:</td>
-        <td><strong>${booking.booking_date}</strong> at <strong>${booking.booking_time}</strong></td>
+        <td style="font-weight: bold; color: #71717a;">Date & Time:</td>
+        <td><strong style="color: #09090b;">${booking.booking_date}</strong> at <strong style="color: #09090b;">${booking.booking_time}</strong> (IST)</td>
       </tr>
       <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Consultation Mode:</td>
-        <td><strong>${isOnline ? "Online (Google Meet)" : "Office Visit (Trisharan Sq.)"}</strong></td>
+        <td style="font-weight: bold; color: #71717a;">Consultation Mode:</td>
+        <td><strong style="color: ${isOnline ? '#7c3aed' : '#09090b'};">${isOnline ? "Online Video Meeting (Google Meet)" : "In-Person Office (Trisharan Sq.)"}</strong></td>
       </tr>
       ${
         isOnline
           ? `
-      <tr style="border-bottom: 1px solid #e4e4e7;">
-        <td style="font-weight: bold;">Google Meet Link:</td>
-        <td><a href="${meetUrl}">${meetUrl}</a></td>
+      <tr style="border-bottom: 1px solid #e4e4e7; background-color: #f5f3ff;">
+        <td style="font-weight: bold; color: #6b21a8;">Google Meet Link:</td>
+        <td>
+          <a href="${meetUrl}" target="_blank" style="color: #7c3aed; font-weight: bold; font-family: monospace; word-break: break-all;">${meetUrl}</a>
+          <div style="margin-top: 8px;">
+            <a href="${meetUrl}" target="_blank" style="background: #7c3aed; color: #ffffff; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; display: inline-block;">
+              Join Video Room &rarr;
+            </a>
+          </div>
+        </td>
       </tr>
       `
           : ""
@@ -358,32 +395,47 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
         booking.message
           ? `
       <tr>
-        <td style="font-weight: bold; vertical-align: top;">Client Notes:</td>
-        <td>${booking.message}</td>
+        <td style="font-weight: bold; color: #71717a; vertical-align: top;">Client Notes:</td>
+        <td style="color: #27272a; line-height: 1.5;">${booking.message}</td>
       </tr>
       `
           : ""
       }
     </table>
 
-    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e4e4e7; text-align: center;">
-      <a href="https://trulegaladvice.com/admin/dashboard" style="background: #18181b; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">
-        Open Admin Dashboard &rarr;
+    <div style="text-align: center; margin-top: 20px;">
+      <a href="https://trulegaladvice.com/admin/dashboard" style="background: #18181b; color: #ffffff; padding: 11px 22px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">
+        Open Advocate Admin Dashboard &rarr;
       </a>
     </div>
+
+    <p style="font-size: 11px; color: #a1a1aa; text-align: center; margin: 18px 0 0 0;">
+      Automated dispatch from True Legal Advice Booking Desk (trulegaladvice.com)
+    </p>
   </div>
 </body>
 </html>
   `;
 
-  await dispatchEmail({
-    to: chamberEmail,
-    subject: `🚨 New Booking: ${booking.name} — ${booking.booking_date} at ${booking.booking_time}`,
-    html: chamberHtml,
-    text: `New consultation booking from ${booking.name}\nPhone: ${booking.phone}\nEmail: ${booking.email || "N/A"}\nMatter: ${effectiveMatter}\nDate: ${booking.booking_date} at ${booking.booking_time}\nMode: ${
-      isOnline ? `Online (${meetUrl})` : "Office Visit"
-    }`,
-  });
+  // 2. Chamber Alert Dispatch (Sent to all chamber emails concurrently)
+  const chamberSubject = `[New Booking Alert] ${booking.name} — ${booking.booking_date} at ${booking.booking_time} (${effectiveMatter})`;
+  for (const cEmail of chamberEmails) {
+    dispatches.push(
+      dispatchEmail({
+        to: cEmail,
+        replyTo: booking.email || "support@trulegaladvice.com",
+        subject: chamberSubject,
+        html: chamberHtml,
+        text: `New consultation booking from ${booking.name}\nPhone: ${booking.phone}\nEmail: ${booking.email || "N/A"}\nMatter: ${effectiveMatter}\nDate: ${booking.booking_date} at ${booking.booking_time}\nMode: ${
+          isOnline ? `Online (Google Meet: ${meetUrl})` : "In-Person Office Visit"
+        }`,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(dispatches);
+  console.log(`[sendBookingEmail] Dispatched ${dispatches.length} emails. Results:`, results.map((r) => r.status));
+  return results;
 }
 
 /**

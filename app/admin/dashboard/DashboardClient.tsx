@@ -1047,20 +1047,24 @@ export default function DashboardClient() {
   };
 
   // Status Updater (Bookings)
-  async function updateBookingStatus(id: string, status: Booking["status"]) {
+  async function updateBookingStatus(id: string, status: Booking["status"], meet_link?: string) {
     setUpdatingId(id);
     try {
+      const payload: Record<string, any> = { id, status };
+      if (meet_link) payload.meet_link = meet_link;
       const res = await fetch("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setBookings((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, status } : b))
+          prev.map((b) => (b.id === id ? { ...b, status, ...(meet_link ? { meet_link } : {}) } : b))
         );
         if (selectedRecord && selectedRecord.data.id === id) {
-          setSelectedRecord((prev) => prev ? { ...prev, data: { ...prev.data, status } } : null);
+          setSelectedRecord((prev) =>
+            prev ? { ...prev, data: { ...prev.data, status, ...(meet_link ? { meet_link } : {}) } } : null
+          );
         }
       }
     } finally {
@@ -1278,10 +1282,11 @@ Nagpur, Maharashtra | Ph: +91 83296 31199`;
     setConfirmModalBooking(b);
     let initialMeet = b.meet_link || "";
     if (b.consultation_mode === "online" && (!initialMeet || initialMeet === site.googleMeetRoom)) {
-      const p1 = Math.random().toString(36).substring(2, 5);
-      const p2 = Math.random().toString(36).substring(2, 6);
-      const p3 = Math.random().toString(36).substring(2, 5);
-      initialMeet = `https://meet.google.com/tla-${p1}-${p2}-${p3}`;
+      const chars = "abcdefghijklmnopqrstuvwxyz";
+      let p2 = "", p3 = "";
+      for (let i = 0; i < 4; i++) p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let i = 0; i < 3; i++) p3 += chars.charAt(Math.floor(Math.random() * chars.length));
+      initialMeet = `https://meet.google.com/tla-${p2}-${p3}`;
     }
     setMeetLinkInput(initialMeet);
     setCustomMessage(buildConfirmationMessage(b, initialMeet));
@@ -1289,10 +1294,11 @@ Nagpur, Maharashtra | Ph: +91 83296 31199`;
   };
 
   const regenerateMeetLink = () => {
-    const p1 = Math.random().toString(36).substring(2, 5);
-    const p2 = Math.random().toString(36).substring(2, 6);
-    const p3 = Math.random().toString(36).substring(2, 5);
-    const newMeet = `https://meet.google.com/tla-${p1}-${p2}-${p3}`;
+    const chars = "abcdefghijklmnopqrstuvwxyz";
+    let p2 = "", p3 = "";
+    for (let i = 0; i < 4; i++) p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < 3; i++) p3 += chars.charAt(Math.floor(Math.random() * chars.length));
+    const newMeet = `https://meet.google.com/tla-${p2}-${p3}`;
     setMeetLinkInput(newMeet);
     if (confirmModalBooking) {
       setCustomMessage(buildConfirmationMessage(confirmModalBooking, newMeet));
@@ -3173,15 +3179,28 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                                       }`}
                                     >
                                       {b.consultation_mode === "online" ? (
-                                        <>
-                                          <Video size={10} className="text-purple-600" />
-                                          <span>Google Meet</span>
-                                        </>
+                                        <div className="flex flex-col gap-0.5 items-start">
+                                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-medium bg-purple-50 text-purple-800 border border-purple-200">
+                                            <Video size={10} className="text-purple-600" />
+                                            <span>Google Meet</span>
+                                          </span>
+                                          {b.meet_link && (
+                                            <a
+                                              href={b.meet_link}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-[10px] font-mono text-purple-700 hover:text-purple-900 font-bold underline mt-0.5"
+                                              title="Join consultation Google Meet"
+                                            >
+                                              <span>Join Room ↗</span>
+                                            </a>
+                                          )}
+                                        </div>
                                       ) : (
-                                        <>
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
                                           <MapPin size={10} className="text-zinc-600" />
                                           <span>In-Person Chamber</span>
-                                        </>
+                                        </span>
                                       )}
                                     </span>
                                   </div>
@@ -4822,9 +4841,41 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                         </p>
                         <p>
                           <strong>Mode:</strong>{" "}
-                          {selectedRecord.data.consultation_mode === "online"
-                            ? "Google Meet Video"
-                            : "In-Person Office"}
+                          {selectedRecord.data.consultation_mode === "online" ? (
+                            <div className="mt-1.5 p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs flex items-center gap-1 text-purple-900">
+                                  <Video size={13} className="text-purple-700" />
+                                  Google Meet Video Consultation
+                                </span>
+                                {selectedRecord.data.meet_link && (
+                                  <a
+                                    href={selectedRecord.data.meet_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1 rounded-lg bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] inline-flex items-center gap-1 no-underline shadow-xs"
+                                  >
+                                    <Video size={11} />
+                                    <span>Join Room ↗</span>
+                                  </a>
+                                )}
+                              </div>
+                              {selectedRecord.data.meet_link && (
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-200/60">
+                                  <span className="font-mono text-[11px] text-purple-800 truncate select-all">{selectedRecord.data.meet_link}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigator.clipboard.writeText(selectedRecord.data.meet_link || "")}
+                                    className="text-[10.5px] font-bold text-purple-700 hover:underline shrink-0 cursor-pointer"
+                                  >
+                                    Copy Link
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            "In-Person Office (Trisharan Sq, Nagpur)"
+                          )}
                         </p>
                       </>
                     )}
@@ -4877,7 +4928,13 @@ Please join the Google Meet link above at your scheduled appointment time.`;
               {/* Bottom Quick Contact */}
               <div className="pt-4 border-t border-zinc-200 flex gap-2">
                 <a
-                  href={`https://wa.me/${formatWhatsAppNumber(selectedRecord.data.phone)}`}
+                  href={`https://wa.me/${formatWhatsAppNumber(selectedRecord.data.phone)}${
+                    selectedRecord.type === "booking" && selectedRecord.data.consultation_mode === "online" && selectedRecord.data.meet_link
+                      ? `?text=${encodeURIComponent(
+                          `Hello ${selectedRecord.data.name}, this is Adv. Shareen Hussain from True Legal Advice. Here is your Google Meet link for our consultation on ${formatDateLabel(selectedRecord.data.booking_date)} at ${formatTime12(selectedRecord.data.booking_time)}:\n\n${selectedRecord.data.meet_link}\n\nPlease click the link to join at your scheduled time.`
+                        )}`
+                      : ""
+                  }`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-2.5 rounded-xl bg-[#25D366] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
@@ -4993,7 +5050,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                   <button
                     type="button"
                     onClick={() => {
-                      updateBookingStatus(confirmModalBooking.id, "confirmed");
+                      updateBookingStatus(confirmModalBooking.id, "confirmed", meetLinkInput);
                       closeConfirmModal();
                     }}
                     className="px-3 py-2 rounded-xl border border-black text-xs font-bold text-black hover:bg-zinc-100 cursor-pointer"
@@ -5008,7 +5065,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                         `Appointment Confirmed: Chambers of Adv. Shareen Hussain (${formatDateLabel(confirmModalBooking.booking_date)})`
                       )}&body=${encodeURIComponent(customMessage)}`}
                       onClick={() => {
-                        updateBookingStatus(confirmModalBooking.id, "confirmed");
+                        updateBookingStatus(confirmModalBooking.id, "confirmed", meetLinkInput);
                       }}
                       className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
@@ -5024,7 +5081,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => {
-                        updateBookingStatus(confirmModalBooking.id, "confirmed");
+                        updateBookingStatus(confirmModalBooking.id, "confirmed", meetLinkInput);
                         closeConfirmModal();
                       }}
                       className="px-4 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold hover:bg-[#1ebe5d] transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
