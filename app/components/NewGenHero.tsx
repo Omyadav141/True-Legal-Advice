@@ -6,13 +6,10 @@ import { motion } from "framer-motion";
 import { ArrowRight, Phone, ShieldCheck, Scale, Clock, CheckCircle2 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import GoogleRating from "./GoogleRating";
-import OrganicParticleCanvas from "./OrganicParticleCanvas";
 
 export default function NewGenHero() {
   return (
     <section className="relative min-h-[92svh] flex items-center overflow-hidden bg-[var(--green-deep)] text-[var(--paper)]">
-      {/* Organic particle animation background (Accenture-style) */}
-      <OrganicParticleCanvas />
 
       {/* Modern gradient aurora overlays */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" style={{ zIndex: 2 }} />

@@ -16,7 +16,6 @@ import {
   User,
   MessageSquare,
   Calendar,
-  Lock,
 } from "lucide-react";
 import { site } from "@/lib/site-config";
 import Logo from "./Logo";
@@ -34,11 +33,9 @@ const mobileGridLinks = [
   { href: "/", label: "Home", icon: Scale },
   { href: "/about", label: "About Adv.", icon: User },
   { href: "/trademark-registration", label: "Trademark", icon: ShieldCheck },
-  { href: "/contact", label: "Contact desk", icon: MessageSquare },
   { href: "/legal-services", label: "Legal services", icon: Briefcase },
-  { href: "/book", label: "Book slot", icon: Calendar },
   { href: "/court-marriage", label: "Court marriage", icon: HeartHandshake },
-  { href: "/admin/login", label: "Staff portal", icon: Lock },
+  { href: "/contact", label: "Contact desk", icon: MessageSquare },
 ];
 
 export default function Header() {

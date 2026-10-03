@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveLocalContact, ContactInquiry } from "@/lib/contacts-store";
 import { supabaseServer } from "@/lib/supabase-server";
+import { sendContactEmail } from "@/lib/notify-email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,6 +59,20 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.warn("Supabase connection issue for contact inquiry:", err);
+    }
+
+    // Trigger email notification (non-blocking)
+    try {
+      await sendContactEmail({
+        name: record.name,
+        phone: record.phone,
+        email: record.email,
+        service: record.service,
+        mode: record.mode,
+        message: record.message,
+      });
+    } catch (emailErr) {
+      console.error("Failed to dispatch contact inquiry email:", emailErr);
     }
 
     return NextResponse.json({ success: true, contact: record });

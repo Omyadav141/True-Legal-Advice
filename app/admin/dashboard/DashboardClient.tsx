@@ -2033,7 +2033,7 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                     {currentStaff?.name || "Adv. Shareen Hussain"}
                   </p>
                   <p className="font-mono text-[10px] text-slate-400 truncate">
-                    {currentStaff?.email || "shareenhussain@truelegaladvice.com"}
+                    {currentStaff?.email || "advshareens@trulegaladvice.com"}
                   </p>
                   <span className="mt-1 inline-block px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold uppercase bg-[#cba758]/20 text-[#cba758]">
                     {currentStaff?.role === "admin" ? "Master Advocate" : currentStaff?.title || "Staff Assistant"}

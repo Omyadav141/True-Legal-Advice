@@ -55,7 +55,7 @@ function getStoragePaths() {
 }
 
 function getDefaultStaff(): StaffMember[] {
-  const adminEmail = (process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com").toLowerCase().trim();
+  const adminEmail = (process.env.ADMIN_EMAIL || "advshareens@trulegaladvice.com").toLowerCase().trim();
   const adminPassword = process.env.ADMIN_PASSWORD || "password123";
 
   return [
@@ -457,7 +457,7 @@ export async function updatePassword(
   });
 
   if (!found) {
-    const adminEmail = (process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com").toLowerCase().trim();
+    const adminEmail = (process.env.ADMIN_EMAIL || "advshareens@trulegaladvice.com").toLowerCase().trim();
     if (normalized === adminEmail) {
       const newAdmin: StaffMember = {
         id: "master-admin",

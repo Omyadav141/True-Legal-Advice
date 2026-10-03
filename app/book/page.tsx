@@ -228,7 +228,7 @@ function BookingSuccessPass({
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
         "BEGIN:VEVENT",
-        `UID:${bookingId}@truelegaladvice.in`,
+        `UID:${bookingId}@trulegaladvice.com`,
         `DTSTAMP:${safeFormatCalDate(new Date())}`,
         `DTSTART:${gCalStart}`,
         `DTEND:${gCalEnd}`,
@@ -278,7 +278,7 @@ ${
     : `📍 *Chamber:* Near Trisharan Square, Nagpur - 440027, Maharashtra\n(Please arrive 5–10 mins prior)`
 }
 📞 *Helpline:* ${site.phone}
-🌐 *Website:* https://true-legal-advice.vercel.app`;
+🌐 *Website:* https://trulegaladvice.com`;
 
   async function copyPassText() {
     try {

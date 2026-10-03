@@ -100,9 +100,9 @@ export default function Footer() {
           <span>
             © {new Date().getFullYear()} {site.businessName}. All rights reserved.
           </span>
-          <Link href="/admin/login" className="no-underline transition-opacity hover:opacity-80" style={{ color: "rgba(250,247,240,0.5)" }}>
-            Staff login
-          </Link>
+          <span>
+            Adv. {site.lawyerName} · {site.city}, Maharashtra
+          </span>
         </div>
       </div>
     </footer>

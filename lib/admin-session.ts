@@ -20,7 +20,7 @@ function getSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET;
   if (secret) return secret;
 
-  const email = process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com";
+  const email = process.env.ADMIN_EMAIL || "advshareens@trulegaladvice.com";
   const password = process.env.ADMIN_PASSWORD || "password123";
   return crypto.createHash("sha256").update(`tla-session:${email}:${password}`).digest("hex");
 }
@@ -51,7 +51,7 @@ export function parseToken(token: string): StaffSessionData | null {
             role: (role as StaffRole) || "admin",
             id: "master-admin",
             name: "Adv. Shareen Hussain",
-            email: process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com",
+            email: process.env.ADMIN_EMAIL || "advshareens@trulegaladvice.com",
             title: "Lead Advocate",
             permissions: {
               canManageBookings: true,
@@ -112,7 +112,7 @@ export async function setStaffSessionCookie(staff: StaffMember) {
 
 /** Backwards-compatible alias: sets an admin session. */
 export async function setAdminSessionCookie() {
-  const adminEmail = process.env.ADMIN_EMAIL || "shareenhussain@truelegaladvice.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "advshareens@trulegaladvice.com";
   const existing = await getStaffByEmail(adminEmail);
   if (existing) {
     await setStaffSessionCookie(existing);

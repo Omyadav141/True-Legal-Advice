@@ -147,7 +147,7 @@ export default function AdminLoginPage() {
   // Quick Demo Autofill Helper
   const fillCredentials = (type: "admin" | "secretary") => {
     if (type === "admin") {
-      setEmail("shareenhussain@truelegaladvice.com");
+      setEmail("advshareens@trulegaladvice.com");
       setPassword("password123");
     } else {
       setEmail("secretary@truelegaladvice.com");
