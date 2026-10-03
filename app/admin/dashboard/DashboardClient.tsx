@@ -556,6 +556,7 @@ export default function DashboardClient() {
   const [meetLinkInput, setMeetLinkInput] = useState("");
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isGeneratingMeet, setIsGeneratingMeet] = useState(false);
 
   // Reschedule Modal States
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
@@ -1281,27 +1282,52 @@ Nagpur, Maharashtra | Ph: +91 83296 31199`;
   const openConfirmModal = (b: Booking) => {
     setConfirmModalBooking(b);
     let initialMeet = b.meet_link || "";
-    if (b.consultation_mode === "online" && (!initialMeet || initialMeet === site.googleMeetRoom)) {
-      const chars = "abcdefghijklmnopqrstuvwxyz";
-      let p2 = "", p3 = "";
-      for (let i = 0; i < 4; i++) p2 += chars.charAt(Math.floor(Math.random() * chars.length));
-      for (let i = 0; i < 3; i++) p3 += chars.charAt(Math.floor(Math.random() * chars.length));
-      initialMeet = `https://meet.google.com/tla-${p2}-${p3}`;
+    // Clean up any old synthetic/placeholder URLs so they never propagate
+    if (initialMeet.includes("/tla-") || initialMeet.includes("abc-defg-hij")) {
+      initialMeet = "";
+    }
+    if (b.consultation_mode === "online" && !initialMeet) {
+      if (site.googleMeetRoom && !site.googleMeetRoom.includes("abc-defg-hij")) {
+        initialMeet = site.googleMeetRoom;
+      }
     }
     setMeetLinkInput(initialMeet);
     setCustomMessage(buildConfirmationMessage(b, initialMeet));
     setCopied(false);
   };
 
-  const regenerateMeetLink = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyz";
-    let p2 = "", p3 = "";
-    for (let i = 0; i < 4; i++) p2 += chars.charAt(Math.floor(Math.random() * chars.length));
-    for (let i = 0; i < 3; i++) p3 += chars.charAt(Math.floor(Math.random() * chars.length));
-    const newMeet = `https://meet.google.com/tla-${p2}-${p3}`;
-    setMeetLinkInput(newMeet);
-    if (confirmModalBooking) {
-      setCustomMessage(buildConfirmationMessage(confirmModalBooking, newMeet));
+  const regenerateMeetLink = async () => {
+    if (!confirmModalBooking) return;
+    setIsGeneratingMeet(true);
+    try {
+      const res = await fetch("/api/admin/create-meet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: confirmModalBooking.id,
+          name: confirmModalBooking.name,
+          phone: confirmModalBooking.phone,
+          email: confirmModalBooking.email,
+          service: confirmModalBooking.service,
+          sub_service: confirmModalBooking.sub_service,
+          date: confirmModalBooking.booking_date,
+          time: confirmModalBooking.booking_time,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.meetLink) {
+        setMeetLinkInput(data.meetLink);
+        setCustomMessage(buildConfirmationMessage(confirmModalBooking, data.meetLink));
+      } else {
+        alert(
+          data.error ||
+            "Google Calendar API credentials are not configured in .env.local yet. Please click 'Create in Meet ↗' to create an instant room."
+        );
+      }
+    } catch {
+      alert("Failed to communicate with Google Meet service.");
+    } finally {
+      setIsGeneratingMeet(false);
     }
   };
 
@@ -4990,19 +5016,33 @@ Please join the Google Meet link above at your scheduled appointment time.`;
 
               {/* Google Meet Link Control */}
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                   <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                     <Video size={13} className="text-purple-600" />
-                    <span>Google Meet Video Link</span>
+                    <span>Google Meet Video Room</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={regenerateMeetLink}
-                    className="text-[11px] font-mono text-[#9f7d32] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw size={11} />
-                    <span>Regenerate Code</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isGeneratingMeet}
+                      onClick={regenerateMeetLink}
+                      className="text-[11px] font-mono text-[#9f7d32] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      title="Generate real Google Meet link via Google Calendar API"
+                    >
+                      <RefreshCw size={11} className={isGeneratingMeet ? "animate-spin" : ""} />
+                      <span>{isGeneratingMeet ? "Connecting..." : "Sync via Google API"}</span>
+                    </button>
+                    <span className="text-zinc-300">·</span>
+                    <a
+                      href="https://meet.google.com/new"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-mono text-blue-600 hover:underline flex items-center gap-0.5 cursor-pointer font-medium"
+                      title="Open Google Meet in new tab to create an instant room"
+                    >
+                      <span>Create in Meet ↗</span>
+                    </a>
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -5013,9 +5053,12 @@ Please join the Google Meet link above at your scheduled appointment time.`;
                       setCustomMessage(buildConfirmationMessage(confirmModalBooking, e.target.value));
                     }
                   }}
-                  placeholder="https://meet.google.com/..."
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
                   className="w-full px-3 py-2 rounded-xl border border-zinc-300 text-xs font-mono text-zinc-900 focus:border-black focus:outline-none"
                 />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Google Meet only accepts genuine rooms created via Google Calendar API or meet.google.com.
+                </p>
               </div>
 
               {/* Message Draft */}

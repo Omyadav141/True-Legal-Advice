@@ -155,7 +155,13 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
     "Legal Consultation";
 
   const isOnline = booking.consultation_mode === "online";
-  const meetUrl = booking.meet_link || site.googleMeetRoom;
+  const rawMeet = booking.meet_link || site.googleMeetRoom;
+  const isMeetValid =
+    Boolean(rawMeet) &&
+    !rawMeet.includes("/tla-") &&
+    !rawMeet.includes("abc-defg-hij") &&
+    rawMeet.startsWith("https://meet.google.com/");
+  const meetUrl = isMeetValid ? rawMeet : "";
   const bookingId = booking.booking_id || `TLA-${Date.now().toString().slice(-6)}`;
 
   // ==========================================
@@ -229,7 +235,8 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
               <!-- Action Link / Venue Detail -->
               ${
                 isOnline
-                  ? `
+                  ? meetUrl
+                    ? `
               <div style="background-color: #0e1e2d; border: 1px solid #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
                 <p style="margin: 0 0 10px 0; font-size: 13px; color: #bae6fd; font-weight: bold;">
                   YOUR GOOGLE MEET SESSION LINK:
@@ -239,6 +246,16 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
                 </a>
                 <p style="margin: 10px 0 0 0; font-size: 11px; color: #7dd3fc; font-family: monospace; word-break: break-all;">
                   ${meetUrl}
+                </p>
+              </div>
+              `
+                    : `
+              <div style="background-color: #171d2b; border: 1px solid #3b82f6; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #93c5fd; font-weight: bold;">
+                  ONLINE VIDEO CONSULTATION (GOOGLE MEET)
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #e2e8f0; line-height: 1.5;">
+                  Your dedicated Google Meet link will be shared with you via WhatsApp and Email prior to your consultation slot.
                 </p>
               </div>
               `
@@ -376,7 +393,8 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
       </tr>
       ${
         isOnline
-          ? `
+          ? meetUrl
+            ? `
       <tr style="border-bottom: 1px solid #e4e4e7; background-color: #f5f3ff;">
         <td style="font-weight: bold; color: #6b21a8;">Google Meet Link:</td>
         <td>
@@ -384,6 +402,19 @@ export async function sendBookingEmail(booking: BookingEmailPayload) {
           <div style="margin-top: 8px;">
             <a href="${meetUrl}" target="_blank" style="background: #7c3aed; color: #ffffff; padding: 7px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none; display: inline-block;">
               Join Video Room &rarr;
+            </a>
+          </div>
+        </td>
+      </tr>
+      `
+            : `
+      <tr style="border-bottom: 1px solid #e4e4e7; background-color: #fefce8;">
+        <td style="font-weight: bold; color: #854d0e;">Google Meet Link:</td>
+        <td style="color: #713f12; font-size: 12.5px;">
+          Pending room creation.
+          <div style="margin-top: 6px;">
+            <a href="https://meet.google.com/new" target="_blank" style="background: #2563eb; color: #ffffff; padding: 6px 14px; border-radius: 6px; font-size: 11.5px; font-weight: bold; text-decoration: none; display: inline-block;">
+              Create Room in Google Meet ↗
             </a>
           </div>
         </td>

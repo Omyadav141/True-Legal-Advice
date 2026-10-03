@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { sendBookingEmail } from "@/lib/notify-email";
 import { sendBookingWhatsApp, sendClientMeetLinkWhatsApp, sendClientOfficeVisitWhatsApp } from "@/lib/notify-whatsapp";
 import { getAllDaySlots, isDateBookable, getIndiaNow } from "@/lib/availability";
-import { createGoogleMeetLink, generateUniqueMeetLink } from "@/lib/google-meet";
+import { createGoogleMeetLink, getFallbackMeetLink } from "@/lib/google-meet";
 import { site, services } from "@/lib/site-config";
 import { saveLocalBooking, BookingRecord, generateBookingId } from "@/lib/bookings-store";
 
@@ -90,14 +90,10 @@ export async function POST(req: NextRequest) {
           endISO: end.toISOString(),
           attendeeEmail: email || null,
         });
-        meetLink = result.meetLink;
+        meetLink = result.meetLink || getFallbackMeetLink();
       } catch (e) {
         console.warn("createGoogleMeetLink fallback:", e);
-      }
-
-      // If Google Calendar API credentials are not set, generate a dedicated unique Google Meet link
-      if (!meetLink) {
-        meetLink = generateUniqueMeetLink();
+        meetLink = getFallbackMeetLink();
       }
     }
 

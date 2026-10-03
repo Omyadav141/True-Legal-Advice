@@ -37,7 +37,7 @@ export const site = {
   instagramReels: [] as string[],
   onlineConsultationFee: 1000,
   offlineConsultationFee: 1000,
-  googleMeetRoom: "https://meet.google.com/abc-defg-hij",
+  googleMeetRoom: process.env.NEXT_PUBLIC_GOOGLE_MEET_URL || process.env.PERMANENT_GOOGLE_MEET_URL || "",
 };
 
 export const services = [

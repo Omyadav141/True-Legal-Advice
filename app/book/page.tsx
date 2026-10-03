@@ -150,7 +150,11 @@ function BookingSuccessPass({
   const [downloadedIcs, setDownloadedIcs] = useState(false);
 
   const isOnline = consultationMode === "online";
-  const meetUrl = booking.meet_link || (isOnline ? site.googleMeetRoom : null);
+  const rawMeet = booking.meet_link || (isOnline ? site.googleMeetRoom : null);
+  const meetUrl =
+    rawMeet && !rawMeet.includes("/tla-") && !rawMeet.includes("abc-defg-hij")
+      ? rawMeet
+      : null;
 
   const validDate = useMemo(() => {
     if (booking.date instanceof Date && !isNaN(booking.date.getTime())) {
@@ -274,7 +278,9 @@ function BookingSuccessPass({
 ⏰ *Time:* ${timeFormatted}
 ${
   isOnline
-    ? `💻 *Mode:* Online Video Call (Google Meet)\n🔗 *Meet Link:* ${meetUrl}\n(Click link to join at scheduled slot)`
+    ? meetUrl
+      ? `💻 *Mode:* Online Video Call (Google Meet)\n🔗 *Meet Link:* ${meetUrl}\n(Click link to join at scheduled slot)`
+      : `💻 *Mode:* Online Video Call (Google Meet)\n🔗 *Meet Link:* Chamber will share link via WhatsApp & Email prior to your slot`
     : `📍 *Chamber:* Near Trisharan Square, Nagpur - 440027, Maharashtra\n(Please arrive 5–10 mins prior)`
 }
 📞 *Helpline:* ${site.phone}
@@ -362,6 +368,19 @@ ${
               <Video size={13} />
               <span>Join Room</span>
             </a>
+          </div>
+        )}
+
+        {isOnline && !meetUrl && (
+          <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200 flex items-center justify-between gap-2.5">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-bold block">
+                Google Meet Consultation Room
+              </span>
+              <p className="text-xs text-amber-100/90 mt-0.5">
+                Meeting link will be shared via WhatsApp & email before your consultation time.
+              </p>
+            </div>
           </div>
         )}
 
@@ -764,9 +783,15 @@ function BookClient() {
         return;
       }
 
-      const returnedMeetLink =
+      const rawReturnedMeet =
         data.booking?.meet_link ||
         (consultationMode === "online" ? site.googleMeetRoom : null);
+      const returnedMeetLink =
+        rawReturnedMeet &&
+        !rawReturnedMeet.includes("/tla-") &&
+        !rawReturnedMeet.includes("abc-defg-hij")
+          ? rawReturnedMeet
+          : null;
 
       const returnedBookingId =
         data.booking?.booking_id ||

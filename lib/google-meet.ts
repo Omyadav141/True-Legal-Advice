@@ -1,66 +1,99 @@
+import { site } from "./site-config";
+
 // ============================================================
-// Auto-generates a Google Meet link for online consultations by
-// creating a Google Calendar event via the Calendar API.
+// Genuine Google Meet link generation for online consultations.
 //
-// SETUP NEEDED (one-time, done by you in Google Cloud Console):
-// 1. Create a project at console.cloud.google.com
-// 2. Enable the "Google Calendar API" for that project
-// 3. Create OAuth 2.0 credentials (OAuth client ID, type "Web application")
-// 4. Add these to .env.local:
-//      GOOGLE_CLIENT_ID=...
-//      GOOGLE_CLIENT_SECRET=...
-//      GOOGLE_REFRESH_TOKEN=...      (see below to obtain this)
-//      GOOGLE_CALENDAR_ID=primary    (or a specific calendar's ID)
-// 5. To get a refresh token: use Google's OAuth Playground
-//    (developers.google.com/oauthplayground) — set your own client ID/secret
-//    in its settings gear, authorize scope
-//    "https://www.googleapis.com/auth/calendar.events", then exchange the
-//    authorization code for tokens. Copy the refresh token shown there.
+// HOW GOOGLE MEET WORKS:
+// Google Meet ONLY allows joining meetings that were officially created
+// through Google servers (either via Google Calendar API or meet.google.com).
+// Randomly invented URLs (e.g. meet.google.com/tla-xxx-yyy) are rejected by Google
+// with "Check your meeting code. Make sure that you've entered the correct meeting code".
 //
-// Until these are set, bookings still work fine — the meet link is
-// simply left blank and marked "pending" so the lawyer can add it
-// manually from the admin dashboard if preferred.
+// TWO SUPPORTED WAYS TO PROVIDE WORKING MEET LINKS:
+//
+// 1. FASTEST (Zero code, 30-second setup):
+//    - Go to meet.google.com -> Click "New meeting" -> "Create a meeting for later"
+//    - Copy the permanent URL (e.g. https://meet.google.com/xyz-abcd-efg)
+//    - Put it in .env.local: PERMANENT_GOOGLE_MEET_URL=https://meet.google.com/xyz-abcd-efg
+//    - Every online client gets this exact real, always-working Google Meet room.
+//
+// 2. AUTOMATED DYNAMIC ROOMS (Google Calendar API):
+//    - Enable "Google Calendar API" in Google Cloud Console
+//    - Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN to .env.local
+//    - The backend will create a unique Google Calendar event with a unique Meet room
+//      for every single online booking automatically.
 // ============================================================
 
-type MeetLinkResult = { meetLink: string | null; eventId: string | null };
+export type MeetLinkResult = {
+  meetLink: string | null;
+  eventId: string | null;
+  source: "google_calendar_api" | "permanent_chamber_room" | "none";
+};
 
 /**
- * Generates a unique, dedicated Google Meet room link formatted with the True Legal Advice prefix (tla).
- * Adheres strictly to the Google Meet URL pattern: https://meet.google.com/xxx-yyyy-zzz
- * e.g. https://meet.google.com/tla-kmvx-zqp
+ * Validates that a string is a genuine Google Meet URL (pattern: https://meet.google.com/xxx-yyyy-zzz)
+ * and not a synthetic placeholder like abc-defg-hij or tla-xxx-yyy.
  */
-export function generateUniqueMeetLink(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz";
-  let p2 = "";
-  let p3 = "";
-  for (let i = 0; i < 4; i++) {
-    p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+export function isValidGoogleMeetUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  // Filter out dummy/broken synthetic prefixes
+  if (trimmed.includes("abc-defg-hij") || trimmed.includes("/tla-")) {
+    return false;
   }
-  for (let i = 0; i < 3; i++) {
-    p3 += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `https://meet.google.com/tla-${p2}-${p3}`;
+  // Google Meet standard meeting URL format: 3-4-3 lowercase letters
+  return /^https:\/\/meet\.google\.com\/[a-z0-9]{3,4}-[a-z0-9]{3,4}-[a-z0-9]{3,4}(\?.*)?$/i.test(
+    trimmed
+  );
 }
 
+/**
+ * Returns the configured permanent chamber Google Meet room if valid.
+ */
+export function getFallbackMeetLink(): string | null {
+  const perm =
+    process.env.PERMANENT_GOOGLE_MEET_URL?.trim() ||
+    process.env.NEXT_PUBLIC_GOOGLE_MEET_URL?.trim();
+
+  if (perm && isValidGoogleMeetUrl(perm)) {
+    return perm;
+  }
+
+  if (site?.googleMeetRoom && isValidGoogleMeetUrl(site.googleMeetRoom)) {
+    return site.googleMeetRoom;
+  }
+
+  return null;
+}
+
+/**
+ * Creates a genuine Google Meet room by scheduling an event on Adv. Shareen's Google Calendar.
+ * Falls back to the permanent chamber room if API credentials are not yet configured.
+ */
 export async function createGoogleMeetLink(params: {
   summary: string;
   description: string;
-  startISO: string; // e.g. "2026-07-10T14:00:00+05:30"
+  startISO: string; // e.g. "2026-10-04T14:00:00+05:30" or UTC ISO string
   endISO: string;
   attendeeEmail?: string | null;
 }): Promise<MeetLinkResult> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN?.trim();
+  const calendarId = process.env.GOOGLE_CALENDAR_ID?.trim() || "primary";
 
+  // If OAuth credentials are not configured, fall back gracefully to permanent room
   if (!clientId || !clientSecret || !refreshToken) {
-    console.warn("Google Calendar credentials not set — skipping Meet link generation.");
-    return { meetLink: null, eventId: null };
+    const fallback = getFallbackMeetLink();
+    return {
+      meetLink: fallback,
+      eventId: null,
+      source: fallback ? "permanent_chamber_room" : "none",
+    };
   }
 
   try {
-    // Step 1: exchange the refresh token for a short-lived access token
+    // Step 1: Exchange the refresh token for a short-lived Google access token
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -73,13 +106,19 @@ export async function createGoogleMeetLink(params: {
     });
 
     if (!tokenRes.ok) {
-      console.error("Google token refresh failed:", await tokenRes.text());
-      return { meetLink: null, eventId: null };
+      const errBody = await tokenRes.text();
+      console.error("[Google Meet] Token refresh failed:", errBody);
+      const fallback = getFallbackMeetLink();
+      return {
+        meetLink: fallback,
+        eventId: null,
+        source: fallback ? "permanent_chamber_room" : "none",
+      };
     }
 
     const { access_token: accessToken } = await tokenRes.json();
 
-    // Step 2: create a calendar event with a Meet conference attached
+    // Step 2: Create Google Calendar event with genuine Google Meet conference attached
     const requestId = `booking-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const eventRes = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1`,
@@ -92,8 +131,8 @@ export async function createGoogleMeetLink(params: {
         body: JSON.stringify({
           summary: params.summary,
           description: params.description,
-          start: { dateTime: params.startISO },
-          end: { dateTime: params.endISO },
+          start: { dateTime: params.startISO, timeZone: "Asia/Kolkata" },
+          end: { dateTime: params.endISO, timeZone: "Asia/Kolkata" },
           attendees: params.attendeeEmail ? [{ email: params.attendeeEmail }] : undefined,
           conferenceData: {
             createRequest: {
@@ -106,16 +145,35 @@ export async function createGoogleMeetLink(params: {
     );
 
     if (!eventRes.ok) {
-      console.error("Google Calendar event creation failed:", await eventRes.text());
-      return { meetLink: null, eventId: null };
+      const errBody = await eventRes.text();
+      console.error("[Google Meet] Event creation failed:", errBody);
+      const fallback = getFallbackMeetLink();
+      return {
+        meetLink: fallback,
+        eventId: null,
+        source: fallback ? "permanent_chamber_room" : "none",
+      };
     }
 
     const event = await eventRes.json();
-    const meetLink: string | null = event?.hangoutLink || event?.conferenceData?.entryPoints?.[0]?.uri || null;
+    const meetLink: string | null =
+      event?.hangoutLink ||
+      event?.conferenceData?.entryPoints?.find((ep: { entryPointType: string; uri: string }) => ep.entryPointType === "video")?.uri ||
+      event?.conferenceData?.entryPoints?.[0]?.uri ||
+      null;
 
-    return { meetLink, eventId: event?.id || null };
+    return {
+      meetLink: meetLink || getFallbackMeetLink(),
+      eventId: event?.id || null,
+      source: meetLink ? "google_calendar_api" : getFallbackMeetLink() ? "permanent_chamber_room" : "none",
+    };
   } catch (err) {
-    console.error("Failed to generate Google Meet link:", err);
-    return { meetLink: null, eventId: null };
+    console.error("[Google Meet] Unexpected error:", err);
+    const fallback = getFallbackMeetLink();
+    return {
+      meetLink: fallback,
+      eventId: null,
+      source: fallback ? "permanent_chamber_room" : "none",
+    };
   }
 }
